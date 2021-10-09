@@ -13,17 +13,15 @@
 #import "io.asm"
 #import "const.asm"
 
-.file [name="main.prg", segments="Upstart, Entry, Intro, Options, Game, GlobalData, Binaries"]
+.file [name="main.prg", segments="Upstart, Entry, Intro, Game, Data, Binaries"]
 .segmentdef Upstart
 .segmentdef Entry [startAfter="Upstart"]
 .segmentdef Intro [startAfter="Entry"]
-.segmentdef Options [startAfter="Intro"]
-.segmentdef Game [startAfter="Options"]
-.segmentdef GlobalData [startAfter="Game"]
-.segmentdef Binaries [startAfter="GlobalData", align=$100]
+.segmentdef Game [startAfter="Intro"]
+.segmentdef Data [startAfter="Game"]
+.segmentdef Binaries [startAfter="Data", align=$100]
 
 #import "intro.asm"
-#import "options.asm"
 #import "game.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -68,58 +66,14 @@ entry:
     // - System interrupt: call minimalist interrupt handler (just restores the x, y, a registers from the stack and
     //   returns).
     // - Raster interrupt: calls default kernal interrupt handler ($ea31)
-    //
-    // Finally we clear the screen and sprite data area ready for each game state.
-    jsr import_title_charset
-    jsr import_board_charset
     jsr init
-    jsr clear_screen
-    jsr clear_sprites
 
     // Call the main game loops for each game state.
     jsr intro
-    jsr options
     jsr game
 
     .break
     rts
-
-// import the title charset in to the lower character memory
-import_title_charset:
-    lda #<title_charset
-    sta FREEZP
-    lda #>title_charset
-    sta FREEZP+1
-    lda #<CHRMEM1
-    sta FREEZP+2
-    lda #>CHRMEM1
-    sta FREEZP+3
-    ldx #$02
-import_charset:
-    ldy #$00
-!loop:
-    lda (FREEZP), y
-    sta (FREEZP+2), y
-    iny
-    bne !loop-
-    inc FREEZP+1
-    inc FREEZP+3
-    dex 
-    bne !loop-
-    rts 
-
-// import the board charset in to the upper character memory
-import_board_charset:
-    lda #<board_charset
-    sta FREEZP
-    lda #>board_charset
-    sta FREEZP+1
-    lda #<CHRMEM2
-    sta FREEZP+2
-    lda #>CHRMEM2
-    sta FREEZP+3
-    ldx #$04
-    jmp import_charset
 
 init:
     // not sure why yet - allows writing of ATTN and TXD on serial port
@@ -254,21 +208,72 @@ clear_sprites:
     bpl !loop-
     rts
 
+// Moves sprites from a given memory location to a sprite locations specified in a sprite matrix
+// - Set word FREEZP to the source location of the sprite matrix. The matrix is ffff terminated.
+// - Set word FREEZP+2 to the source location of the sprite data.
+// The sprite matrix contains an offset for each sprite index. The sprite is moved to GRPMEM plus the offset. The offset
+// is indexed in the same order that the sprites appear (in blocks of 64 bytes) within the source.
+// see `load_title_sprites` function in into.asm for example usage.
+// NOTE: unfortunately this is not orginal code. The original code has some obfuscatrion on the graphics data, and I
+// wanted to store raw unobstructed sprite data for readabiliy. Therefore the below method is orignal.
+move_sprites:
+    lda FREEZP+2
+    sta sprite_source+1
+    lda FREEZP+3
+    sta sprite_source+2
+    ldy #$00
+!loop:
+    // read fromt he matrix and add the offset to the sprite memory location and store as the destination
+    lda (FREEZP),y
+    tax
+    clc
+    adc #<GRPMEM
+    sta FREEZP+2
+    iny
+    bne !next+
+    inc FREEZP+1
+!next:
+    lda (FREEZP),y
+    // exit if matrix end is reached
+    cmp #$ff
+    bne !next+
+    cpx #$ff
+    beq !return+
+!next:
+    clc
+    adc #>GRPMEM
+    sta FREEZP+3
+    iny
+    bne !next+
+    inc FREEZP+1
+!next:
+    // copy 64 bytes of sprite data to the destination
+    tya
+    tax
+    ldy #$00
+sprite_source:
+    lda $ffff
+    sta (FREEZP+2),y
+    inc sprite_source+1
+    bne !next+
+    inc sprite_source+2
+!next:
+    iny
+    cpy #$40
+    bne sprite_source
+    txa
+    tay
+    jmp !loop-
+!return:
+    rts
+
 //---------------------------------------------------------------------------------------------------------------------
-// Global Data
+// Data
 //---------------------------------------------------------------------------------------------------------------------
-.segment GlobalData
+.segment Data
 
 // interrupt handler pointers
 .namespace interruptPointer {
     system: .word 0 // system interrupt handler
     raster: .word 0 // raster interrupt handler
 }
-
-//---------------------------------------------------------------------------------------------------------------------
-// Binaries
-//---------------------------------------------------------------------------------------------------------------------
-.segment Binaries
-
-title_charset: .import binary "assets/title-charset.bin"    // char set used by title page
-board_charset: .import binary "assets/board-charset.bin"    // char set used by board/game pages
