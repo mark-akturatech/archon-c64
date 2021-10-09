@@ -42,9 +42,12 @@ entry:
     //
     //   0000 -+- intro character set
     //   ...   |
-    //   ...   |    0400 -+- screen memory
-    //   ...   |    ...   |
-    //   07ff -+    07e76 +
+    //   ...   |   0400 -+- screen memory
+    //   ...   |   ...   |
+    //   ...   |   07ef7 +
+    //   ...   |   07ef8 +- sprite location memory
+    //   ...   |   ...   |
+    //   07ff -+   07eff +
     //   0800 -+- board character set
     //   ...   |
     //   ...   |
@@ -129,10 +132,7 @@ init:
     // basic memory (hopefully).
     lda CI2PRA
     and #%1111_1100
-    .if (VICMEM == $0000) ora #%0000_0011
-    .if (VICMEM == $4000) ora #%0000_0010
-    .if (VICMEM == $8000) ora #%0000_0001
-    .if (VICMEM == $C000) ora #%0000_0000
+    ora #VICBANK
     sta CI2PRA
 
     // set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA)
@@ -153,13 +153,13 @@ init:
     // re-enable scan interupts and exit.
     sei
     lda #<quick_interupt_handler
-    sta non_raster_int_ptr
+    sta interruptPointer.system
     lda #>quick_interupt_handler
-    sta non_raster_int_ptr+1
+    sta interruptPointer.system+1
     lda CINV
-    sta raster_int_ptr
+    sta interruptPointer.raster
     lda CINV+1
-    sta raster_int_ptr+1
+    sta interruptPointer.raster+1
     // disable raster interrupts
     lda IRQMASK
     and #%0111_1110
@@ -192,9 +192,9 @@ interrupt_handler:
     and #%0000_0001
     beq raster_interrupt
     sta VICIRQ // needed to clear the interrupt flag
-    jmp (non_raster_int_ptr)
+    jmp (interruptPointer.system)
 raster_interrupt:
-    jmp (raster_int_ptr)
+    jmp (interruptPointer.raster)
 
 // minimalist interrupt handler
 quick_interupt_handler:
@@ -259,21 +259,16 @@ clear_sprites:
 //---------------------------------------------------------------------------------------------------------------------
 .segment GlobalData
 
-// address used by interrupt handler if a non-raster scan interrupt is detected
-non_raster_int_ptr:
-    .byte 0, 0
-    
-// address used by interrupt handler if a raster scan interrupt is detected
-raster_int_ptr:
-    .byte 0, 0
+// interrupt handler pointers
+.namespace interruptPointer {
+    system: .word 0 // system interrupt handler
+    raster: .word 0 // raster interrupt handler
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Binaries
 //---------------------------------------------------------------------------------------------------------------------
 .segment Binaries
 
-title_charset:
-    .import binary "assets/title-charset.bin"
-
-board_charset:
-    .import binary "assets/board-charset.bin"
+title_charset: .import binary "assets/title-charset.bin"    // char set used by title page
+board_charset: .import binary "assets/board-charset.bin"    // char set used by board/game pages
