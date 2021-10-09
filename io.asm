@@ -3,6 +3,7 @@
 // Inspired by C64-Mark
 // https://github.com/C64-Mark/Attack-of-the-Mutant-Camels/blob/master/Original/IO.asm
 //---------------------------------------------------------------------------------------------------------------------
+#importonce
 
 // Processor
 .const R6510    = $01   // Processort port
