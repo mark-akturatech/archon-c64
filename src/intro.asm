@@ -59,7 +59,7 @@ sprite_locations:
 .segment Binaries
 
 // char set used by title page
-title_charset: .import binary "/assets/title-charset.bin"
+title_charset: .import binary "/assets/charset-intro.bin"
 
 // sprites used by title page
 // sprites are contained in the following order:
@@ -69,6 +69,6 @@ title_charset: .import binary "/assets/title-charset.bin"
 // - 11-14: left facing troll animation frames
 // - 15-18: right facing golum animation frames
 // - 19-22: right facing goblin animation frames
-title_sprites: .import binary "/assets/title-sprites.bin"
+title_sprites: .import binary "/assets/sprites-intro.bin"
 
 

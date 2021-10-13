@@ -26,4 +26,4 @@ import_board_charset:
 .segment Binaries
 
 // char set used by board/game pages
-board_charset: .import binary "/assets/board-charset.bin"
+board_charset: .import binary "/assets/charset-game.bin"
