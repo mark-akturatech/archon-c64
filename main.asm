@@ -10,10 +10,11 @@
 // at 6100. All code prior to this is decryption, obfuscation and moving stuff around in memory.
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
-#import "io.asm"
-#import "const.asm"
+#import "src/io.asm"
+#import "src/const.asm"
 
 .file [name="main.prg", segments="Upstart, Main, Intro, Game, Data, Binaries"]
+
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
 .segmentdef Intro [startAfter="Main"]
@@ -21,9 +22,11 @@
 .segmentdef Data [startAfter="Game"]
 .segmentdef Binaries [startAfter="Data", align=$100]
 
-#import "unofficial.asm"
-#import "intro.asm"
-#import "game.asm"
+#import "src/unofficial.asm"
+#if INCLUDE_INTRO
+    #import "src/intro.asm"
+#endif
+#import "src/game.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
 // Basic Upstart
@@ -70,7 +73,9 @@ entry:
     jsr init
 
     // Call the main game loops for each game state.
+#if INCLUDE_INTRO
     jsr intro
+#endif    
     jsr game
 
     .break
