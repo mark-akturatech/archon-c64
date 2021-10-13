@@ -13,14 +13,15 @@
 #import "io.asm"
 #import "const.asm"
 
-.file [name="main.prg", segments="Upstart, Entry, Intro, Game, Data, Binaries"]
+.file [name="main.prg", segments="Upstart, Main, Intro, Game, Data, Binaries"]
 .segmentdef Upstart
-.segmentdef Entry [startAfter="Upstart"]
-.segmentdef Intro [startAfter="Entry"]
+.segmentdef Main [startAfter="Upstart"]
+.segmentdef Intro [startAfter="Main"]
 .segmentdef Game [startAfter="Intro"]
 .segmentdef Data [startAfter="Game"]
 .segmentdef Binaries [startAfter="Data", align=$100]
 
+#import "unofficial.asm"
 #import "intro.asm"
 #import "game.asm"
 
@@ -34,7 +35,7 @@ BasicUpstart2(entry)
 //---------------------------------------------------------------------------------------------------------------------
 // Entry
 //---------------------------------------------------------------------------------------------------------------------
-.segment Entry
+.segment Main
 entry:
     // Configure vic memory as follows (number shown are offsets. add video memory start address):
     //
@@ -206,65 +207,6 @@ clear_sprites:
     sta SP0X, x
     dex
     bpl !loop-
-    rts
-
-// Moves sprites from a given memory location to a sprite locations specified in a sprite matrix
-// - Set word FREEZP to the source location of the sprite matrix. The matrix is ffff terminated.
-// - Set word FREEZP+2 to the source location of the sprite data.
-// The sprite matrix contains an offset for each sprite index. The sprite is moved to GRPMEM plus the offset. The offset
-// is indexed in the same order that the sprites appear (in blocks of 64 bytes) within the source.
-// see `load_title_sprites` function in into.asm for example usage.
-// NOTE: unfortunately this is not orginal code. The original code has some obfuscatrion on the graphics data, and I
-// wanted to store raw unobstructed sprite data for readabiliy. Therefore the below method is orignal.
-move_sprites:
-    lda FREEZP+2
-    sta sprite_source+1
-    lda FREEZP+3
-    sta sprite_source+2
-    ldy #$00
-!loop:
-    // read fromt he matrix and add the offset to the sprite memory location and store as the destination
-    lda (FREEZP),y
-    tax
-    clc
-    adc #<GRPMEM
-    sta FREEZP+2
-    iny
-    bne !next+
-    inc FREEZP+1
-!next:
-    lda (FREEZP),y
-    // exit if matrix end is reached
-    cmp #$ff
-    bne !next+
-    cpx #$ff
-    beq !return+
-!next:
-    clc
-    adc #>GRPMEM
-    sta FREEZP+3
-    iny
-    bne !next+
-    inc FREEZP+1
-!next:
-    // copy 64 bytes of sprite data to the destination
-    tya
-    tax
-    ldy #$00
-sprite_source:
-    lda $ffff
-    sta (FREEZP+2),y
-    inc sprite_source+1
-    bne !next+
-    inc sprite_source+2
-!next:
-    iny
-    cpy #$40
-    bne sprite_source
-    txa
-    tay
-    jmp !loop-
-!return:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------

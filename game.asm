@@ -18,17 +18,7 @@ import_board_charset:
     lda #>CHRMEM2
     sta FREEZP+3
     ldx #$04
-    ldy #$00
-!loop:
-    lda (FREEZP), y
-    sta (FREEZP+2), y
-    iny
-    bne !loop-
-    inc FREEZP+1
-    inc FREEZP+3
-    dex 
-    bne !loop-
-    rts 
+    jmp block_copy
 
 //---------------------------------------------------------------------------------------------------------------------
 // Binaries

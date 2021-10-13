@@ -23,17 +23,7 @@ import_title_charset:
     lda #>CHRMEM1
     sta FREEZP+3
     ldx #$02
-    ldy #$00
-!loop:
-    lda (FREEZP), y
-    sta (FREEZP+2), y
-    iny
-    bne !loop-
-    inc FREEZP+1
-    inc FREEZP+3
-    dex 
-    bne !loop-
-    rts 
+    jmp block_copy    
 
 // ok so the original code seems to be decrypted or something. is way too complex for my little brain. so here we
 // include a simplified version of the sprite loader.
