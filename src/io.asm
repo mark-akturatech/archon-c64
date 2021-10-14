@@ -10,6 +10,7 @@
 
 // Processor
 .const R6510    = $01   // Processort port
+.const LSTX     = $C5;  // Matrix Coordinate of Last Key Pressed, 64=None Pressed
 .const FREEZP   = $FB;  // Four Free Bytes of Zero Page for User Programs
 .const CINV     = $0314 // Vector to IRQ Interrupt Routine
 .const CBINV    = $0316 // Vector: BRK Instruction Interrupt
@@ -26,7 +27,14 @@
 .const  IRQMASK = $D01A // IRQ Mask Register
 .const  SPMC    = $D01C // Sprite multi-colour select
 .const  XXPAND  = $D01D // Sprite X horizontal expand
+.const  EXTCOL  = $D020 // Border Color Register
+.const  BGCOL0  = $D021 // Background Color 0
+.const  SPMC0   = $D025 // Sprite Multicolor Register 0
+.const  SPMC1   = $D026 // Sprite Multicolor Register 1
 
 // CIA2
 .const  CI2PRA  = $DD00 // Port A access
 .const  C2DDRA  = $DD02 // Port A direction
+
+// Kernel
+.const  STOP   = $FFE1 // check the STOP key

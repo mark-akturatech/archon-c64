@@ -125,10 +125,10 @@ init:
     and #%0111_1110
     sta IRQMASK
     // set interrupt handler 
-    lda #<interrupt_handler
+    lda #<interrupt_interceptor
     sta CINV
     sta CBINV
-    lda #>interrupt_handler
+    lda #>interrupt_interceptor
     sta CINV+1
     sta CBINV+1
     // set raster line used to trigger on raster interrupt
@@ -147,7 +147,7 @@ init:
 
 // call our interrupt handlers
 // we call a different handler if the interrupt was triggered by a raster line compare event
-interrupt_handler:
+interrupt_interceptor:
     lda VICIRQ
     and #%0000_0001
     beq raster_interrupt
@@ -214,6 +214,20 @@ clear_sprites:
     bpl !loop-
     rts
 
+// detect keypress and trigger action based on key
+// this function is called during intro, board config and options game states. it allows escape to cancel current state
+// and function keys to set game options. eg pressing F1 toggles number of players. you can select this option in 
+// any of the non game states. if the game state is not in options state, then the game will jump directly to the
+// options state.
+check_keypress:
+    lda LSTX
+    cmp #KEY_NONE
+    bne process_key
+    rts
+    // TODO: see 6394
+process_key:
+    rts
+
 //---------------------------------------------------------------------------------------------------------------------
 // Data
 //---------------------------------------------------------------------------------------------------------------------
@@ -224,3 +238,12 @@ clear_sprites:
     system: .word 0 // system interrupt handler
     raster: .word 0 // raster interrupt handler
 }
+
+// holds the current state of the game. States are:
+// - $00: Scroll in main title (intro_state__scroll_title)
+// - $80: **I think this is board setup intro
+// - TODO
+game_state: .byte $00 
+
+// gets set when to the new game state which causes game state to be updated after the interrupt completes
+new_game_state: .byte $00
