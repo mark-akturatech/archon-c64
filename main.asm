@@ -214,12 +214,37 @@ clear_sprites:
     bpl !loop-
     rts
 
+// advance the game state if break/q key is pressed
+check_stop_keypess: 
+    // go to next state of ESC
+    jsr STOP
+    beq step_state // Escape pressed
+    // go straight to options on Q key press
+    cmp #KEY_Q 
+    bne !return+
+    // wait for key to be released
+!loop: 
+    jsr STOP
+    cmp #KEY_Q
+    beq !loop-
+    //... TODO: jump to options state - JSR $63F3; JMP $612C
+    rts // todo remove
+step_state:
+    lda new_game_state
+    eor #$ff
+    sta new_game_state
+!loop:
+    jsr STOP
+    beq !loop-
+!return:
+    rts
+
 // detect keypress and trigger action based on key
 // this function is called during intro, board config and options game states. it allows escape to cancel current state
 // and function keys to set game options. eg pressing F1 toggles number of players. you can select this option in 
 // any of the non game states. if the game state is not in options state, then the game will jump directly to the
 // options state.
-check_keypress:
+check_option_keypress:
     lda LSTX
     cmp #KEY_NONE
     bne process_key

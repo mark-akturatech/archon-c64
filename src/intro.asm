@@ -10,6 +10,15 @@ intro:
     jsr clear_screen
     jsr clear_sprites
     jsr intro_import_sprites
+
+    //A832  20 1E AD   JSR  WAD1E    
+    // WAD1E appears to copy sound and configure SID chip maybe
+    // looks like
+    // set full volume on SID
+    lda #%0000_1111
+    sta SIGVOL
+    // ^ add to somehwere
+
     jsr intro_configure
     rts
 
@@ -23,21 +32,46 @@ intro_import_charset:
     sta FREEZP+2
     lda #>CHRMEM1
     sta FREEZP+3
-    ldx #$02
-    jmp block_copy    
+    ldx #$04
+    jmp block_copy
 
 // ok so the original code seems to be decrypted or something. is way too complex for my little brain. so here we
 // include a simplified version of the sprite loader.
 intro_import_sprites:
-    lda #<sprite_locations
+    lda #<intro_sprite_offsets
     sta FREEZP
-    lda #>sprite_locations
+    lda #>intro_sprite_offsets
     sta FREEZP+1
     lda #<title_sprites
     sta FREEZP+2
     lda #>title_sprites
     sta FREEZP+3
-    jmp move_sprites
+    jsr move_sprites
+
+    // point screen to first 6 sprites in graphics memory and set default positions and colors
+    lda #(VICGOFF / $40) + 6 // 64 bytes per sprite, start at graphmem offset
+    sta scratch
+    ldx #$06
+!loop:
+    txa
+    asl
+    tay
+    lda scratch
+    sta SPTMEM,x
+    dec scratch
+    lda into_sprite_colors,x
+    sta SP0COL,x
+    lda into_sprite_x_pos,x
+    sta SP0X,y
+    lda into_sprite_y_pos,x
+    sta SP0Y,y
+    dex
+    bpl !loop-
+// AA37  A9 45      LDA  #$45                  
+// AA39  8D 15 BD   STA  WBD15                 
+// AA3C  A9 DA      LDA  #$DA                  
+// AA3E  8D 16 BD   STA  WBD16     
+    rts
 
 intro_configure:
     // configure screen
@@ -87,19 +121,14 @@ intro_configure:
 
 intro_state_interrupt_handler:
     lda game_state
-    bpl intro_process_state
+    bpl !next+
     jmp quick_interupt_handler
-intro_process_state:
+!next:
     lda new_game_state
     sta game_state
-    jsr intro_set_state
+    jsr !next+
     jmp (intro_state_handler_pointer)
-
-// called by the game state interrupt handler - $AC16
-// i edited the source to stop this being called and it did two things...
-// - no music
-// - the intro has sub states (like slide in title, bounce title etc). it only did the first sub state (slide in title)
-intro_set_state:
+!next:
     rts
 
 // main loop - $905C
@@ -107,37 +136,12 @@ intro_loop:
     lda #$00
     sta game_state
 !loop:
-    jsr check_keypress
-    jsr check_stop
+    jsr check_option_keypress
+    jsr check_stop_keypess
     lda game_state
     beq !loop-
     //jmp $7fab // TODO
     rts
-
-check_stop: 
-    // go to next state of ESC
-    jsr STOP
-    beq step_state // Escape pressed
-    // go straight to options on Q key press
-    cmp #KEY_Q 
-    bne !return+
-    // wait for key to be released
-!loop: 
-    jsr STOP
-    cmp #KEY_Q
-    beq !loop-
-    //... TODO: jump to options state - JSR $63F3; JMP $612C
-    rts // todo remove
-step_state:
-    lda new_game_state
-    eor #$ff
-    sta new_game_state
-!loop:
-    jsr STOP
-    beq !loop-
-!return:
-    rts
-
 
 // called by the game state interrupt handler - ($BCCC)
 // Pretty sure this does the intro sub state - eg BCCC is first set to slide in the title
@@ -163,10 +167,19 @@ intro_state_handler_pointer: .word $0000
 // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite, second
 // word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM location.
 // The location list is ffff terminated.
-sprite_locations:
+intro_sprite_offsets:
     .word $0000, $0040, $0080, $00C0, $0100, $0140, $0180, $0600
     .word $0640, $0680, $06C0, $0700, $0740, $0780, $07C0, $0800
     .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
+
+// initial sprite defaults
+into_sprite_colors: .byte $07, $07, $07, $07, $01, $01, $01
+into_sprite_x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc
+into_sprite_y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30
+
+// scratch storage
+scratch: .byte $00
+
 
 //---------------------------------------------------------------------------------------------------------------------
 // Binaries

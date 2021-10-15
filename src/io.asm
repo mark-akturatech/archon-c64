@@ -17,6 +17,7 @@
 
 // VIC
 .const  SP0X    = $D000 // Sprite 0 Horizontal Position
+.const  SP0Y    = $D001 // Sprite 0 Vertical Position
 .const  MSIGX   = $D010 // Most Significant Bits of Sprites 0-7 Horizontal Position
 .const  SCROLY  = $D011 // Vertical Fine Scrolling and Control Register
 .const  RASTER  = $D012 // Read Current Raster Scan Line/Write Line to Compare for Raster IRQ
@@ -31,6 +32,10 @@
 .const  BGCOL0  = $D021 // Background Color 0
 .const  SPMC0   = $D025 // Sprite Multicolor Register 0
 .const  SPMC1   = $D026 // Sprite Multicolor Register 1
+.const  SP0COL  = $D027 // Sprite 0 Color Register
+
+// SID
+.const  SIGVOL  = $D418 // Volume and Filter Select Register
 
 // CIA2
 .const  CI2PRA  = $DD00 // Port A access
