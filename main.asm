@@ -13,14 +13,14 @@
 #import "src/io.asm"
 #import "src/const.asm"
 
-.file [name="main.prg", segments="Upstart, Main, Intro, Game, Data, Binaries"]
+.file [name="main.prg", segments="Upstart, Main, Intro, Game, Variables, Assets"]
 
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
 .segmentdef Intro [startAfter="Main"]
 .segmentdef Game [startAfter="Intro"]
-.segmentdef Data [startAfter="Game"]
-.segmentdef Binaries [startAfter="Data", align=$100]
+.segmentdef Variables [startAfter="Game"]
+.segmentdef Assets [startAfter="Variables", align=$100]
 
 #import "src/unofficial.asm"
 #if INCLUDE_INTRO
@@ -74,9 +74,9 @@ entry:
 
     // Call the main game loops for each game state.
 #if INCLUDE_INTRO
-    jsr intro
+    jsr intro.entry
 #endif    
-    jsr game
+    jsr game.entry
 
     .break
     rts
@@ -112,9 +112,9 @@ init:
     // interrupts and then point the interrupt handler away from the system handler to our new handler. we can then
     // re-enable scan interupts and exit.
     sei
-    lda #<quick_interupt_handler
+    lda #<complete_interrupt
     sta interruptPointer.system
-    lda #>quick_interupt_handler
+    lda #>complete_interrupt
     sta interruptPointer.system+1
     lda CINV
     sta interruptPointer.raster
@@ -157,7 +157,7 @@ raster_interrupt:
     jmp (interruptPointer.raster)
 
 // minimalist interrupt handler
-quick_interupt_handler:
+complete_interrupt:
     pla
     tay
     pla
@@ -254,9 +254,9 @@ process_key:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Data
+// Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment Data
+.segment Variables
 
 // interrupt handler pointers
 .namespace interruptPointer {
@@ -272,3 +272,10 @@ game_state: .byte $00
 
 // gets set when to the new game state which causes game state to be updated after the interrupt completes
 new_game_state: .byte $00
+
+// current sprite positions
+sprite_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
+sprite_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+// scratch storage
+scratch: .byte $00
