@@ -1,22 +1,19 @@
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
-// C64 I/O constants
-//
-// Inspired by C64-Mark
-// https://github.com/C64-Mark/Attack-of-the-Mutant-Camels/blob/master/Original/IO.asm
+// C64 I/O and memory constants
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
 #importonce
 
 // Processor
 .const R6510    = $01   // Processort port
+.const LSTX     = $C5   // Matrix Coordinate of Last Key Pressed, 64=None Pressed
 .const VARTAB   = $2D   // Used for zero page loops
 .const ARYTAB   = $2F   // Used for zero page loops
 .const STREND   = $31   // Used for zero page loops
 .const OLDTXT   = $3D   // Used for zero page loops
 .const DATLIN   = $3F   // Used for zero page loops
 .const DATPTR   = $41   // Used for zero page loops
-.const LSTX     = $C5   // Matrix Coordinate of Last Key Pressed, 64=None Pressed
 .const FREEZP   = $FB   // Four Free Bytes of Zero Page for User Programs
 .const CINV     = $0314 // Vector to IRQ Interrupt Routine
 .const CBINV    = $0316 // Vector: BRK Instruction Interrupt
@@ -41,6 +38,9 @@
 .const  SP0COL  = $D027 // Sprite 0 Color Register
 
 // SID
+.const  FRELO1  = $D400 // Voice 1 Frequency Control (low byte)
+.const  FRELO2  = $D407 // Voice 1 Frequency Control (low byte)
+.const  FRELO3  = $D40e // Voice 1 Frequency Control (low byte)
 .const  SIGVOL  = $D418 // Volume and Filter Select Register
 
 // CIA2
