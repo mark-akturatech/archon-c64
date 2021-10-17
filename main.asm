@@ -10,10 +10,6 @@
 // - Anne Westfall, Jon Freeman, Paul Reiche III
 //
 // THANK YOU FOR MANY YEARS OF MEMORABLE GAMING. ARCHON ROCKS AND ALWAYS WILL!!!
-//
-// This is NOT a byte for byte replication as the original code has a lot of decryption and copy code that detracts
-// from the code understanding. Therefore, the code below uses the untouched souce code where possible, however
-// memory is reorganised and copy, decription and obfuscation code is removed.
 //---------------------------------------------------------------------------------------------------------------------
 //------------------------------------------------------s---------------------------------------------------------------
 #import "src/io.asm"
@@ -53,7 +49,9 @@ entry:
     jsr common.stop_sound
     jsr common.clear_screen
     jsr common.clear_sprites
-    jsr unofficial.import_charsets
+    not_original: {
+        jsr unofficial.import_charsets
+    }
 #if INCLUDE_INTRO    
     jsr intro.entry
 #endif

@@ -10,9 +10,9 @@
 
 // A82C
 entry:
-    jsr  common.clear_sprites 
-    jsr  import_sprites
-    // jsr load music // TODO!!!!!!!!! WAD1E
+    jsr common.clear_sprites 
+    jsr import_sprites
+    jsr common.initialize_music
 
     // Configure screen.
     lda SCROLX
@@ -39,7 +39,7 @@ entry:
 
     // black border and background
     lda #$00
-    sta common.state.counter
+    sta state.counter
     sta EXTCOL
     sta BGCOL0
 
@@ -50,9 +50,9 @@ entry:
 
     // configure the starting intro state function
     lda #<state__scroll_title
-    sta common.state.function_ptr
+    sta state.fn_ptr
     lda #>state__scroll_title
-    sta common.state.function_ptr+1
+    sta state.fn_ptr+1
 
     jsr common.wait_for_key
     rts    
@@ -115,8 +115,8 @@ interrupt_handler:
 !next:
     lda common.state.new
     sta common.state.current
-    // jsr play_music ... WAC16
-    jmp (common.state.function_ptr)
+    jsr common.play_music
+    jmp (state.fn_ptr)
 
 // AA56
 state__scroll_title:
@@ -162,6 +162,14 @@ scroll_up:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
+.namespace state {
+    // BCC7
+    counter: .byte $00 // state counter (increments after each state change)
+
+    // BD30
+    fn_ptr: .word $0000 // pointer to code that will run in the current state
+}
+
 // interrupt handler pointers
 .namespace sprite {
     // BD15
@@ -180,7 +188,7 @@ scroll_up:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Assets
+// Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
