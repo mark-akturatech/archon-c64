@@ -4,3 +4,4 @@ buildlog.txt
 unwanted.asm
 bin/
 ~*
+*.log

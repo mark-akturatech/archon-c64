@@ -45,7 +45,9 @@ BasicUpstart2(entry)
 // Entry
 //---------------------------------------------------------------------------------------------------------------------
 .segment Main
-entry: // 6126
+
+// 6126
+entry:
     jsr prep
     jsr init
     jsr common.stop_sound
@@ -57,7 +59,8 @@ entry: // 6126
 #endif
     rts
 
-prep: // 4700
+// 4700
+prep:
     // Store system interrupt handler pointer so we can call it from our own interrupt handler.
     lda CINV
     sta interruptPtr.raster
@@ -65,7 +68,8 @@ prep: // 4700
     sta interruptPtr.raster+1
     rts
 
-init: // 632D
+// 632D
+init:
     // Not sure why yet - allows writing of ATTN and TXD on serial port.
     // I think this is done to allow us to use the serial port zero page registers for creating zero page loops maybe.
     lda C2DDRA
@@ -151,9 +155,10 @@ init: // 632D
     cli
     rts
 
+// 637E
 // Call our interrupt handlers.
 // We call a different handler if the interrupt was triggered by a raster line compare event.
-interrupt_interceptor: // 637E
+interrupt_interceptor:
     lda  VICIRQ    
     and  #%0000_0001
     beq  !next+
@@ -170,9 +175,9 @@ interrupt_interceptor: // 637E
 // interrupt handler pointers
 .namespace interruptPtr {
     // BCCC
-    system: .word 0 // system interrupt handler
+    system: .word $0000 // system interrupt handler
     // BCCE
-    raster: .word 0 // raster interrupt handler
+    raster: .word $0000 // raster interrupt handler
 }
 
 //---------------------------------------------------------------------------------------------------------------------

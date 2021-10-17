@@ -127,7 +127,7 @@ move_sprites:
     lda (FREEZP+2),y
     sta (VARTAB),y
     iny
-    cpy #$40 // sprites consist of 64 bytes
+    cpy #BYTES_PER_SPRITE
     bne !loop-
     txa
     tay

@@ -40,7 +40,7 @@
 // SID
 .const  FRELO1  = $D400 // Voice 1 Frequency Control (low byte)
 .const  FRELO2  = $D407 // Voice 1 Frequency Control (low byte)
-.const  FRELO3  = $D40e // Voice 1 Frequency Control (low byte)
+.const  FRELO3  = $D40E // Voice 1 Frequency Control (low byte)
 .const  SIGVOL  = $D418 // Volume and Filter Select Register
 
 // CIA2
