@@ -32,28 +32,29 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<interrupt_handler
-    sta main.interruptPtr.system
+    sta main.interrupt.system_fn_ptr
     lda #>interrupt_handler
-    sta main.interruptPtr.system+1
+    sta main.interrupt.system_fn_ptr+1
     cli
 
-    // black border and background
+    // Black border and background.
     lda #$00
     sta state.counter
     sta EXTCOL
     sta BGCOL0
 
-    // set multicolor sprite second color
+    // Set multicolor sprite second color.
     lda sprite.color
     sta SPMC0
     sta SPMC1
 
-    // configure the starting intro state function
+    // Configure the starting intro state function.
     lda #<state__scroll_title
     sta state.fn_ptr
     lda #>state__scroll_title
     sta state.fn_ptr+1
 
+    // Busy wait for break key. Interrupts will play the music and animations while we wait.
     jsr common.wait_for_key
     rts    
 
@@ -80,15 +81,15 @@ import_sprites:
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
     lda #(VICGOFF / BYTES_PER_SPRITE) + NUM_SPRITES
-    sta sprite.data_ptr
+    sta common.temp_data_ptr
     ldx #NUM_SPRITES
 !loop:
     txa
     asl
     tay
-    lda sprite.data_ptr
+    lda common.temp_data_ptr
     sta SPTMEM,x
-    dec sprite.data_ptr
+    dec common.temp_data_ptr
     lda sprite.color,x
     sta SP0COL,x
     lda sprite.x_pos,x
@@ -109,12 +110,12 @@ import_sprites:
 
 // AA42
 interrupt_handler:
-    lda common.state.current
+    lda main.state.current
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda common.state.new
-    sta common.state.current
+    lda main.state.new
+    sta main.state.current
     jsr common.play_music
     jmp (state.fn_ptr)
 
@@ -133,7 +134,7 @@ state__scroll_title:
     sta sprite.curr_y_pos+3,x 
     ldy #$04
 !move_loop:
-    sta SP0Y+8, y // move sprite 4 and 5
+    sta SP4Y,y // move sprite 4 and 5
     dey
     dey
     bpl !move_loop-
@@ -148,7 +149,7 @@ scroll_up:
     bpl !update_pos-
     ldy #$06
 !move_loop:
-    sta SP0Y, y // move sprite 1, 2 and 3
+    sta SP0Y,y // move sprite 1, 2 and 3
     dey
     dey
     bpl !move_loop-
@@ -164,27 +165,24 @@ scroll_up:
 
 .namespace state {
     // BCC7
-    counter: .byte $00 // state counter (increments after each state change)
+    counter: .byte $00 // State counter (increments after each state change)
 
     // BD30
-    fn_ptr: .word $0000 // pointer to code that will run in the current state
+    fn_ptr: .word $0000 // Pointer to code that will run in the current state
 }
 
 // interrupt handler pointers
 .namespace sprite {
     // BD15
-    final_y_pos: .byte $00, $00 // the set final position of sprites after completion of aimation
+    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
 
     // BD3E
     // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
-    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // current sprite x-position
+    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
 
     // BD46
     // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
-    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // current sprite y-position
-
-    // BF1B
-    data_ptr: .byte $00 // sprite data pointer
+    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -213,11 +211,11 @@ scroll_up:
         .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
 
     // A97A
-    y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // initial sprite y-position
+    y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // Initial sprite y-position
 
     // A981
-    x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc // initial sprite x-position
+    x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc // Initial sprite x-position
 
     // A988
-    color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // initial color of each sprite
+    color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of each sprite
 }

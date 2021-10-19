@@ -66,8 +66,8 @@ import_charsets:
 block_copy:
     ldy #$00
 !loop:
-    lda (FREEZP), y
-    sta (FREEZP+2), y
+    lda (FREEZP),y
+    sta (FREEZP+2),y
     iny
     bne !loop-
     inc FREEZP+1
@@ -140,4 +140,8 @@ skip_copy:
     inc FREEZP+3
     jmp !loop--
 !return:
+    rts
+
+// empty subroutine for use when code is disabled using compiler variables
+empty_sub:
     rts

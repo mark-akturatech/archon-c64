@@ -11,7 +11,7 @@
 //
 // THANK YOU FOR MANY YEARS OF MEMORABLE GAMING. ARCHON ROCKS AND ALWAYS WILL!!!
 //---------------------------------------------------------------------------------------------------------------------
-//------------------------------------------------------s---------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"
 
@@ -21,13 +21,19 @@
 .segmentdef Main [startAfter="Upstart"]
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
-.segmentdef Data [startAfter="Intro"]
+.segmentdef Board [startAfter="Intro"]
+.segmentdef Game [startAfter="Board"]
+.segmentdef Data [startAfter="Game"]
 .segmentdef Assets [startAfter="Data", align=$100]
 
 #import "src/common.asm"
 #import "src/unofficial.asm"
 #if INCLUDE_INTRO 
     #import "src/intro.asm"
+    #import "src/board.asm"
+#endif
+#if INCLUDE_GAME
+    #import "src/game.asm"
 #endif
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -42,28 +48,82 @@ BasicUpstart2(entry)
 //---------------------------------------------------------------------------------------------------------------------
 .segment Main
 
-// 6126
+// 6100
 entry:
+    // 6100  A9 00      lda  #$00       // TODO: what are these variables           
+    // 6102  8D C0 BC   sta  WBCC0                 
+    // 6105  8D C1 BC   sta  WBCC1                 
+    // 6108  8D C5 BC   sta  WBCC5                 
+    // 610B  A9 55      lda  #$55                  
+    // 610D  8D C2 BC   sta  WBCC2                 
+    tsx
+    stx stack_ptr_store
+    // 6114  A9 80      lda  #$80      // TODO: what are these variables
+    // 6116  8D D1 BC   sta  WBCD1                 
+    // 6119  8D C3 BC   sta  WBCC3                 
+    // 611C  A9 03      lda  #$03                  
+    // 611E  8D CB BC   sta  WBCCB                 
+    lda INITIALIZED
+    bmi skip_prep
     jsr prep
+skip_prep:
     jsr init
+    ldx stack_ptr_store
+    txs
+    // skip 612c to 612f as this resets the stack pointer back after the decryption/move logic has played with it.
+    // 6130
     jsr common.stop_sound
+    // skip 6133 to 6148 as it clears variable area. this is needed due to app relocating code on load. we don't need
+    // this.
+    // 614A
     jsr common.clear_screen
     jsr common.clear_sprites
     not_original: {
+        // replaces 6150 - 6219
         jsr unofficial.import_charsets
     }
-#if INCLUDE_INTRO    
-    jsr intro.entry
-#endif
+    // 621A
+    lda #$80  
+    sta state.current
+    // 621F  A2 50      ldx  #$50               // TODO: what are these variables       
+    // W6221:
+    // 6221  9D 7C BD   sta  WBD7C,x               
+    // 6224  CA         dex                        
+    // 6225  10 FA      bpl  W6221                 
+    // 6227  8D 24 BD   sta  WBD24                 
+    // 622A  8D 25 BD   sta  WBD25                 
+    // 622D  AD C2 BC   lda  WBCC2                 
+    // W6230:
+    // 6230  8D C6 BC   sta  WBCC6                 
+    // 6233  A0 03      ldy  #$03                  
+    // 6235  B9 D2 8B   lda  W8BD2,y               
+    // 6238  8D 11 BD   sta  WBD11                 
+    // 623B  AD D1 BC   lda  WBCD1
+    jsr play_intro
     rts
 
 // 4700
 prep:
+    // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
+    lda #$80
+    sta INITIALIZED
+
     // Store system interrupt handler pointer so we can call it from our own interrupt handler.
     lda CINV
-    sta interruptPtr.raster
+    sta interrupt.raster_fn_ptr
     lda CINV+1
-    sta interruptPtr.raster+1
+    sta interrupt.raster_fn_ptr+1
+
+    // skip 4711-475F - moves stuff around. we took a snapshot after the moves completed.
+
+    // 4766
+    // Configure game state function handlers.
+    ldx  #$05                         
+!loop:
+    lda  state.fn_ptr,x                      
+    sta  STATE_PTR,x                 
+    dex                               
+    bpl  !loop-
     rts
 
 // 632D
@@ -126,9 +186,9 @@ init:
     // re-enable scan interupts and exit.
     sei
     lda #<common.complete_interrupt
-    sta interruptPtr.system
+    sta interrupt.system_fn_ptr
     lda #>common.complete_interrupt
-    sta interruptPtr.system+1
+    sta interrupt.system_fn_ptr+1
     lda IRQMASK
     and #%0111_1110
     sta IRQMASK
@@ -146,7 +206,7 @@ init:
     sta SCROLY
     lda #251
     sta RASTER
-    // reenable raster interrupts
+    // Reenable raster interrupts.
     lda IRQMASK
     ora #%1000_0001
     sta IRQMASK
@@ -161,27 +221,67 @@ interrupt_interceptor:
     and  #%0000_0001
     beq  !next+
     sta  VICIRQ
-    jmp  (interruptPtr.system)   
+    jmp  (interrupt.system_fn_ptr)   
 !next:
-    jmp  (interruptPtr.raster) 
+    jmp  (interrupt.raster_fn_ptr) 
+
+// 8010
+play_game:
+    jmp  (STATE_PTR)
+
+// 8016
+play_board_setup:
+    jmp  (STATE_PTR+2)
+
+// 8016
+play_intro:
+    jmp  (STATE_PTR+4)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
-// interrupt handler pointers
-.namespace interruptPtr {
+// BCC4
+stack_ptr_store: .byte $00 
+
+.namespace interrupt {
     // BCCC
-    system: .word $0000 // system interrupt handler
+    system_fn_ptr: .word $0000 // System interrupt handler function pointer
+
     // BCCE
-    raster: .word $0000 // raster interrupt handler
+    raster_fn_ptr: .word $0000 // Raster interrupt handler function pointer
+}
+
+.namespace state {
+    // BCD0
+    current: .byte $00 // Current game state
+
+    // BCD3 
+    new: .byte $00 // New game state (set to trigger a state change to this new state)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
+
+.namespace state {
+    // 4760
+    fn_ptr: 
+#if INCLUDE_GAME
+        .word game.entry // TODO: this could be wrong
+#else
+        .word unofficial.empty_sub
+#endif
+#if INCLUDE_INTRO
+        .word board.entry // TODO: this could be wrong
+        .word intro.entry
+#else
+        .word unofficial.empty_sub
+        .word unofficial.empty_sub
+#endif
+}
 
 .namespace charset {
 #if INCLUDE_INTRO    

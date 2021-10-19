@@ -49,10 +49,11 @@ check_stop_keypess:
     beq  !loop-
     //... TODO: jump to options state - JSR $63F3; JMP $612C. see 678c
     rts // todo remove
+// 6792
 !next:
-    lda  state.new
+    lda  main.state.new
     eor  #$ff
-    sta  state.new
+    sta  main.state.new
 !loop:
     jsr  STOP
     beq  !loop-
@@ -74,8 +75,8 @@ stop_sound:
     ldy  #$04                         
     lda  #$00                         
     sta  (FREEZP+2),y              
-    // sta  WBF08,x                      // TODO
-    // sta  WBF0B,x                      // TODO
+    sta  sound.current_phrase_data_fn_ptr,x 
+    sta  sound.new_note_delay,x 
     dex                               
     bpl  !loop-                        
     rts     
@@ -87,11 +88,11 @@ clear_sprites:
     sta  FREEZP+2
     lda  #>GRPMEM
     sta  FREEZP+3
-    ldx  #$10
+    ldx  #$10 // 16x256 = 4096kb
     lda  #$00
     tay
 !loop:
-    sta  (FREEZP+2), y
+    sta  (FREEZP+2),y
     iny
     bne  !loop-
     inc  FREEZP+3
@@ -101,7 +102,7 @@ clear_sprites:
     ldx  #$07
     sta  MSIGX
 !loop:
-    sta  SP0X, x
+    sta  SP0X,x
     dex
     bpl  !loop-
     rts
@@ -110,11 +111,11 @@ clear_sprites:
 // Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 wait_for_key:
     lda  #$00
-    sta  state.current
+    sta  main.state.current
 !loop:
     jsr  check_option_keypress
     jsr  check_stop_keypess
-    lda  state.current
+    lda  main.state.current
     beq  !loop-
     jmp  stop_sound
 
@@ -153,6 +154,8 @@ clear_screen:
 // - FE: End phrase - move to next phrase in the phrase list.
 // - FF: End music.
 // See `initialize_music` for further details of how music and phrases are stored.
+// Note that this sub is called each time an interrupt occurs. It runs once and processes notes/command on each voice,
+// increments the pointer to the next command/note and then exits.
 play_music:
     ldx  #$02                         
 !loop:
@@ -175,13 +178,13 @@ play_music:
     lda  sound.note_delay_counter,x 
     beq  delay_done
     cmp  #$02                         
-    bne  !next+
+    bne  decrease_delay
     // Release note just before delay expires.
     lda  sound.current_control,x
     and  #$FE                         
     ldy  #$04                         
     sta  (FREEZP+2),y              
-!next:
+decrease_delay:
     dec  sound.note_delay_counter,x 
     bne  skip_command                        
 delay_done:
@@ -193,27 +196,33 @@ skip_command:
 
 /// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 
+// AC56
+// Reads a command from the current phrase data. Commands can be notes or special commands. See `play_music` for
+// details.
+.enum {
+    CMD_STOP_NOTE=$00, CMD_SET_DELAY=$fb, CMD_RELEASE_NOTE=$fc, CMD_NEXT_STATE=$fd, CMD_NEXT_PHRASE=$fe, CMD_END=$ff
+}
 get_next_command:
     jsr get_note
-    cmp #$FF // TODO ENUM: stop note
+    cmp #CMD_END
     bne !next+
     ldy #$04
     lda #$00
     sta (FREEZP+2),y
     rts
 !next:
-    cmp #$FE // TODO ENUM: next phrase
+    cmp #CMD_NEXT_PHRASE
     bne !next+
     jsr get_next_phrase
     jmp get_next_command
 !next:
-    cmp #$FD // TODO ENUM: next state
+    cmp #CMD_NEXT_STATE
     beq set_state
-    cmp #$FB //set TODO enum: set delay
+    cmp #CMD_SET_DELAY
     beq set_delay
-    cmp #$00 // TODO enum: immediately turn off current note
+    cmp #CMD_STOP_NOTE
     beq clear_note
-    cmp #$FC // TODO enum: start early gate release
+    cmp #CMD_RELEASE_NOTE
     beq release_note
     pha
     ldy #$04
@@ -252,37 +261,45 @@ set_note:
     sta sound.note_delay_counter,x
     rts
 
-// read note from current music loop and increment the note pointer
-get_note:
+
+/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+// A13E
+// Read note from current music loop and increment the note pointer.
+get_note: // Get note for current voice and increment note pointer
     ldy #$00
     jmp (sound.current_note_data_fn_ptr)
-get_note_loop_1:
+// A143
+get_note_V1: // Get note for voice 1 and increment note pointer
     lda (OLDTXT),y
     inc OLDTXT
     bne !next+
     inc OLDTXT+1
 !next:
     rts
-get_note_loop_2:
-    lda (DATLIN),y
-    inc DATLIN
-    bne !next+
-    inc DATLIN+1
-!next:
+// A14C
+get_note_V2: // Get note for voice 2 and increment note pointer
+    lda (OLDTXT+2),y
+    inc OLDTXT+2
+    bne !next-
+    inc OLDTXT+3
     rts
-get_note_loop_3:
-    lda (DATPTR),y
-    inc DATPTR
-    bne !next+
-    inc DATPTR+1
-!next:
+// A155
+get_note_V3: // Get note for voice 3 and increment note pointer
+    lda (OLDTXT+4),y
+    inc OLDTXT+4
+    bne !next-
+    inc OLDTXT+5
     rts
 
-// read a phrase for the current music loop and increment the phrase pointer
-get_next_phrase:
+// ACDA
+// Read a phrase for the current music loop and increment the phrase pointer.
+get_next_phrase: // Get phrase for current voice and increment phrase pointer
     ldy #$00
     jmp (sound.current_phrase_data_fn_ptr)
-get_phrase_loop_1:
+// ACDFD
+get_phrase_V1: // Get phrase for voice 1 and increment phrase pointer
     lda (VARTAB),y
     sta OLDTXT
     iny
@@ -296,37 +313,35 @@ get_phrase_loop_1:
     inc VARTAB+1
 !return:
     rts
-get_phrase_loop_2:
-    lda (ARYTAB),y
-    sta DATLIN
+// ACF4
+get_phrase_V2: // Get phrase for voice 2 and increment phrase pointer
+    lda (VARTAB+2),y
+    sta OLDTXT+2
     iny
-    lda (ARYTAB),y
-    sta DATLIN+1
-    lda ARYTAB
+    lda (VARTAB+2),y
+    sta OLDTXT+3
+    lda VARTAB+2
     clc
     adc #$02
-    sta ARYTAB
-    bcc !return+
-    inc ARYTAB+1
-!return:
+    sta VARTAB+2
+    bcc !return-
+    inc VARTAB+3
     rts
-get_phrase_loop_3:
-    lda (STREND),y
-    sta DATPTR
+// AD09
+get_phrase_V3: // Get phrase for voice 3 and increment phrase pointer
+    lda (VARTAB+4),y
+    sta OLDTXT+4
     iny
-    lda (STREND),y
-    sta DATPTR+1
-    lda STREND
+    lda (VARTAB+4),y
+    sta OLDTXT+5
+    lda VARTAB+4
     clc
     adc #$02
-    sta STREND
-    bcc !return+
-    inc STREND+1
+    sta VARTAB+4
+    bcc !return-
+    inc VARTAB+5
 !return:
     rts
-
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 
 // AD1E
 // Initialize music and configure voices.
@@ -338,6 +353,8 @@ get_phrase_loop_3:
 // and then moves to the next phrase in the phrase list to read which phrase to play next.
 // A final FF command tells the music loop that there are no more phrases.
 // Super neat and efficient as repeated beats only need to be stored once. NICE!
+// Note that this method handles both the intro and outro music. Both pieces start with the same phrases and end with
+// the same terminating phrases. The otro just skips all the phrases in the middle. Kind of cheeky.
 initialize_music:
     // Full volume.
     lda  #%0000_1111
@@ -346,12 +363,16 @@ initialize_music:
     // Configure music pointers.
     ldy  #$05   
 !loop:
+#if INCLUDE_GAME
     lda  sound.music_track_flag
     bpl  intro_music
     lda  music.outro_phrase_ptr,y
     jmp  !next+
 intro_music:
+#endif
+#if INCLUDE_INTRO
     lda  music.intro_phrase_ptr,y 
+#endif
 !next:
     sta  VARTAB,y        
     // Both intro and outro music start with the same initial phrase on all 3 voices.          
@@ -389,33 +410,28 @@ intro_music:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
-.namespace state {
-    // BCD0
-    current: .byte $00 // current game state
-
-    // BCD3 
-    new: .byte $00 // new game state (set to trigger a state change to this new state)
-}
-
 .namespace sound {
-    // ABF0
-    music_track_flag: .byte $00 // is 00 for title music and 80 for game end music
+    // BD66
+    current_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
+
+    // BF08
+    current_phrase_data_fn_ptr: .word $0000 // Pointer to function to read current phrase for current voice
 
     // BF0B
-    new_note_delay: .byte $00, $00, $00 // ??????
+    new_note_delay: .byte $00, $00, $00 // New note delay timer
 
     // BF4A
-    note_delay_counter: .byte $00, $00, $00 // current note delay countdown
+    note_delay_counter: .byte $00, $00, $00 // Current note delay countdown
 
     // BF4D
-    current_control: .byte $00, $00, $00 // current voice control value
+    current_control: .byte $00, $00, $00 // Current voice control value
 
-    // BD66
-    current_note_data_fn_ptr: .word $0000 // pointer to function to read current note for current voice
-
-    // AD7D
-    current_phrase_data_fn_ptr: .word $0000 // pointer to function to read current phrase for current voice
+    // BF50
+    music_track_flag: .byte $00 // Is 00 for title music and 80 for game end music
 }
+
+// BF1B
+temp_data_ptr: .byte $00 // Sprite data pointer
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets and constants
@@ -423,39 +439,48 @@ intro_music:
 .segment Assets
 
 .namespace sound {
+    // A0A5
+    note_data_fn_ptr: // Pointer to function to get note and incremement note pointer for each voice
+        .word get_note_V1, get_note_V2, get_note_V3
+
     // A0AB
-    voice_io_addr: .word FRELO1, FRELO2, FRELO3 // address offsets for each SID voice control address
+    voice_io_addr: .word FRELO1, FRELO2, FRELO3 // Address offsets for each SID voice control address
 
     // AD6A
-    sustain: .byte $a3, $82, $07 // voice sustain values
+    sustain: .byte $a3, $82, $07 // Voice sustain values
 
     // AD6D
-    control: .byte $21, $21, $21 // voice sustain values
+    control: .byte $21, $21, $21 // Voice sustain values
 
     // AD70
-    attack: .byte $07, $07, $07 // voice attack values
+    attack: .byte $07, $07, $07 // Voice attack values
 
-    // A0A5
-    // pointer to function to get note and incremement note pointer for each voice
-    note_data_fn_ptr: .word get_note_loop_1, get_note_loop_2, get_note_loop_3 
-
-    // AD7E
-    // pointer to function to get phrase and incremement note pointer for each voice
-    phrase_data_fn_ptr: .word get_phrase_loop_1, get_phrase_loop_2, get_phrase_loop_3
+    // AD7D
+    phrase_data_fn_ptr: // Pointer to function to get phrase and incremement note pointer for each voice
+        .word get_phrase_V1, get_phrase_V2, get_phrase_V3
 }
 
 // 3D40
 .namespace music {
     // Music configuration.
-    intro_phrase_ptr:
+    // Music is played by playing notes pointed to by `initial_phrase_list_ptr` on each voice.
+    // When the voice phrase list finishes, the music will look at the intro or outro phrase list pointers (
+    // `intro_phrase_ptr` or `outro_phrase_ptr`) depending on the track being played. This list will then tell the
+    // player which phrase to play next.
+    // When the phrase finishes, it looks at the next phrase in the list and continues until a FE command is reached.
+#if INCLUDE_INTRO     
+    intro_phrase_ptr: // Pointers for intro music phrase list for each voice
         .word intro_phrase_V1_ptr, intro_phrase_V2_ptr, intro_phrase_V3_ptr
-    initial_phrase_list_ptr:
+#endif
+    initial_phrase_list_ptr: // Initial phrases for both intro and outro music
         .word phrase_1, phrase_2, phrase_3
-    outro_phrase_ptr:
+#if INCLUDE_GAME
+    outro_phrase_ptr: // Pointers for outro music phrase list for each voice
         .word outro_phrase_V1_ptr, outro_phrase_V2_ptr, outro_phrase_V3_ptr
+#endif
 
     // Music notes and commands.
-    phrase_1:
+    phrase_1: // Notes (00 to FA) and commands (FB to FF) for music phrase
         .byte $FB, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2 
         .byte $0E, $EF, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $13, $EF, $15, $1F, $16, $60 
         .byte $17, $B5, $FE
@@ -465,6 +490,7 @@ intro_music:
     phrase_3:
         .byte $FB, $1C, $00, $FB, $07, $0E, $18, $0D, $4E, $0C, $8F, $0B, $DA, $0B, $30, $0A 
         .byte $8F, $09, $F7, $09, $68, $08, $E1, $08, $61, $07, $E9, $07, $77, $FE
+#if INCLUDE_INTRO
     phrase_4:
         .byte $FD, $FB, $70, $19, $1E, $FB, $38, $12, $D1, $FB, $1C, $15, $1F, $FB, $09, $12 
         .byte $D1, $11, $C3, $FB, $0A, $0E, $18, $FB, $E0, $1C, $31, $FE          
@@ -511,6 +537,7 @@ intro_music:
         .byte $05, $ED, $FC, $08, $E1, $FC, $0B, $DA, $FC, $08, $E1, $FC, $FE     
     phrase_18:
         .byte $07, $E9, $FC, $0B, $DA, $FC, $0F, $D2, $FC, $0B, $DA, $FC, $FE     
+#endif
     phrase_19:
         .byte $FB, $70, $19, $1E, $FF
     phrase_20:
@@ -519,19 +546,25 @@ intro_music:
         .byte $FB, $70, $07, $0C, $FF
 
     // Music phraseology.
-    intro_phrase_V1_ptr:
+#if INCLUDE_INTRO 
+    intro_phrase_V1_ptr: // Intro music voice 1 phrase list
         .word phrase_4, phrase_4, phrase_10, phrase_11, phrase_1
+#endif
     outro_phrase_V1_ptr:
-        .word phrase_19
-    intro_phrase_V2_ptr:
+        .word phrase_19 // Outro music voice 1 phrase list
+#if INCLUDE_INTRO          
+    intro_phrase_V2_ptr: // Intro music voice 2 phrase list
         .word phrase_5, phrase_5, phrase_12, phrase_13, phrase_2
+#endif
     outro_phrase_V2_ptr:
-        .word phrase_21
-    intro_phrase_V3_ptr:
+        .word phrase_21 // Outro music voice 2 phrase list
+#if INCLUDE_INTRO      
+    intro_phrase_V3_ptr: // Intro music voice 3 phrase list
         .word phrase_6, phrase_7, phrase_7, phrase_7, phrase_8, phrase_8, phrase_9, phrase_9
         .word phrase_6, phrase_7, phrase_7, phrase_7, phrase_8, phrase_8, phrase_9, phrase_9
         .word phrase_14, phrase_15, phrase_15, phrase_15, phrase_16, phrase_16, phrase_16, phrase_16
         .word phrase_17, phrase_17, phrase_18, phrase_18, phrase_3
+#endif
     outro_phrase_V3_ptr:
-        .word phrase_20        
+        .word phrase_20 // Outro music voice 3 phrase list
 }

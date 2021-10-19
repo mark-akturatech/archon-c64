@@ -47,3 +47,13 @@
 
 // Bytes consumed by each sprite
 .const BYTES_PER_SPRITE = 64;       // each sprite consumes 64 bytes of memory
+
+//---------------------------------------------------------------------------------------------------------------------
+// Application specific constants
+//---------------------------------------------------------------------------------------------------------------------
+
+// Not needed here - is used by original source to indicate that memory range 4400-6000 has already been moved out of
+// the graphics area. we don't need it as this source representation is fully relocatable and does not load any logic in
+// to the graphcis area.
+.const INITIALIZED  = $02A7 // 00 for uninitialized, $80 for initialized
+.const STATE_PTR    = $0334 // Pointers used to jump to various game states (intro, board, play)
