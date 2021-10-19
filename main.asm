@@ -120,7 +120,7 @@ prep:
     // Configure game state function handlers.
     ldx  #$05                         
 !loop:
-    lda  state.fn_ptr,x                      
+    lda  state.game_fn_ptr,x                      
     sta  STATE_PTR,x                 
     dex                               
     bpl  !loop-
@@ -254,12 +254,19 @@ stack_ptr_store: .byte $00
 }
 
 .namespace state {
+    // BCC7
+    counter: .byte $00 // State counter (increments after each state change)
+
     // BCD0
     current: .byte $00 // Current game state
 
     // BCD3 
     new: .byte $00 // New game state (set to trigger a state change to this new state)
+
+    // BD30
+    current_fn_ptr: .word $0000 // Pointer to code that will run in the current state
 }
+
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -268,7 +275,7 @@ stack_ptr_store: .byte $00
 
 .namespace state {
     // 4760
-    fn_ptr: 
+    game_fn_ptr: // Pointer to each main game function (intro, board, game)
 #if INCLUDE_GAME
         .word game.entry // TODO: this could be wrong
 #else

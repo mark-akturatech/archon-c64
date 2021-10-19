@@ -39,7 +39,7 @@ entry:
 
     // Black border and background.
     lda #$00
-    sta state.counter
+    sta main.state.counter
     sta EXTCOL
     sta BGCOL0
 
@@ -50,9 +50,9 @@ entry:
 
     // Configure the starting intro state function.
     lda #<state__scroll_title
-    sta state.fn_ptr
+    sta main.state.current_fn_ptr
     lda #>state__scroll_title
-    sta state.fn_ptr+1
+    sta main.state.current_fn_ptr+1
 
     // Busy wait for break key. Interrupts will play the music and animations while we wait.
     jsr common.wait_for_key
@@ -117,7 +117,7 @@ interrupt_handler:
     lda main.state.new
     sta main.state.current
     jsr common.play_music
-    jmp (state.fn_ptr)
+    jmp (main.state.current_fn_ptr)
 
 // AA56
 state__scroll_title:
@@ -164,11 +164,7 @@ scroll_up:
 .segment Data
 
 .namespace state {
-    // BCC7
-    counter: .byte $00 // State counter (increments after each state change)
-
-    // BD30
-    fn_ptr: .word $0000 // Pointer to code that will run in the current state
+    fn_ptr: .word unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub
 }
 
 // interrupt handler pointers

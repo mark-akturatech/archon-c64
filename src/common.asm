@@ -147,6 +147,7 @@ clear_screen:
 // AC16
 // Read music from the music phrase command list and play notes or execute special commands.
 // Commands are separated by notes and begin with a special code as follows:
+// - 00: stop current note
 // - 01-F9: Plays a note (of given note value)
 // - FB: Set delay - next number in phrase is the delay time.
 // - FC: Set early filter gate release (release gate but continue delay).
@@ -194,40 +195,46 @@ skip_command:
     bpl  !loop-
     rts     
 
-/// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-
-// AC56
+// AC5B
 // Reads a command from the current phrase data. Commands can be notes or special commands. See `play_music` for
 // details.
 .enum {
-    CMD_STOP_NOTE=$00, CMD_SET_DELAY=$fb, CMD_RELEASE_NOTE=$fc, CMD_NEXT_STATE=$fd, CMD_NEXT_PHRASE=$fe, CMD_END=$ff
+    CMD_STOP_NOTE=$00, 
+    CMD_SET_DELAY=$fb, 
+    CMD_RELEASE_NOTE=$fc, 
+    CMD_NEXT_STATE=$fd,
+    CMD_NEXT_PHRASE=$fe,
+    CMD_END=$ff
 }
 get_next_command:
     jsr get_note
-    cmp #CMD_END
+    cmp #CMD_END // Stop voice
     bne !next+
+    // Reset voice.
     ldy #$04
     lda #$00
-    sta (FREEZP+2),y
+    sta (FREEZP+2),y // FREEZP+2 is ptr to base SID control address for current voice
     rts
 !next:
-    cmp #CMD_NEXT_PHRASE
+    cmp #CMD_NEXT_PHRASE // Phrase finished - load next phrase
     bne !next+
     jsr get_next_phrase
     jmp get_next_command
 !next:
-    cmp #CMD_NEXT_STATE
+    cmp #CMD_NEXT_STATE // Set next into animation state
     beq set_state
-    cmp #CMD_SET_DELAY
+    cmp #CMD_SET_DELAY // Set delay
     beq set_delay
-    cmp #CMD_STOP_NOTE
+    cmp #CMD_STOP_NOTE // Stop note
     beq clear_note
-    cmp #CMD_RELEASE_NOTE
+    cmp #CMD_RELEASE_NOTE // Release note
     beq release_note
+    // Play note - sets gate filter, loads the command in to voice hi frequency control, reads the next command and
+    // then loads that in to the voice lo frequency control.
     pha
     ldy #$04
     lda sound.current_control,x
-    and #%1111_1110 // start gate release on current note
+    and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
     ldy #$01
     pla
@@ -237,7 +244,14 @@ get_next_command:
     sta (FREEZP+2),y
     jmp set_note
 set_state:
-    // TODO
+    lda main.state.counter
+    inc main.state.counter
+    asl
+    tay
+    lda intro.state.fn_ptr,y
+    sta main.state.current_fn_ptr
+    lda intro.state.fn_ptr+1,y               
+    sta main.state.current_fn_ptr+1
     jmp get_next_command
 clear_note:
     ldy #$04
@@ -250,20 +264,16 @@ set_delay:
 release_note:
     ldy #$04
     lda sound.current_control,x
-    and #%1111_1110 // start gate release on current note
+    and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
 set_note:
     ldy #$04
-    lda sound.current_control,x
-    sta (FREEZP+2),y
+    lda sound.current_control,x // Set default note control value for voice
+    sta (FREEZP+2),y 
 !return:
     lda sound.new_note_delay,x
     sta sound.note_delay_counter,x
     rts
-
-
-/// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 
 // A13E
 // Read note from current music loop and increment the note pointer.
