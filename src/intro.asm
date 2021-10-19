@@ -158,17 +158,113 @@ scroll_up:
     bpl !loop-
     jmp common.complete_interrupt
 
+// AA8B
+state__draw_freefall_logo:
+    lda #$80                         
+    // sta WBF3C                        TODO
+
+    // Remove sprites 4 to 7 (Freefall logo).
+    // The sprites are replaces with text characters after the animation has completed.
+    ldx  #$04
+    lda  #$0F
+!loop:
+    sta SPTMEM,x                     
+    inx                              
+    cpx #$08
+    bcc !loop-
+
+//     ldx  #$16                         
+//     ldy  #$08                         
+// WAAA0:
+//     sty  WBD3A                        
+// WAAA3:
+//     stx  WBF30                        
+//     jsr  WAACF                        
+// WAAA9:
+//     ldx  WBF30                        
+//     dex                               
+//     dec  WBD3A                        
+//     ldy  WBD3A                        
+//     cpy  #$04                         
+//     bcs  WAAA3                        
+//     lda  #$00                         
+//     sta  WBF3C                        
+//     jsr  WAACF                        
+//     dec  WBD3A                        
+    lda  #<state__avatar_color_scroll                      
+    sta  main.state.current_fn_ptr    
+    lda  #>state__avatar_color_scroll                      
+    sta  main.state.current_fn_ptr+1  
+    jmp  common.complete_interrupt  
+
+// AB4F
+state__xxx2:
+    jmp common.complete_interrupt
+
+// AB83
+state__avatar_bounce:
+    jmp common.complete_interrupt
+
+// Scroll the colors on the Avatar logo.
+// Here we increase the colours ever 8 counts. The Avatar logo is a multi-colour sprite with the sprite split in to
+// even rows of alternating colors (col1, col2, col1, col2 etc). Here we set the first color (anded so it is between
+// 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
+// ABE2
+state__avatar_color_scroll:
+    inc  sprite.avatar_logo_color_delay 
+    lda  sprite.avatar_logo_color_delay 
+    and  #$07
+    bne  !return+                        
+    inc  sprite.avatar_logo_color 
+    lda  sprite.avatar_logo_color 
+    and  #$0F                     
+    sta  SPMC0                     
+    clc                             
+    adc  #$01                         
+    and  #$0F                         
+    sta  SPMC1 // C64 uses a global multi-color registers that are used for all sprites
+    adc  #$01                         
+    and  #$0F                
+    // The avatar logo comprises 3 sprites, so set all to the same color.
+    ldy  #$03                         
+!loop:
+    sta  SP0COL,y                  
+    dey                               
+    bpl  !loop-
+!return:
+    jmp  common.complete_interrupt
+
+// AD83
+state__xxx4:
+    jmp common.complete_interrupt
+
+// AC0E
+// Complete the current game state and move on.
+intro_state__end_intro:
+    lda #$80
+    sta main.state.current
+    jmp common.complete_interrupt
+    rts
+
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
+// AD73
 .namespace state {
-    fn_ptr: .word unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub, unofficial.empty_sub
+    fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
+        .word state__draw_freefall_logo, state__xxx2, state__avatar_bounce, state__xxx4, intro_state__end_intro
 }
 
 // interrupt handler pointers
 .namespace sprite {
+    // BCE7
+    avatar_logo_color: .byte $00 // Color of avatar sprite used for color scrolling
+
+    // BCE8
+    avatar_logo_color_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
+
     // BD15
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
 
@@ -189,8 +285,8 @@ scroll_up:
 .namespace sprite {
     // sprites used by title page
     // sprites are contained in the following order:
-    // - 0-3: archon logo
-    // - 4-6: free fall logo
+    // - 0-3: Archon logo
+    // - 4-6: Freefall logo
     // - 7-10: left facing knight animation frames
     // - 11-14: left facing troll animation frames
     // - 15-18: right facing golum animation frames
