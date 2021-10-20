@@ -191,19 +191,81 @@ state__draw_freefall_logo:
 //     sta  WBF3C                        
 //     jsr  WAACF                        
 //     dec  WBD3A                        
-    lda  #<state__avatar_color_scroll                      
-    sta  main.state.current_fn_ptr    
-    lda  #>state__avatar_color_scroll                      
-    sta  main.state.current_fn_ptr+1  
-    jmp  common.complete_interrupt  
+    // Start scrolling Avatar logo colors
+    lda #<state__avatar_color_scroll                      
+    sta main.state.current_fn_ptr    
+    lda #>state__avatar_color_scroll                      
+    sta main.state.current_fn_ptr+1  
+    jmp common.complete_interrupt  
 
 // AB4F
 state__xxx2:
+//...
+    // Start bouncing Avatar logo
+    lda #<state__avatar_bounce                      
+    sta main.state.current_fn_ptr    
+    lda #>state__avatar_bounce                      
+    sta main.state.current_fn_ptr+1  
+    //
+    lda #$0E
+    sta sprite.x_move_counter 
+    sta sprite.y_move_counter 
+    lda #$FF                  
+    sta sprite.x_direction_flag 
     jmp common.complete_interrupt
 
 // AB83
+// Bounce the Avatar logo in a sawtooth pattern within a defined rectangle on the screen.
 state__avatar_bounce:
-    jmp common.complete_interrupt
+    lda #$01 // +1 (down)
+    ldy sprite.y_direction_flag
+    bpl !next+                        
+    lda #$FF // -1 (up)
+!next:
+    sta sprite.y_direction_offset  
+    //
+    lda #$01 // +1 (right)
+    ldy sprite.x_direction_flag
+    bpl !next+                        
+    lda #$FF // -1 (left)
+!next:
+    sta sprite.x_direction_offset
+    // Move all 3 sprites that make up the Avatar logo.
+    ldx #$03
+    ldy #$06
+!loop:
+    lda sprite.curr_y_pos,x    
+    // Add the direction pointer to the current sprite positions.
+    // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
+    clc                               
+    adc sprite.y_direction_offset     
+    sta sprite.curr_y_pos,x    
+    sta SP0Y,y                    
+    lda sprite.curr_x_pos,x    
+    clc                               
+    adc sprite.x_direction_offset     
+    sta sprite.curr_x_pos,x    
+    sta SP0X,y                    
+    dey                               
+    dey                               
+    dex                               
+    bpl !loop-                        
+    // Reset the x and y position and reverse direction.
+    dec sprite.y_move_counter
+    bne !next+
+    lda #$07 
+    sta sprite.y_move_counter 
+    lda sprite.y_direction_flag
+    eor #$FF                         
+    sta sprite.y_direction_flag
+!next:
+    dec sprite.x_move_counter 
+    bne state__avatar_color_scroll 
+    lda #$1C                         
+    sta sprite.x_move_counter 
+    lda sprite.x_direction_flag
+    eor #$FF                         
+    sta sprite.x_direction_flag    
 
 // Scroll the colors on the Avatar logo.
 // Here we increase the colours ever 8 counts. The Avatar logo is a multi-colour sprite with the sprite split in to
@@ -240,7 +302,7 @@ state__xxx4:
 
 // AC0E
 // Complete the current game state and move on.
-intro_state__end_intro:
+state__end_intro:
     lda #$80
     sta main.state.current
     jmp common.complete_interrupt
@@ -251,12 +313,6 @@ intro_state__end_intro:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
-// AD73
-.namespace state {
-    fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
-        .word state__draw_freefall_logo, state__xxx2, state__avatar_bounce, state__xxx4, intro_state__end_intro
-}
-
 // interrupt handler pointers
 .namespace sprite {
     // BCE7
@@ -264,6 +320,12 @@ intro_state__end_intro:
 
     // BCE8
     avatar_logo_color_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
+
+    // BCE9
+    y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
+
+    // BCEA
+    x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
 
     // BD15
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
@@ -275,12 +337,30 @@ intro_state__end_intro:
     // BD46
     // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
     curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
+
+    // BD58
+    x_direction_flag: .byte $00 // Is positive number for right direction, negative for left direction
+    
+    // BD59
+    y_direction_flag: .byte $00 // Is positive number for down direction, negative for up direction
+
+    // BF23
+    y_direction_offset: .byte $00 // Amount added to y plan to move sprite to the left or right (uses rollover)
+
+    // BF24
+    x_direction_offset: .byte $00 // Amount added to x plan to move sprite to the left or right (uses rollover)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
+
+// AD73
+.namespace state {
+    fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
+        .word state__draw_freefall_logo, state__xxx2, state__avatar_bounce, state__xxx4, state__end_intro
+}
 
 .namespace sprite {
     // sprites used by title page
