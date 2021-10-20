@@ -267,6 +267,23 @@ stack_ptr_store: .byte $00
     current_fn_ptr: .word $0000 // Pointer to code that will run in the current state
 }
 
+.namespace temp {
+    // BF1A
+    data__curr_color: .byte $00 
+
+    // BF1B
+    ptr__sprite: .byte $00 
+        
+    // BF30
+    data__curr_line: .byte $00
+    
+    // BD3A
+    data__msg_offset: .byte $00
+
+    // BF3C
+    flag__adv_str: .byte $00
+
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets

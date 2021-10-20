@@ -81,15 +81,15 @@ import_sprites:
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
     lda #(VICGOFF / BYTES_PER_SPRITE) + NUM_SPRITES
-    sta common.temp_data_ptr
+    sta main.temp.ptr__sprite
     ldx #NUM_SPRITES
 !loop:
     txa
     asl
     tay
-    lda common.temp_data_ptr
+    lda main.temp.ptr__sprite
     sta SPTMEM,x
-    dec common.temp_data_ptr
+    dec main.temp.ptr__sprite
     lda sprite.color,x
     sta SP0COL,x
     lda sprite.x_pos,x
@@ -161,7 +161,7 @@ scroll_up:
 // AA8B
 state__draw_freefall_logo:
     lda #$80                         
-    // sta WBF3C                        TODO
+    sta main.temp.flag__adv_str // Flag is used for 00-read string row from string data; 80-provide manual row in X
 
     // Remove sprites 4 to 7 (Freefall logo).
     // The sprites are replaces with text characters after the animation has completed.
@@ -173,24 +173,31 @@ state__draw_freefall_logo:
     cpx #$08
     bcc !loop-
 
-//     ldx  #$16                         
-//     ldy  #$08                         
-// WAAA0:
-//     sty  WBD3A                        
-// WAAA3:
-//     stx  WBF30                        
-//     jsr  WAACF                        
-// WAAA9:
-//     ldx  WBF30                        
-//     dex                               
-//     dec  WBD3A                        
-//     ldy  WBD3A                        
-//     cpy  #$04                         
-//     bcs  WAAA3                        
-//     lda  #$00                         
-//     sta  WBF3C                        
-//     jsr  WAACF                        
-//     dec  WBD3A                        
+    // Draw text method has two modes (set using flag $bfc3):
+    // - if set, X register holds the starting row
+    // - if not set, the starting row is read from the first byte of the string data
+    // Here we set the start row manually and decrement it 4 times. We do this so we can show the same string (the top
+    // half of the Free Fall log) on four separate lines.
+    ldx #$16
+    ldy #$08                         
+    sty main.temp.data__msg_offset
+!loop:
+    stx main.temp.data__curr_line
+    jsr screen_draw_text
+    ldx main.temp.data__curr_line
+    dex                               
+    dec main.temp.data__msg_offset
+    ldy main.temp.data__msg_offset
+    cpy #$04
+    bcs !loop-
+    // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
+    // read the screen rows from the remaining string messages.
+    lda #$00
+    sta main.temp.flag__adv_str
+    jsr screen_draw_text
+    //
+    dec main.temp.data__msg_offset // Set to pointer next string to display in next state
+
     // Start scrolling Avatar logo colors
     lda #<state__avatar_color_scroll                      
     sta main.state.current_fn_ptr    
@@ -198,15 +205,126 @@ state__draw_freefall_logo:
     sta main.state.current_fn_ptr+1  
     jmp common.complete_interrupt  
 
+// AACF
+// Initiates the draw text routine by selecting a color and text offset.
+// The routine then calls a method to write the text to the screen.
+screen_draw_text:
+    ldy main.temp.data__msg_offset
+    lda screen.string_color_data,y    
+    sta main.temp.data__curr_color
+    tya                               
+    asl                               
+    tay                               
+    lda screen.string_data_ptr,y 
+    sta FREEZP                    
+    lda screen.string_data_ptr+1,y 
+    sta FREEZP+1                  
+    ldy #$00
+    jmp screen_calc_start_addr
+
+// AAEA
+// Write characters and colors to the screen.
+screen_write_chars:
+    ldy #$00                         
+get_next_char:
+    lda (FREEZP),y                
+    inc FREEZP                    
+    bne !next+
+    inc FREEZP+1
+!next:
+    cmp #$80 // New line                        
+    bcc !next+                        
+    beq screen_calc_start_addr 
+    rts
+!next:  
+    sta (FREEZP+2),y // Write character
+    // Set color.
+    lda (FORPNT),y               
+    and #$F0                     
+    ora main.temp.data__curr_color        
+    sta (FORPNT),y
+    // Next character.
+    inc FORPNT
+    inc FREEZP+2                  
+    bne get_next_char                        
+    inc FREEZP+3                  
+    inc FORPNT+1                 
+    jmp get_next_char   
+
+// AB13
+// Derivethe screen starting character offset and color memory offset.
+// Requires the following prerequisites:
+// - FB/FC - Pointer to string data. The string data starts with a column offset and ends with FF.
+// - BF3C: Row control flag: 
+//    $00 - the screen row and column is read from the first byte and second byte in the string
+//    $80 - the screen row is supplied using the X register and column is the first byte in the string
+//    $C0 - the screen column is hard coded to #06 and the screen row is read X register
+// A $80 byte in the string represents a 'next line'. A screen row and colum offset must follw a $80 command.
+// The string is terminated with a $ff byte.
+// Spaces are represented as $00.
+screen_calc_start_addr:
+    lda main.temp.flag__adv_str           
+    bmi skip_sceen_row // flag = $80 or $c0
+    // Read screen row.
+    lda (FREEZP),y                
+    inc FREEZP                    
+    bne !next+
+    inc FREEZP+1                  
+!next:
+    tax  // Get screen row from x regsietr
+skip_sceen_row:
+    // Determine start screen and color memory addresses.
+    lda #>SCNMEM  // Screen memory hi byte
+    sta FREEZP+3 // Screen memory pointer
+    not_original_1: {
+        // clc
+        // adc  WBF19 // Derive color memory address
+        lda #$D8 // Hardcode color memory offset so we can move the screen memory around
+    }
+    sta FORPNT+1  // color memory pointer
+    bit main.temp.flag__adv_str           
+    bvc !next+ // flag = $c0
+    lda #$06 // Hard coded screen column offset if BF3C flag set
+    bne skip_sceen_column
+!next:
+    lda (FREEZP),y                
+    inc FREEZP                    
+    bne skip_sceen_column
+    inc FREEZP+1                  
+skip_sceen_column:
+    clc                               
+    adc #$28  // 40 columns per row                       
+    bcc !next+
+    inc FREEZP+3                  
+    inc FORPNT+1                          
+!next:
+    dex                               
+    bne skip_sceen_column                        
+    sta FREEZP+2                  
+    sta FORPNT                  
+    jmp screen_write_chars   
+
 // AB4F
-state__xxx2:
-//...
-    // Start bouncing Avatar logo
+state__show_authors:
+    jsr common.clear_screen
+    // Display author names.
+!next:    
+    jsr screen_draw_text 
+    dec main.temp.data__msg_offset
+    bpl !next-
+    // Show press run/stop message.
+    lda #$C0 // Manual row/column
+    sta main.temp.flag__adv_str
+    lda #$09
+    sta main.temp.data__msg_offset        
+    ldx #$18
+    jsr screen_draw_text       
+    // Bounce the Avatar logo.
     lda #<state__avatar_bounce                      
     sta main.state.current_fn_ptr    
     lda #>state__avatar_bounce                      
     sta main.state.current_fn_ptr+1  
-    //
+    // Initialize sprite registers used to bounce the logo in the next state.
     lda #$0E
     sta sprite.x_move_counter 
     sta sprite.y_move_counter 
@@ -273,31 +391,31 @@ state__avatar_bounce:
 // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
 // ABE2
 state__avatar_color_scroll:
-    inc  sprite.avatar_logo_color_delay 
-    lda  sprite.avatar_logo_color_delay 
-    and  #$07
-    bne  !return+                        
-    inc  sprite.avatar_logo_color 
-    lda  sprite.avatar_logo_color 
-    and  #$0F                     
-    sta  SPMC0                     
+    inc sprite.avatar_logo_color_delay 
+    lda sprite.avatar_logo_color_delay 
+    and #$07
+    bne !return+                        
+    inc sprite.avatar_logo_color 
+    lda sprite.avatar_logo_color 
+    and #$0F                     
+    sta SPMC0                     
     clc                             
-    adc  #$01                         
-    and  #$0F                         
-    sta  SPMC1 // C64 uses a global multi-color registers that are used for all sprites
-    adc  #$01                         
-    and  #$0F                
+    adc #$01                         
+    and #$0F                         
+    sta SPMC1 // C64 uses a global multi-color registers that are used for all sprites
+    adc #$01                         
+    and #$0F                
     // The avatar logo comprises 3 sprites, so set all to the same color.
-    ldy  #$03                         
+    ldy #$03                         
 !loop:
-    sta  SP0COL,y                  
+    sta SP0COL,y                  
     dey                               
-    bpl  !loop-
+    bpl !loop-
 !return:
-    jmp  common.complete_interrupt
+    jmp common.complete_interrupt
 
 // AD83
-state__xxx4:
+state__chase_scene:
     jmp common.complete_interrupt
 
 // AC0E
@@ -356,10 +474,10 @@ state__end_intro:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-// AD73
 .namespace state {
+    // AD73
     fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
-        .word state__draw_freefall_logo, state__xxx2, state__avatar_bounce, state__xxx4, state__end_intro
+        .word state__draw_freefall_logo, state__show_authors, state__avatar_bounce, state__chase_scene, state__end_intro
 }
 
 .namespace sprite {
@@ -390,4 +508,75 @@ state__end_intro:
 
     // A988
     color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of each sprite
+}
+
+.namespace screen {
+    // A8A5
+    string_data_ptr: // Pointer to string data for each string
+        .word string_5, string_6, string_7, string_4, string_2, string_2, string_2, string_2, string_3, string_1
+
+    // A8B9
+    string_color_data: .byte $07, $0e, $0e, $01, $0b, $0c, $0f, $01, $01, $08 // Color of each string
+
+    // A805
+    string_1: // Press run key to continue
+        .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
+        .byte $ff
+
+    // A87F
+    string_2: // Top half of "free Fall" logo
+        .byte $0b
+        .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70
+        .byte $71
+        .byte $ff // todo
+
+    // A892
+    string_3: // Bottom half of "free Fall" logo
+        .byte $0b
+        .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72
+        .byte $73
+        .byte $ff
+
+    // A8C3
+    string_4: // A .... Game
+        .byte $10, $13
+        .text "A"
+        .byte $80
+        .byte $18, $11
+        .text "GAME"
+        .byte $ff
+        
+    // A8CE
+    string_5: // By Anne Wesfall and Jon Freeman & Paul Reiche III
+        .byte $08, $0c
+        .text @"BY\$00ANNE\$00WESTFALL"
+        .byte $80
+        .byte $0a, $0b
+        .text @"AND\$00JON\$00FREEMAN"
+        .byte $80
+        .byte $0c, $0d
+        .text @"\$40\$00PAUL\$00REICHE\$00III"
+        .byte $ff
+
+    // A907
+    string_6: // Clear part of screen
+        .byte $0f, $01
+        .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+        .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+        .byte $00, $00, $00, $00, $00, $00, $00
+        .byte $ff
+        
+    // A931
+    string_7: // Electronic Arts Logo
+        .byte $12, $01
+        .byte $16, $17, $17, $18, $19, $1a, $1b, $1c 
+        .byte $80, $13, $01
+        .byte $1e, $1f, $1f, $20, $1f, $1f, $21, $22, $23
+        .byte $80, $14, $01
+        .byte $24, $25, $25, $26, $27, $28, $29, $2a, $3f, $1d
+        .byte $80, $15, $01
+        .byte $2b, $2c, $00, $00, $00, $00, $00, $00, $00, $00, $00, $2d, $2e
+        .byte $80, $16, $01
+        .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
+        .byte $ff
 }
