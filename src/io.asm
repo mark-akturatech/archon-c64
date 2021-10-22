@@ -51,6 +51,7 @@
 .const  SPMC0   = $D025 // Sprite Multicolor Register 0
 .const  SPMC1   = $D026 // Sprite Multicolor Register 1
 .const  SP0COL  = $D027 // Sprite 0 Color Register
+.const  COLRAM  = $D800 // Start of Color RAM
 
 // SID
 .const  FRELO1  = $D400 // Voice 1 Frequency Control (low byte)

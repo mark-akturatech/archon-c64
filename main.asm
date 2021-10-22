@@ -50,6 +50,11 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
+    not_original: {
+        // character sets are loaded in some of the copy/move routines in 0100-01ff
+        jsr unofficial.import_charsets
+    }
+
     // 6100  A9 00      lda  #$00       // TODO: what are these variables           
     // 6102  8D C0 BC   sta  WBCC0                 
     // 6105  8D C1 BC   sta  WBCC1                 
@@ -78,10 +83,13 @@ skip_prep:
     // 614A
     jsr common.clear_screen
     jsr common.clear_sprites
-    not_original: {
-        // replaces 6150 - 6219
-        jsr unofficial.import_charsets
-    }
+    // skip 6150 - 618A
+    // 618b
+    lda #>COLRAM
+    sec
+    sbc #>SCNMEM
+    sta screen.color_mem_offset
+    // skip 6193 - 6219
     // 621A
     lda #$80  
     sta state.current
@@ -113,9 +121,9 @@ prep:
     sta interrupt.raster_fn_ptr
     lda CINV+1
     sta interrupt.raster_fn_ptr+1
-
     // skip 4711-475F - moves stuff around. we took a snapshot after the moves completed.
 
+main_prep_game_states:
     // 4766
     // Configure game state function handlers.
     ldx  #$05                         
@@ -267,12 +275,17 @@ stack_ptr_store: .byte $00
     current_fn_ptr: .word $0000 // Pointer to code that will run in the current state
 }
 
+.namespace screen {
+    // BF19
+    color_mem_offset: .byte $00 // Screen offset to color ram
+}
+
 .namespace temp {
     // BF1A
-    data__curr_color: .byte $00 
+    data__curr_color: .byte $00  // Color of the current string being rendered
 
     // BF1B
-    ptr__sprite: .byte $00 
+    ptr__sprite: .byte $00 // Sprite data pointer
         
     // BF30
     data__curr_line: .byte $00

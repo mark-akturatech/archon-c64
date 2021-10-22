@@ -276,11 +276,8 @@ skip_sceen_row:
     // Determine start screen and color memory addresses.
     lda #>SCNMEM  // Screen memory hi byte
     sta FREEZP+3 // Screen memory pointer
-    not_original_1: {
-        // clc
-        // adc  WBF19 // Derive color memory address
-        lda #$D8 // Hardcode color memory offset so we can move the screen memory around
-    }
+    clc
+    adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
     bit main.temp.flag__adv_str           
     bvc !next+ // flag = $c0

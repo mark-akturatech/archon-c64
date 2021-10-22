@@ -52,6 +52,8 @@ Some crazy logic lives here. All it does is move stuff around and performs copy 
 sort of decryption. It takes the source code in 0x6a00 to 0xffff and moves stuff around to various memory locations.
 It then executes 6100.
 
+This block also copies data in to the character data area on our graphic block.
+
 ### Block3: 6100 to 6128
 This moves stuff out of the area of memory we will use for graphics (4400 - 6000) to 095D. It also copies several
 constant values to many places in memory.
