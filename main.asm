@@ -280,21 +280,32 @@ stack_ptr_store: .byte $00
     color_mem_offset: .byte $00 // Screen offset to color ram
 }
 
+// Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
+// readbility.
 .namespace temp {
     // BF1A
-    data__curr_color: .byte $00  // Color of the current string being rendered
+    data__curr_color: // Color of the current intro string being rendered
+        .byte $00
 
     // BF1B
-    ptr__sprite: .byte $00 // Sprite data pointer
+    ptr__sprite: // Intro sprite data pointer
+        .byte $00
+
+    // BF22
+    flag__sprites_initialized: // Is TRUE if intro character sprites are initialized
+         .byte $00
         
     // BF30
-    data__curr_line: .byte $00
+    data__curr_line: // Current screen line used while rendering repeated strings in into page
+        .byte $00
     
     // BD3A
-    data__msg_offset: .byte $00
+    data__msg_offset: // Offset of current message being rendered in into page
+        .byte $00
 
     // BF3C
-    flag__adv_str: .byte $00
+    flag__string_control: // Used to control string rendering in intro page
+        .byte $00
 
 }
 
@@ -327,4 +338,9 @@ stack_ptr_store: .byte $00
 #if INCLUDE_GAME
     game: .import binary "/assets/charset-game.bin"
 #endif
+}
+
+.namespace math {
+    // 8DC3
+    pow2: .byte $01, $02, $04, $08, $10, $20, $40, $80 // Pre-calculated powers of 2
 }

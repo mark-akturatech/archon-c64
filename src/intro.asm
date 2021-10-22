@@ -44,7 +44,7 @@ entry:
     sta BGCOL0
 
     // Set multicolor sprite second color.
-    lda sprite.color
+    lda sprite.logo_color
     sta SPMC0
     sta SPMC1
 
@@ -90,12 +90,12 @@ import_sprites:
     lda main.temp.ptr__sprite
     sta SPTMEM,x
     dec main.temp.ptr__sprite
-    lda sprite.color,x
+    lda sprite.logo_color,x
     sta SP0COL,x
-    lda sprite.x_pos,x
+    lda sprite.logo_x_pos,x
     sta SP0X,y
     sta sprite.curr_x_pos,x
-    lda sprite.y_pos,x
+    lda sprite.logo_y_pos,x
     sta SP0Y,y
     sta sprite.curr_y_pos,x
     dex
@@ -161,7 +161,7 @@ scroll_up:
 // AA8B
 state__draw_freefall_logo:
     lda #$80                         
-    sta main.temp.flag__adv_str // Flag is used for 00-read string row from string data; 80-provide manual row in X
+    sta main.temp.flag__string_control
 
     // Remove sprites 4 to 7 (Freefall logo).
     // The sprites are replaces with text characters after the animation has completed.
@@ -193,7 +193,7 @@ state__draw_freefall_logo:
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
     // read the screen rows from the remaining string messages.
     lda #$00
-    sta main.temp.flag__adv_str
+    sta main.temp.flag__string_control
     jsr screen_draw_text
     //
     dec main.temp.data__msg_offset // Set to pointer next string to display in next state
@@ -263,7 +263,7 @@ get_next_char:
 // The string is terminated with a $ff byte.
 // Spaces are represented as $00.
 screen_calc_start_addr:
-    lda main.temp.flag__adv_str           
+    lda main.temp.flag__string_control           
     bmi skip_sceen_row // flag = $80 or $c0
     // Read screen row.
     lda (FREEZP),y                
@@ -279,7 +279,7 @@ skip_sceen_row:
     clc
     adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
-    bit main.temp.flag__adv_str           
+    bit main.temp.flag__string_control           
     bvc !next+ // flag = $c0
     lda #$06 // Hard coded screen column offset if BF3C flag set
     bne skip_sceen_column
@@ -311,7 +311,7 @@ state__show_authors:
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
-    sta main.temp.flag__adv_str
+    sta main.temp.flag__string_control
     lda #$09
     sta main.temp.data__msg_offset        
     ldx #$18
@@ -360,10 +360,10 @@ state__avatar_bounce:
     clc                               
     adc sprite.x_direction_offset     
     sta sprite.curr_x_pos,x    
-    sta SP0X,y                    
-    dey                               
-    dey                               
-    dex                               
+    sta SP0X,y
+    dey
+    dey
+    dex
     bpl !loop-                        
     // Reset the x and y position and reverse direction.
     dec sprite.y_move_counter
@@ -388,12 +388,12 @@ state__avatar_bounce:
 // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
 // ABE2
 state__avatar_color_scroll:
-    inc sprite.avatar_logo_color_delay 
-    lda sprite.avatar_logo_color_delay 
+    inc sprite.animation_delay 
+    lda sprite.animation_delay 
     and #$07
     bne !return+                        
-    inc sprite.avatar_logo_color 
-    lda sprite.avatar_logo_color 
+    inc sprite.animation_counter 
+    lda sprite.animation_counter 
     and #$0F                     
     sta SPMC0                     
     clc                             
@@ -413,7 +413,77 @@ state__avatar_color_scroll:
 
 // AD83
 state__chase_scene:
-    jmp common.complete_interrupt
+    lda main.temp.flag__sprites_initialized    
+    bpl chase_set_sprites // Initialise sprites on first run only
+    jmp animate_characters     
+
+chase_set_sprites:
+    lda #BLACK
+    sta SPMC0 // Set sprite multicolor (character border) to black
+    lda #$80                         
+    sta main.temp.flag__sprites_initialized // Set sprites intiialised flag
+    // Confifure sprite colors and positions
+    ldx  #$03                         
+!loop:
+    lda sprite.curr_x_pos,x    
+    lsr                               
+    sta sprite.curr_x_pos,x    
+    lda sprite.character_color,x 
+    sta SP0COL,x 
+    dex                               
+    bpl !loop-
+    jmp animate_characters     
+
+// ADC2
+// Animate logo characters by moving them across the screen and displaying animation frames.
+animate_characters:
+    ldx #$03
+    // Animate on every other frame.
+    // The code below just toggles a flag back and forth between the minus state.
+    lda sprite.animation_delay 
+    eor #$FF                         
+    sta sprite.animation_delay 
+    bmi !return+
+    //
+    inc sprite.animation_counter // Counter is used to set the animation frame
+//Move character sprites.
+!loop:
+    txa
+    asl
+    tay
+    lda sprite.curr_x_pos,x    
+    cmp sprite.character_end_x_pos,x 
+    beq !next+
+    clc
+    adc sprite.character_direction,x
+    sta sprite.curr_x_pos,x
+    asl // Move by two pixels at a time
+    sta SP0X,y
+    // C64 requires 9 bits for sprite X position. Therefore sprite is set using sprite X position AND we may need to
+    // set the nineth bit in MSIGX (offset bit by spreit enumber).
+    bcc clear_sprite_x_pos_msb
+    lda MSIGX
+    ora main.math.pow2,x
+    sta MSIGX
+    jmp set_character_frame
+clear_sprite_x_pos_msb:
+    lda main.math.pow2,x             
+    eor #$FF
+    and MSIGX
+    sta MSIGX
+
+//Set the sprite pointer to point to one of four sprites used for each character. A different frame is shown on each movement.
+set_character_frame:
+    lda sprite.animation_counter 
+    and #$03 // 1-4 animation frames
+    clc
+    adc sprite.character_sprite_offsets,x 
+    sta SPTMEM,x                     
+!next:
+    dex
+    bpl !loop-
+!return:
+    jmp  common.complete_interrupt
 
 // AC0E
 // Complete the current game state and move on.
@@ -431,10 +501,10 @@ state__end_intro:
 // interrupt handler pointers
 .namespace sprite {
     // BCE7
-    avatar_logo_color: .byte $00 // Color of avatar sprite used for color scrolling
+    animation_counter: .byte $00 // Color of avatar sprite used for color scrolling
 
     // BCE8
-    avatar_logo_color_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
+    animation_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
 
     // BCE9
     y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
@@ -498,13 +568,29 @@ state__end_intro:
         .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
 
     // A97A
-    y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // Initial sprite y-position
+    logo_y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // Initial sprite y-position for intro logo sprites
 
     // A981
-    x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc // Initial sprite x-position
+    logo_x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc // Initial sprite x-position for intro logo sprites
 
     // A988
-    color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of each sprite
+    logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
+
+    // ADB2
+    character_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
+
+    // ADB6
+    character_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite
+
+    // ADBA
+    character_sprite_offsets: // Screen pointer sprite offsets for each character
+        .byte (VICGOFF / BYTES_PER_SPRITE) + 24
+        .byte (VICGOFF / BYTES_PER_SPRITE) + 28
+        .byte (VICGOFF / BYTES_PER_SPRITE) + 32
+        .byte (VICGOFF / BYTES_PER_SPRITE) + 36
+
+    // ADBE
+    character_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase character sprites
 }
 
 .namespace screen {
@@ -556,7 +642,7 @@ state__end_intro:
         .byte $ff
 
     // A907
-    string_6: // Clear part of screen
+    string_6: // Emptry string under authors - presumably here to allow text to be added for test versions etc
         .byte $0f, $01
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
