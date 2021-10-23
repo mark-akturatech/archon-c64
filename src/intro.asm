@@ -62,19 +62,9 @@ entry:
 // Imports sprites in to graphics area.
 // NOTE I am not using the original source code to do this. It is very dependent on location and uses sprites stored
 // in a non standard way (I could be wrong here). Instead, i have a direct sprite.bin file and copy the sprites in to
-// the correct location using a flexible matrix copy function described in the `notOriginal.asm` file.
+// the correct location using a flexible matrix copy function described in the `not_original.asm` file.
 import_sprites:
-    not_original: {
-        lda #<notOriginal.sprite.offset
-        sta FREEZP
-        lda #>notOriginal.sprite.offset
-        sta FREEZP+1
-        lda #<notOriginal.sprite.source
-        sta FREEZP+2
-        lda #>notOriginal.sprite.source
-        sta FREEZP+3
-        jsr notOriginal.move_sprites
-    }
+    jsr not_original.import_intro_sprites
 
     // AA09
     // Pointer to first sprite: 64 bytes per sprite, start at graphmem offset. we add 6 as we are setting the first

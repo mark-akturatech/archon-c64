@@ -15,7 +15,7 @@
 #import "src/io.asm"
 #import "src/const.asm"
 
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, Assets"]
+.file [name="main.prg", segments="Upstart, Main, Common, Intro, Board, Game, Assets"]
 
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
@@ -30,7 +30,7 @@
 .segmentdef DataEnd [startAfter="Data", max=$7fff, virtual]
 
 #import "src/common.asm"
-#import "src/not-original.asm"
+#import "src/not_original.asm"
 #if INCLUDE_INTRO 
     #import "src/intro.asm"
     #import "src/board.asm"
@@ -53,12 +53,10 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
-    // Load in character sets (done in 0x100 copy code in original source).
-    not_original: {
-        // character sets are loaded in some of the copy/move routines in 0100-01ff
-        jsr notOriginal.import_charsets
-        jsr notOriginal.clear_variable_space
-    }
+    // Load in character sets.
+    // Character sets are loaded in some of the copy/move routines in 0100-01ff.
+    jsr not_original.import_charsets
+    jsr not_original.clear_variable_space
 
     // 6100  A9 00      lda  #$00       // TODO: what are these variables           
     // 6102  8D C0 BC   sta  WBCC0                 
@@ -254,14 +252,14 @@ play_intro:
 #if INCLUDE_GAME
         .word game.entry // TODO: this could be wrong
 #else
-        .word notOriginal.empty_sub
+        .word not_original.empty_sub
 #endif
 #if INCLUDE_INTRO
         .word board.entry // TODO: this could be wrong
         .word intro.entry
 #else
-        .word notOriginal.empty_sub
-        .word notOriginal.empty_sub
+        .word not_original.empty_sub
+        .word not_original.empty_sub
 #endif
 }
 

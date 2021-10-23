@@ -1,4 +1,4 @@
-.filenamespace notOriginal
+.filenamespace not_original
 
 //---------------------------------------------------------------------------------------------------------------------
 // Contains routines that are not part of the original source code but have been developed to replace original
@@ -90,6 +90,20 @@ clear_variable_space:
     cpx #>data_end
     bne !loop-
     rts
+
+#if INCLUDE_INTRO
+// Imports intro page sprites in the graphics sprite area.
+import_intro_sprites:
+    lda #<sprite.intro_offset
+    sta FREEZP
+    lda #>sprite.intro_offset
+    sta FREEZP+1
+    lda #<sprite.intro_source
+    sta FREEZP+2
+    lda #>sprite.intro_source
+    sta FREEZP+3
+    jmp move_sprites
+#endif
 
 // Moves sprites from a given memory location to a sprite locations specified in a sprite matrix.
 // Prerequisites:
@@ -184,13 +198,13 @@ empty_sub:
     // - 11-14: left facing troll animation frames
     // - 15-18: right facing golum animation frames
     // - 19-22: right facing goblin animation frames
-    source: .import binary "/assets/sprites-intro.bin"
+    intro_source: .import binary "/assets/sprites-intro.bin"
 
     // Represents the sprite locations within grapphics memory that each sprite will occupy. See comment on
     // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite,
     // second word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM
     // location. The location list is ffff terminated. Use fffe to skip a sprite without copying it.
-    offset:
+    intro_offset:
         .word $0000, $0040, $0080, $00C0, $0100, $0140, $0180, $0600
         .word $0640, $0680, $06C0, $0700, $0740, $0780, $07C0, $0800
         .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
@@ -201,7 +215,7 @@ empty_sub:
 // Define data address boundaries.
 // Main.asm defines segments `DataStart` and `DataEnd` to bookend the data segment. We can use labels in the bookends
 // to read the start and end of the data segment memory reason. We need to do this as data is not stored in the source
-// file and we therefore need to "zero out' the data area
+// file and we therefore need to "zero out' the data area before we can use it.
 //---------------------------------------------------------------------------------------------------------------------
 .segment DataStart
     data_start:

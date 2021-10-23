@@ -2,8 +2,7 @@
 Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
 
 The code is intended to be a byte by byte replication of the source logic possible. Some very minor liberties have
-been taken where there were no options. In this case, i have included the code in an 'notOriginal.asm' file and wrapped
-the calling code in a 'notOriginal' namespace.
+been taken where there were no options. In this case, i have included the code in an 'not_original.asm' file.
 
 NOTE that the code does not reside in the original memory locations. The code was replicated to be fully relocatable
 and therefore is loaded in to contiguous memory for ultimate readability.
