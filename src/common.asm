@@ -246,12 +246,14 @@ get_next_command:
 set_state:
     lda main.state.counter
     inc main.state.counter
+#if INCLUDE_INTRO
     asl
     tay
     lda intro.state.fn_ptr,y
     sta main.state.current_fn_ptr
     lda intro.state.fn_ptr+1,y               
     sta main.state.current_fn_ptr+1
+#endif
     jmp get_next_command
 clear_note:
     ldy #$04
@@ -416,31 +418,6 @@ intro_music:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
-//---------------------------------------------------------------------------------------------------------------------
-.segment Data
-
-.namespace sound {
-    // BD66
-    current_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
-
-    // BF08
-    current_phrase_data_fn_ptr: .word $0000 // Pointer to function to read current phrase for current voice
-
-    // BF0B
-    new_note_delay: .byte $00, $00, $00 // New note delay timer
-
-    // BF4A
-    note_delay_counter: .byte $00, $00, $00 // Current note delay countdown
-
-    // BF4D
-    current_control: .byte $00, $00, $00 // Current voice control value
-
-    // BF50
-    music_track_flag: .byte $00 // Is 00 for title music and 80 for game end music
-}
-
-//---------------------------------------------------------------------------------------------------------------------
 // Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
@@ -574,4 +551,29 @@ intro_music:
 #endif
     outro_phrase_V3_ptr:
         .word phrase_20 // Outro music voice 3 phrase list
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Data
+
+.namespace sound {
+    // BD66
+    current_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
+
+    // BF08
+    current_phrase_data_fn_ptr: .word $0000 // Pointer to function to read current phrase for current voice
+
+    // BF0B
+    new_note_delay: .byte $00, $00, $00 // New note delay timer
+
+    // BF4A
+    note_delay_counter: .byte $00, $00, $00 // Current note delay countdown
+
+    // BF4D
+    current_control: .byte $00, $00, $00 // Current voice control value
+
+    // BF50
+    music_track_flag: .byte $00 // Is 00 for title music and 80 for game end music
 }

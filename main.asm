@@ -15,7 +15,7 @@
 #import "src/io.asm"
 #import "src/const.asm"
 
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, Data, Assets"]
+.file [name="main.prg", segments="Upstart, Main, Common, Intro, Assets"]
 
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
@@ -23,11 +23,14 @@
 .segmentdef Intro [startAfter="Common"]
 .segmentdef Board [startAfter="Intro"]
 .segmentdef Game [startAfter="Board"]
-.segmentdef Data [startAfter="Game"]
-.segmentdef Assets [startAfter="Data", align=$100]
+.segmentdef Assets [startAfter="Game", align=$100]
+//
+.segmentdef DataStart [startAfter="Assets", virtual]
+.segmentdef Data [startAfter="DataStart", virtual]
+.segmentdef DataEnd [startAfter="Data", max=$7fff, virtual]
 
 #import "src/common.asm"
-#import "src/unofficial.asm"
+#import "src/not-original.asm"
 #if INCLUDE_INTRO 
     #import "src/intro.asm"
     #import "src/board.asm"
@@ -50,9 +53,11 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
+    // Load in character sets (done in 0x100 copy code in original source).
     not_original: {
         // character sets are loaded in some of the copy/move routines in 0100-01ff
-        jsr unofficial.import_charsets
+        jsr notOriginal.import_charsets
+        jsr notOriginal.clear_variable_space
     }
 
     // 6100  A9 00      lda  #$00       // TODO: what are these variables           
@@ -76,22 +81,18 @@ skip_prep:
     ldx stack_ptr_store
     txs
     // skip 612c to 612f as this resets the stack pointer back after the decryption/move logic has played with it.
-    // 6130
     jsr common.stop_sound
     // skip 6133 to 6148 as it clears variable area. this is needed due to app relocating code on load. we don't need
     // this.
-    // 614A
     jsr common.clear_screen
     jsr common.clear_sprites
-    // skip 6150 - 618A
-    // 618b
+    // skip 6150 to 618A as it moves more stuff around. not too sure why yet.
     lda #>COLRAM
     sec
     sbc #>SCNMEM
     sta screen.color_mem_offset
-    // skip 6193 - 6219
-    // 621A
-    lda #$80  
+    // skip 6193 to 6219 as it moves more stuff around. not too sure why yet.
+    lda #$80
     sta state.current
     // 621F  A2 50      ldx  #$50               // TODO: what are these variables       
     // W6221:
@@ -115,16 +116,13 @@ prep:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #$80
     sta INITIALIZED
-
     // Store system interrupt handler pointer so we can call it from our own interrupt handler.
     lda CINV
     sta interrupt.raster_fn_ptr
     lda CINV+1
     sta interrupt.raster_fn_ptr+1
-    // skip 4711-475F - moves stuff around. we took a snapshot after the moves completed.
-
+    // skip 4711-475F - moves stuff around. we'll just set any intiial values in our assets segment.
 main_prep_game_states:
-    // 4766
     // Configure game state function handlers.
     ldx  #$05                         
 !loop:
@@ -246,6 +244,33 @@ play_intro:
     jmp  (STATE_PTR+4)
 
 //---------------------------------------------------------------------------------------------------------------------
+// Assets
+//---------------------------------------------------------------------------------------------------------------------
+.segment Assets
+
+.namespace state {
+    // 4760
+    game_fn_ptr: // Pointer to each main game function (intro, board, game)
+#if INCLUDE_GAME
+        .word game.entry // TODO: this could be wrong
+#else
+        .word notOriginal.empty_sub
+#endif
+#if INCLUDE_INTRO
+        .word board.entry // TODO: this could be wrong
+        .word intro.entry
+#else
+        .word notOriginal.empty_sub
+        .word notOriginal.empty_sub
+#endif
+}
+
+.namespace math {
+    // 8DC3
+    pow2: .byte $01, $02, $04, $08, $10, $20, $40, $80 // Pre-calculated powers of 2
+}
+
+//---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
@@ -306,41 +331,4 @@ stack_ptr_store: .byte $00
     // BF3C
     flag__string_control: // Used to control string rendering in intro page
         .byte $00
-
-}
-
-//---------------------------------------------------------------------------------------------------------------------
-// Assets
-//---------------------------------------------------------------------------------------------------------------------
-.segment Assets
-
-.namespace state {
-    // 4760
-    game_fn_ptr: // Pointer to each main game function (intro, board, game)
-#if INCLUDE_GAME
-        .word game.entry // TODO: this could be wrong
-#else
-        .word unofficial.empty_sub
-#endif
-#if INCLUDE_INTRO
-        .word board.entry // TODO: this could be wrong
-        .word intro.entry
-#else
-        .word unofficial.empty_sub
-        .word unofficial.empty_sub
-#endif
-}
-
-.namespace charset {
-#if INCLUDE_INTRO    
-    intro: .import binary "/assets/charset-intro.bin"
-#endif
-#if INCLUDE_GAME
-    game: .import binary "/assets/charset-game.bin"
-#endif
-}
-
-.namespace math {
-    // 8DC3
-    pow2: .byte $01, $02, $04, $08, $10, $20, $40, $80 // Pre-calculated powers of 2
 }

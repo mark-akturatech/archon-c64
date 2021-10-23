@@ -1,4 +1,4 @@
-.filenamespace unofficial
+.filenamespace notOriginal
 
 //---------------------------------------------------------------------------------------------------------------------
 // Contains routines that are not part of the original source code but have been developed to replace original
@@ -11,14 +11,7 @@
 
 .segment Common
 
-// LOAD CHARACTER MAPS
-// Source 6152 to 623e copies the character maps in to graphics area. I can't be sure here, but the code seems to
-// deofuscate (or decrypt) the character maps as they don't appear to be directly represented anywhere in memory.
-// So instead, i created a added a breakpoint after the copy was completed and saved direct bin copies of the
-// character maps (so that they can be loaded in to character map tools such as vchar64). Therefore, i now need to
-// implement my own code to load the character maps.
-//
-// Archon loads 2 character maps:
+// Load the following character maps in to graphics memory:
 //  4000 - 43ff: Half character map for title page characters
 //  4800 - 4fff: Game character set including game characters
 //
@@ -31,9 +24,9 @@
 // The character set will be loaded in to the correct locations within the selected `videoBank`.
 import_charsets:
 #if INCLUDE_INTRO
-    lda #<main.charset.intro
+    lda #<charset.intro
     sta FREEZP
-    lda #>main.charset.intro
+    lda #>charset.intro
     sta FREEZP+1
     lda #<CHRMEM1
     sta FREEZP+2
@@ -43,9 +36,9 @@ import_charsets:
     jsr block_copy
 #endif
 #if INCLUDE_GAME
-    lda #<main.charset.game
+    lda #<charset.game
     sta FREEZP
-    lda #>main.charset.game
+    lda #>charset.game
     sta FREEZP+1
     lda #<CHRMEM2
     sta FREEZP+2
@@ -56,7 +49,6 @@ import_charsets:
 #endif
     rts
 
-// BLOCK COPY 
 // Copy a block of code from one memory location to another. A block consists of one or more contiguous blocks of
 // 255 bytes. 
 // Prerequisites:
@@ -76,7 +68,29 @@ block_copy:
     bne !loop-
     rts
 
-// MOVE SPRITES
+// Ensures that the variable space used by the application is reset to 00 values. This is required so that we don't
+// have to include the blank variables in our output file.
+clear_variable_space:
+    lda #<data_start
+    sta FREEZP
+    lda #>data_start
+    sta FREEZP+1
+    ldy #$00
+    lda #$00
+!loop:
+    sta (FREEZP),y
+    inc FREEZP
+    bne !next+
+    inc FREEZP+1
+!next:
+    ldx FREEZP
+    cpx #<data_end
+    bne !loop-
+    ldx FREEZP+1
+    cpx #>data_end
+    bne !loop-
+    rts
+
 // Moves sprites from a given memory location to a sprite locations specified in a sprite matrix.
 // Prerequisites:
 // - Set word FREEZP to the source location of the sprite matrix.
@@ -145,3 +159,51 @@ skip_copy:
 // empty subroutine for use when code is disabled using compiler variables
 empty_sub:
     rts
+
+//---------------------------------------------------------------------------------------------------------------------
+// Assets
+//---------------------------------------------------------------------------------------------------------------------
+.segment Assets
+
+.namespace charset {
+#if INCLUDE_INTRO    
+    intro: .import binary "/assets/charset-intro.bin"
+#endif
+#if INCLUDE_GAME
+    game: .import binary "/assets/charset-game.bin"
+#endif
+}
+
+#if INCLUDE_INTRO 
+.namespace sprite {
+    // sprites used by title page
+    // sprites are contained in the following order:
+    // - 0-3: Archon logo
+    // - 4-6: Freefall logo
+    // - 7-10: left facing knight animation frames
+    // - 11-14: left facing troll animation frames
+    // - 15-18: right facing golum animation frames
+    // - 19-22: right facing goblin animation frames
+    source: .import binary "/assets/sprites-intro.bin"
+
+    // Represents the sprite locations within grapphics memory that each sprite will occupy. See comment on
+    // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite,
+    // second word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM
+    // location. The location list is ffff terminated. Use fffe to skip a sprite without copying it.
+    offset:
+        .word $0000, $0040, $0080, $00C0, $0100, $0140, $0180, $0600
+        .word $0640, $0680, $06C0, $0700, $0740, $0780, $07C0, $0800
+        .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
+}
+#endif
+
+//---------------------------------------------------------------------------------------------------------------------
+// Define data address boundaries.
+// Main.asm defines segments `DataStart` and `DataEnd` to bookend the data segment. We can use labels in the bookends
+// to read the start and end of the data segment memory reason. We need to do this as data is not stored in the source
+// file and we therefore need to "zero out' the data area
+//---------------------------------------------------------------------------------------------------------------------
+.segment DataStart
+    data_start:
+.segment DataEnd
+    data_end:

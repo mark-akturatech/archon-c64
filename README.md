@@ -2,8 +2,8 @@
 Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
 
 The code is intended to be a byte by byte replication of the source logic possible. Some very minor liberties have
-been taken where there were no options. In this case, i have included the code in an 'Unofficial.asm' file and wrapped
-the calling code in a 'not_original' namespace.
+been taken where there were no options. In this case, i have included the code in an 'notOriginal.asm' file and wrapped
+the calling code in a 'notOriginal' namespace.
 
 NOTE that the code does not reside in the original memory locations. The code was replicated to be fully relocatable
 and therefore is loaded in to contiguous memory for ultimate readability.
@@ -48,11 +48,11 @@ The block then copies in to 0x00ab: 4c 00 01 01 80 0c 6a
 And finally copies 0x085f-0x095e to 0x0100-0x01ff and then executes 0x0100.
 
 ### Block3: 0100 to 01ff
-Some crazy logic lives here. All it does is move stuff around and performs copy logic. Pretty sure it performs some
-sort of decryption. It takes the source code in 0x6a00 to 0xffff and moves stuff around to various memory locations.
-It then executes 6100.
+Some crazy logic lives here. All it does is move stuff around and performs copy logic. It takes the source code in
+0x6a00 to 0xffff and moves stuff around to various memory locations. This block also copies data in to the character
+data area on our graphic block.
 
-This block also copies data in to the character data area on our graphic block.
+It then executes 6100.
 
 ### Block3: 6100 to 6128
 This moves stuff out of the area of memory we will use for graphics (4400 - 6000) to 095D. It also copies several
@@ -60,4 +60,4 @@ constant values to many places in memory.
 
 However, we do one important thng here, we store CINV pointer locally for use in our interrupt handler
 
-We will start our app at address $6129 (but we will include the CINV copy code).
+We will use a snapshot of the app with a breakpoint at address $6129 for disassembly.

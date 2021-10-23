@@ -16,17 +16,17 @@ entry:
 
     // Configure screen.
     lda SCROLX
-    and #%1110_1111     // multicolor bitmap mode off
+    and #%1110_1111 // multicolor bitmap mode off
     sta SCROLX
-    lda #%0001_0000     // $0000-$07FF char memory, $0400-$07FF screen memory
+    lda #%0001_0000 // $0000-$07FF char memory, $0400-$07FF screen memory
     sta VMCSB
 
     // Configure sprites.
-    lda #%0000_1111     // first 4 sprites multicolor; last 4 sprints single color
+    lda #%0000_1111 // first 4 sprites multicolor; last 4 sprints single color
     sta SPMC
-    lda #%1111_0000     // first 4 sprites double width; last 4 sprites single width
+    lda #%1111_0000 // first 4 sprites double width; last 4 sprites single width
     sta XXPAND
-    lda #%1111_1111     // enable all sprites
+    lda #%1111_1111 // enable all sprites
     sta SPENA
 
     // Set interrupt handler to set intro loop state.
@@ -62,18 +62,18 @@ entry:
 // Imports sprites in to graphics area.
 // NOTE I am not using the original source code to do this. It is very dependent on location and uses sprites stored
 // in a non standard way (I could be wrong here). Instead, i have a direct sprite.bin file and copy the sprites in to
-// the correct location using a flexible matrix copy function described in the `unofficial.asm` file.
+// the correct location using a flexible matrix copy function described in the `notOriginal.asm` file.
 import_sprites:
     not_original: {
-        lda #<sprite.offset
+        lda #<notOriginal.sprite.offset
         sta FREEZP
-        lda #>sprite.offset
+        lda #>notOriginal.sprite.offset
         sta FREEZP+1
-        lda #<sprite.source
+        lda #<notOriginal.sprite.source
         sta FREEZP+2
-        lda #>sprite.source
+        lda #>notOriginal.sprite.source
         sta FREEZP+3
-        jsr unofficial.move_sprites
+        jsr notOriginal.move_sprites
     }
 
     // AA09
@@ -416,7 +416,6 @@ state__chase_scene:
     lda main.temp.flag__sprites_initialized    
     bpl chase_set_sprites // Initialise sprites on first run only
     jmp animate_characters     
-
 chase_set_sprites:
     lda #BLACK
     sta SPMC0 // Set sprite multicolor (character border) to black
@@ -471,8 +470,8 @@ clear_sprite_x_pos_msb:
     eor #$FF
     and MSIGX
     sta MSIGX
-
-//Set the sprite pointer to point to one of four sprites used for each character. A different frame is shown on each movement.
+// Set the sprite pointer to point to one of four sprites used for each character. A different frame is shown on each
+// movement.
 set_character_frame:
     lda sprite.animation_counter 
     and #$03 // 1-4 animation frames
@@ -494,49 +493,6 @@ state__end_intro:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
-//---------------------------------------------------------------------------------------------------------------------
-.segment Data
-
-// interrupt handler pointers
-.namespace sprite {
-    // BCE7
-    animation_counter: .byte $00 // Color of avatar sprite used for color scrolling
-
-    // BCE8
-    animation_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
-
-    // BCE9
-    y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
-
-    // BCEA
-    x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
-
-    // BD15
-    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
-
-    // BD3E
-    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
-    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
-
-    // BD46
-    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
-    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
-
-    // BD58
-    x_direction_flag: .byte $00 // Is positive number for right direction, negative for left direction
-    
-    // BD59
-    y_direction_flag: .byte $00 // Is positive number for down direction, negative for up direction
-
-    // BF23
-    y_direction_offset: .byte $00 // Amount added to y plan to move sprite to the left or right (uses rollover)
-
-    // BF24
-    x_direction_offset: .byte $00 // Amount added to x plan to move sprite to the left or right (uses rollover)
-}
-
-//---------------------------------------------------------------------------------------------------------------------
 // Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
@@ -548,25 +504,6 @@ state__end_intro:
 }
 
 .namespace sprite {
-    // sprites used by title page
-    // sprites are contained in the following order:
-    // - 0-3: Archon logo
-    // - 4-6: Freefall logo
-    // - 7-10: left facing knight animation frames
-    // - 11-14: left facing troll animation frames
-    // - 15-18: right facing golum animation frames
-    // - 19-22: right facing goblin animation frames
-    source: .import binary "/assets/sprites-intro.bin"
-
-    // Represents the sprite locations within grapphics memory that each sprite will occupy. See comment on
-    // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite,
-    // second word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM
-    // location. The location list is ffff terminated. Use fffe to skip a sprite without copying it.
-    offset:
-        .word $0000, $0040, $0080, $00C0, $0100, $0140, $0180, $0600
-        .word $0640, $0680, $06C0, $0700, $0740, $0780, $07C0, $0800
-        .word $0840, $0880, $08C0, $0900, $0940, $0980, $09C0, $ffff
-
     // A97A
     logo_y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // Initial sprite y-position for intro logo sprites
 
@@ -662,4 +599,47 @@ state__end_intro:
         .byte $80, $16, $01
         .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
         .byte $ff
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Data
+
+// interrupt handler pointers
+.namespace sprite {
+    // BCE7
+    animation_counter: .byte $00 // Color of avatar sprite used for color scrolling
+
+    // BCE8
+    animation_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
+
+    // BCE9
+    y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
+
+    // BCEA
+    x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
+
+    // BD15
+    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
+
+    // BD3E
+    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
+    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
+
+    // BD46
+    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
+    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
+
+    // BD58
+    x_direction_flag: .byte $00 // Is positive number for right direction, negative for left direction
+    
+    // BD59
+    y_direction_flag: .byte $00 // Is positive number for down direction, negative for up direction
+
+    // BF23
+    y_direction_offset: .byte $00 // Amount added to y plan to move sprite to the left or right (uses rollover)
+
+    // BF24
+    x_direction_offset: .byte $00 // Amount added to x plan to move sprite to the left or right (uses rollover)
 }
