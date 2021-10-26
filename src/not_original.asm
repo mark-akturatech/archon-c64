@@ -180,7 +180,7 @@ empty_sub:
 .segment Assets
 
 .namespace charset {
-#if INCLUDE_INTRO    
+#if INCLUDE_INTRO 
     intro: .import binary "/assets/charset-intro.bin"
 #endif
 #if INCLUDE_GAME

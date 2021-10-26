@@ -56,7 +56,7 @@ entry:
 
     // Busy wait for break key. Interrupts will play the music and animations while we wait.
     jsr common.wait_for_key
-    rts    
+    rts 
 
 // A98F
 // Imports sprites in to graphics area.
@@ -100,12 +100,12 @@ import_sprites:
 
 // AA42
 interrupt_handler:
-    lda main.state.current
+    lda main.state.flag_update
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda main.state.new
-    sta main.state.current
+    lda main.state.flag_update_on_interrupt
+    sta main.state.flag_update
     jsr common.play_music
     jmp (main.state.current_fn_ptr)
 
@@ -155,11 +155,11 @@ state__draw_freefall_logo:
 
     // Remove sprites 4 to 7 (Freefall logo).
     // The sprites are replaces with text characters after the animation has completed.
-    ldx  #$04
-    lda  #$0F
+    ldx #$04
+    lda #$0F
 !loop:
-    sta SPTMEM,x                     
-    inx                              
+    sta SPTMEM,x 
+    inx 
     cpx #$08
     bcc !loop-
 
@@ -175,7 +175,7 @@ state__draw_freefall_logo:
     stx main.temp.data__curr_line
     jsr screen_draw_text
     ldx main.temp.data__curr_line
-    dex                               
+    dex 
     dec main.temp.data__msg_offset
     ldy main.temp.data__msg_offset
     cpy #$04
@@ -189,24 +189,24 @@ state__draw_freefall_logo:
     dec main.temp.data__msg_offset // Set to pointer next string to display in next state
 
     // Start scrolling Avatar logo colors
-    lda #<state__avatar_color_scroll                      
-    sta main.state.current_fn_ptr    
-    lda #>state__avatar_color_scroll                      
+    lda #<state__avatar_color_scroll 
+    sta main.state.current_fn_ptr 
+    lda #>state__avatar_color_scroll 
     sta main.state.current_fn_ptr+1  
-    jmp common.complete_interrupt  
+    jmp common.complete_interrupt 
 
 // AACF
 // Initiates the draw text routine by selecting a color and text offset.
 // The routine then calls a method to write the text to the screen.
 screen_draw_text:
     ldy main.temp.data__msg_offset
-    lda screen.string_color_data,y    
+    lda screen.string_color_data,y 
     sta main.temp.data__curr_color
-    tya                               
-    asl                               
-    tay                               
+    tya 
+    asl 
+    tay 
     lda screen.string_data_ptr,y 
-    sta FREEZP                    
+    sta FREEZP 
     lda screen.string_data_ptr+1,y 
     sta FREEZP+1                  
     ldy #$00
@@ -217,29 +217,29 @@ screen_draw_text:
 screen_write_chars:
     ldy #$00                         
 get_next_char:
-    lda (FREEZP),y                
-    inc FREEZP                    
+    lda (FREEZP),y 
+    inc FREEZP 
     bne !next+
     inc FREEZP+1
 !next:
-    cmp #$80 // New line                        
+    cmp #$80 // New line 
     bcc !next+                        
     beq screen_calc_start_addr 
     rts
 !next:  
     sta (FREEZP+2),y // Write character
     // Set color.
-    lda (FORPNT),y               
+    lda (FORPNT),y 
     and #$F0                     
-    ora main.temp.data__curr_color        
+    ora main.temp.data__curr_color 
     sta (FORPNT),y
     // Next character.
     inc FORPNT
     inc FREEZP+2                  
-    bne get_next_char                        
+    bne get_next_char 
     inc FREEZP+3                  
     inc FORPNT+1                 
-    jmp get_next_char   
+    jmp get_next_char 
 
 // AB13
 // Derivethe screen starting character offset and color memory offset.
@@ -253,43 +253,43 @@ get_next_char:
 // The string is terminated with a $ff byte.
 // Spaces are represented as $00.
 screen_calc_start_addr:
-    lda main.temp.flag__string_control           
+    lda main.temp.flag__string_control 
     bmi skip_sceen_row // flag = $80 or $c0
     // Read screen row.
-    lda (FREEZP),y                
-    inc FREEZP                    
+    lda (FREEZP),y 
+    inc FREEZP 
     bne !next+
     inc FREEZP+1                  
 !next:
-    tax  // Get screen row from x regsietr
+    tax // Get screen row from x regsietr
 skip_sceen_row:
     // Determine start screen and color memory addresses.
-    lda #>SCNMEM  // Screen memory hi byte
+    lda #>SCNMEM // Screen memory hi byte
     sta FREEZP+3 // Screen memory pointer
     clc
     adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
-    bit main.temp.flag__string_control           
+    bit main.temp.flag__string_control 
     bvc !next+ // flag = $c0
     lda #$06 // Hard coded screen column offset if BF3C flag set
     bne skip_sceen_column
 !next:
-    lda (FREEZP),y                
-    inc FREEZP                    
+    lda (FREEZP),y 
+    inc FREEZP 
     bne skip_sceen_column
     inc FREEZP+1                  
 skip_sceen_column:
-    clc                               
-    adc #$28  // 40 columns per row                       
+    clc 
+    adc #$28  // 40 columns per row 
     bcc !next+
     inc FREEZP+3                  
     inc FORPNT+1                          
 !next:
-    dex                               
-    bne skip_sceen_column                        
+    dex 
+    bne skip_sceen_column 
     sta FREEZP+2                  
-    sta FORPNT                  
-    jmp screen_write_chars   
+    sta FORPNT 
+    jmp screen_write_chars 
 
 // AB4F
 state__show_authors:
@@ -303,19 +303,19 @@ state__show_authors:
     lda #$C0 // Manual row/column
     sta main.temp.flag__string_control
     lda #$09
-    sta main.temp.data__msg_offset        
+    sta main.temp.data__msg_offset 
     ldx #$18
-    jsr screen_draw_text       
+    jsr screen_draw_text 
     // Bounce the Avatar logo.
-    lda #<state__avatar_bounce                      
-    sta main.state.current_fn_ptr    
-    lda #>state__avatar_bounce                      
+    lda #<state__avatar_bounce 
+    sta main.state.current_fn_ptr 
+    lda #>state__avatar_bounce 
     sta main.state.current_fn_ptr+1  
     // Initialize sprite registers used to bounce the logo in the next state.
     lda #$0E
     sta sprite.x_move_counter 
     sta sprite.y_move_counter 
-    lda #$FF                  
+    lda #$FF 
     sta sprite.x_direction_flag 
     jmp common.complete_interrupt
 
@@ -327,7 +327,7 @@ state__avatar_bounce:
     bpl !next+                        
     lda #$FF // -1 (up)
 !next:
-    sta sprite.y_direction_offset  
+    sta sprite.y_direction_offset 
     //
     lda #$01 // +1 (right)
     ldy sprite.x_direction_flag
@@ -339,17 +339,17 @@ state__avatar_bounce:
     ldx #$03
     ldy #$06
 !loop:
-    lda sprite.curr_y_pos,x    
+    lda sprite.curr_y_pos,x 
     // Add the direction pointer to the current sprite positions.
     // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
-    clc                               
-    adc sprite.y_direction_offset     
-    sta sprite.curr_y_pos,x    
-    sta SP0Y,y                    
-    lda sprite.curr_x_pos,x    
-    clc                               
-    adc sprite.x_direction_offset     
-    sta sprite.curr_x_pos,x    
+    clc 
+    adc sprite.y_direction_offset 
+    sta sprite.curr_y_pos,x 
+    sta SP0Y,y 
+    lda sprite.curr_x_pos,x 
+    clc 
+    adc sprite.x_direction_offset 
+    sta sprite.curr_x_pos,x 
     sta SP0X,y
     dey
     dey
@@ -361,16 +361,16 @@ state__avatar_bounce:
     lda #$07 
     sta sprite.y_move_counter 
     lda sprite.y_direction_flag
-    eor #$FF                         
+    eor #$FF 
     sta sprite.y_direction_flag
 !next:
     dec sprite.x_move_counter 
     bne state__avatar_color_scroll 
-    lda #$1C                         
+    lda #$1C 
     sta sprite.x_move_counter 
     lda sprite.x_direction_flag
-    eor #$FF                         
-    sta sprite.x_direction_flag    
+    eor #$FF 
+    sta sprite.x_direction_flag 
 
 // Scroll the colors on the Avatar logo.
 // Here we increase the colours ever 8 counts. The Avatar logo is a multi-colour sprite with the sprite split in to
@@ -384,44 +384,44 @@ state__avatar_color_scroll:
     bne !return+                        
     inc sprite.animation_counter 
     lda sprite.animation_counter 
-    and #$0F                     
+    and #$0F 
     sta SPMC0                     
-    clc                             
+    clc 
     adc #$01                         
-    and #$0F                         
+    and #$0F 
     sta SPMC1 // C64 uses a global multi-color registers that are used for all sprites
     adc #$01                         
-    and #$0F                
+    and #$0F 
     // The avatar logo comprises 3 sprites, so set all to the same color.
     ldy #$03                         
 !loop:
-    sta SP0COL,y                  
-    dey                               
+    sta SP0COL,y 
+    dey 
     bpl !loop-
 !return:
     jmp common.complete_interrupt
 
 // AD83
 state__chase_scene:
-    lda main.temp.flag__sprites_initialized    
+    lda main.temp.flag__sprites_initialized 
     bpl chase_set_sprites // Initialise sprites on first run only
-    jmp animate_characters     
+    jmp animate_characters 
 chase_set_sprites:
     lda #BLACK
     sta SPMC0 // Set sprite multicolor (character border) to black
     lda #$80                         
     sta main.temp.flag__sprites_initialized // Set sprites intiialised flag
     // Confifure sprite colors and positions
-    ldx  #$03                         
+    ldx #$03                         
 !loop:
-    lda sprite.curr_x_pos,x    
-    lsr                               
-    sta sprite.curr_x_pos,x    
+    lda sprite.curr_x_pos,x 
+    lsr 
+    sta sprite.curr_x_pos,x 
     lda sprite.character_color,x 
     sta SP0COL,x 
-    dex                               
+    dex 
     bpl !loop-
-    jmp animate_characters     
+    jmp animate_characters 
 
 // ADC2
 // Animate logo characters by moving them across the screen and displaying animation frames.
@@ -430,7 +430,7 @@ animate_characters:
     // Animate on every other frame.
     // The code below just toggles a flag back and forth between the minus state.
     lda sprite.animation_delay 
-    eor #$FF                         
+    eor #$FF 
     sta sprite.animation_delay 
     bmi !return+
     //
@@ -440,7 +440,7 @@ animate_characters:
     txa
     asl
     tay
-    lda sprite.curr_x_pos,x    
+    lda sprite.curr_x_pos,x 
     cmp sprite.character_end_x_pos,x 
     beq !next+
     clc
@@ -456,7 +456,7 @@ animate_characters:
     sta MSIGX
     jmp set_character_frame
 clear_sprite_x_pos_msb:
-    lda main.math.pow2,x             
+    lda main.math.pow2,x 
     eor #$FF
     and MSIGX
     sta MSIGX
@@ -467,18 +467,18 @@ set_character_frame:
     and #$03 // 1-4 animation frames
     clc
     adc sprite.character_sprite_offsets,x 
-    sta SPTMEM,x                     
+    sta SPTMEM,x 
 !next:
     dex
     bpl !loop-
 !return:
-    jmp  common.complete_interrupt
+    jmp common.complete_interrupt
 
 // AC0E
 // Complete the current game state and move on.
 state__end_intro:
     lda #$80
-    sta main.state.current
+    sta main.state.flag_update
     jmp common.complete_interrupt
     rts
 
@@ -538,7 +538,7 @@ state__end_intro:
         .byte $0b
         .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70
         .byte $71
-        .byte $ff // todo
+        .byte $ff
 
     // A892
     string_3: // Bottom half of "free Fall" logo
@@ -614,11 +614,9 @@ state__end_intro:
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
 
     // BD3E
-    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
     curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
 
     // BD46
-    // TODO: I think this should be in common (why 8 bytes and not 6 otherwise)
     curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
 
     // BD58

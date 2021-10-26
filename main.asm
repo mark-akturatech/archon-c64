@@ -15,14 +15,14 @@
 #import "src/io.asm"
 #import "src/const.asm"
 
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, Board, Game, Assets"]
+.file [name="main.prg", segments="Upstart, Main, Common, Intro, BoardWalk, Game, Assets"]
 
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
-.segmentdef Board [startAfter="Intro"]
-.segmentdef Game [startAfter="Board"]
+.segmentdef BoardWalk [startAfter="Intro"]
+.segmentdef Game [startAfter="BoardWalk"]
 .segmentdef Assets [startAfter="Game", align=$100]
 //
 .segmentdef DataStart [startAfter="Assets", virtual]
@@ -30,10 +30,11 @@
 .segmentdef DataEnd [startAfter="Data", max=$7fff, virtual]
 
 #import "src/common.asm"
+#import "src/board.asm"
 #import "src/not_original.asm"
 #if INCLUDE_INTRO 
     #import "src/intro.asm"
-    #import "src/board.asm"
+    #import "src/board_walk.asm"
 #endif
 #if INCLUDE_GAME
     #import "src/game.asm"
@@ -58,24 +59,25 @@ entry:
     jsr not_original.import_charsets
     jsr not_original.clear_variable_space
 
-    // 6100  A9 00      lda  #$00       // TODO: what are these variables           
-    // 6102  8D C0 BC   sta  WBCC0                 
-    // 6105  8D C1 BC   sta  WBCC1                 
-    // 6108  8D C5 BC   sta  WBCC5                 
-    // 610B  A9 55      lda  #$55                  
-    // 610D  8D C2 BC   sta  WBCC2                 
+    // 6100  A9 00      lda #$00       // TODO: what are these variables 
+    // 6102  8D C0 BC sta WBCC0                 
+    // 6105  8D C1 BC sta WBCC1      // players -> 2, light, dark           
+    // 6108  8D C5 BC sta WBCC5                 
+    lda #$55 // Set light as first player
+    sta board.flag__first_player
     tsx
     stx stack_ptr_store
-    // 6114  A9 80      lda  #$80      // TODO: what are these variables
-    // 6116  8D D1 BC   sta  WBCD1                 
-    // 6119  8D C3 BC   sta  WBCC3                 
-    // 611C  A9 03      lda  #$03                  
-    // 611E  8D CB BC   sta  WBCCB                 
+    lda #$80
+    sta state.flag_play_intro // Non zero to play intro, $00 to skip
+    sta state.flag_setup_progress // Flag used by keycheck routine to test for run/stop or Q (if set)
+    lda #$03                  
+    sta state.NFI_001
     lda INITIALIZED
     bmi skip_prep
     jsr prep
 skip_prep:
     jsr init
+restart_game_loop:
     ldx stack_ptr_store
     txs
     // skip 612c to 612f as this resets the stack pointer back after the decryption/move logic has played with it.
@@ -85,28 +87,56 @@ skip_prep:
     jsr common.clear_screen
     jsr common.clear_sprites
     // skip 6150 to 618A as it moves more stuff around. not too sure why yet.
+    // 618B
     lda #>COLRAM
     sec
     sbc #>SCNMEM
     sta screen.color_mem_offset
     // skip 6193 to 6219 as it moves more stuff around. not too sure why yet.
     lda #$80
-    sta state.current
-    // 621F  A2 50      ldx  #$50               // TODO: what are these variables       
+    sta state.flag_update
+    // 621F A2 50      ldx #$50               // TODO: what are these variables -> board sqaures maybe
     // W6221:
-    // 6221  9D 7C BD   sta  WBD7C,x               
-    // 6224  CA         dex                        
-    // 6225  10 FA      bpl  W6221                 
-    // 6227  8D 24 BD   sta  WBD24                 
-    // 622A  8D 25 BD   sta  WBD25                 
-    // 622D  AD C2 BC   lda  WBCC2                 
-    // W6230:
-    // 6230  8D C6 BC   sta  WBCC6                 
-    // 6233  A0 03      ldy  #$03                  
-    // 6235  B9 D2 8B   lda  W8BD2,y               
-    // 6238  8D 11 BD   sta  WBD11                 
-    // 623B  AD D1 BC   lda  WBCD1
+    // 6221  9D 7C BD sta WBD7C,x 
+    // 6224  CA dex 
+    // 6225  10 FA bpl W6221                 
+    // 6227  8D 24 BD sta WBD24                 
+    // 622A 8D 25 BD sta WBD25                 
+    lda board.flag__first_player                 
+    sta board.flag__current_player
+    // 6233  A0 03      ldy #$03                  
+    // 6235  B9 D2 8B lda W8BD2,y 
+    // 6238  8D 11 BD sta WBD11                 
+    lda state.flag_play_intro 
+    beq skip_intro 
     jsr play_intro
+skip_intro:
+    // Configure SID for main game.
+    lda #$08                         
+    sta PWHI1                     
+    sta PWHI2                     
+    lda #$40                         
+    sta FRELO3                    
+    lda #$0A 
+    sta FREHI3                    
+    lda #%1000_0001 // Confiugre voice 3 as noise waveform
+    sta VCREG3                    
+    lda #%1000_1111 // Turn off voice 3 and keep full volume on other voices
+    sta SIGVOL 
+
+    // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
+    // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
+    lda #%0001_0010
+    sta VMCSB
+    // Enable multicolor text mode.
+    lda SCROLX 
+    ora #%0001_0000
+    sta SCROLX 
+    //
+    lda state.flag_play_intro
+    beq skip_board_walk
+    jsr board_walk.entry
+skip_board_walk:
     rts
 
 // 4700
@@ -122,12 +152,12 @@ prep:
     // skip 4711-475F - moves stuff around. we'll just set any intiial values in our assets segment.
 main_prep_game_states:
     // Configure game state function handlers.
-    ldx  #$05                         
+    ldx #$05                         
 !loop:
-    lda  state.game_fn_ptr,x                      
-    sta  STATE_PTR,x                 
-    dex                               
-    bpl  !loop-
+    lda state.game_fn_ptr,x 
+    sta STATE_PTR,x 
+    dex 
+    bpl !loop-
     rts
 
 // 632D
@@ -221,25 +251,25 @@ init:
 // Call our interrupt handlers.
 // We call a different handler if the interrupt was triggered by a raster line compare event.
 interrupt_interceptor:
-    lda  VICIRQ    
-    and  #%0000_0001
-    beq  !next+
-    sta  VICIRQ
-    jmp  (interrupt.system_fn_ptr)   
+    lda VICIRQ 
+    and #%0000_0001
+    beq !next+
+    sta VICIRQ
+    jmp (interrupt.system_fn_ptr)   
 !next:
-    jmp  (interrupt.raster_fn_ptr) 
+    jmp (interrupt.raster_fn_ptr) 
 
 // 8010
 play_game:
-    jmp  (STATE_PTR)
+    jmp (STATE_PTR)
 
-// 8016
+// 8013
 play_board_setup:
-    jmp  (STATE_PTR+2)
+    jmp (STATE_PTR+2)
 
 // 8016
 play_intro:
-    jmp  (STATE_PTR+4)
+    jmp (STATE_PTR+4)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -255,7 +285,7 @@ play_intro:
         .word not_original.empty_sub
 #endif
 #if INCLUDE_INTRO
-        .word board.entry // TODO: this could be wrong
+        .word board_walk.entry // TODO: this could be wrong
         .word intro.entry
 #else
         .word not_original.empty_sub
@@ -285,14 +315,23 @@ stack_ptr_store: .byte $00
 }
 
 .namespace state {
+    // BCC3 -> seems to be key chjeck state maybe??
+    flag_setup_progress: .byte $00 // Game setup state ($80 = intro, $00 = board walk, $ff = options)
+
     // BCC7
     counter: .byte $00 // State counter (increments after each state change)
 
+    // BCCB
+    NFI_001: .byte $00 // TODO: NO IDEA WHAT THIS IS
+
     // BCD0
-    current: .byte $00 // Current game state
+    flag_update: .byte $00 // Is set to $80 to indicate that the game state should be changed to the next state
+
+    // BCD1
+    flag_play_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro 
 
     // BCD3 
-    new: .byte $00 // New game state (set to trigger a state change to this new state)
+    flag_update_on_interrupt: .byte $00 // Is set to non zero if the game state should be updated after next interrupt
 
     // BD30
     current_fn_ptr: .word $0000 // Pointer to code that will run in the current state
@@ -306,6 +345,10 @@ stack_ptr_store: .byte $00
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
 // readbility.
 .namespace temp {
+    // BD38
+    data__num_pieces: // Number of baord pieces to render
+        .byte $00
+
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
         .byte $00
@@ -317,6 +360,18 @@ stack_ptr_store: .byte $00
     // BF22
     flag__sprites_initialized: // Is TRUE if intro character sprites are initialized
          .byte $00
+
+    // BF26
+    data__current_board_row: // Board row offset for rendered piece
+        .byte $00
+
+    // BF28
+    data__current_board_col: // Board column for rendered piece
+        .byte $00
+
+    // BF2D
+    data__piece_type: // Type of board piece
+        .byte $00
         
     // BF30
     data__curr_line: // Current screen line used while rendering repeated strings in into page
@@ -324,6 +379,7 @@ stack_ptr_store: .byte $00
     
     // BD3A
     data__msg_offset: // Offset of current message being rendered in into page
+    data__piece_offset: // Offset of current piece being rendered on to the board
         .byte $00
 
     // BF3C
