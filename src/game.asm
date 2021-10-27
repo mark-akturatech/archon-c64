@@ -7,6 +7,5 @@
 #import "src/const.asm"
 
 .segment Game
-
 entry:
     rts

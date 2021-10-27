@@ -50,7 +50,7 @@ import_charsets:
     rts
 
 // Copy a block of code from one memory location to another. A block consists of one or more contiguous blocks of
-// 255 bytes. 
+// 255 bytes.
 // Prerequisites:
 // - Put source location in FREEZP (lo, hi)
 // - Put destination location in FREEZP+2 (lo, hi)
@@ -64,7 +64,7 @@ block_copy:
     bne !loop-
     inc FREEZP+1
     inc FREEZP+3
-    dex 
+    dex
     bne !loop-
     rts
 
@@ -114,7 +114,7 @@ import_intro_sprites:
 // can be used within the matrix as follows:
 // - FFFF: The matrix must be terminated with FFFF after the last sprite copy.
 // - FFFE: Do not copy the current sprite. Handy if you want to copy some of the source sprites but not all.
-.enum { COMMAND=$ff, COMMAND_EXIT=$ff, COMMAND_SKIP=$fe } 
+.enum { COMMAND=$ff, COMMAND_EXIT=$ff, COMMAND_SKIP=$fe }
 move_sprites:
     ldy #$00
 !loop:
@@ -180,15 +180,14 @@ empty_sub:
 .segment Assets
 
 .namespace charset {
-#if INCLUDE_INTRO 
+#if INCLUDE_INTRO
     intro: .import binary "/assets/charset-intro.bin"
 #endif
 #if INCLUDE_GAME
     game: .import binary "/assets/charset-game.bin"
 #endif
 }
-
-#if INCLUDE_INTRO 
+#if INCLUDE_INTRO
 .namespace sprite {
     // sprites used by title page
     // sprites are contained in the following order:
@@ -199,7 +198,6 @@ empty_sub:
     // - 15-18: right facing golum animation frames
     // - 19-22: right facing goblin animation frames
     intro_source: .import binary "/assets/sprites-intro.bin"
-
     // Represents the sprite locations within grapphics memory that each sprite will occupy. See comment on
     // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite,
     // second word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM
@@ -219,5 +217,6 @@ empty_sub:
 //---------------------------------------------------------------------------------------------------------------------
 .segment DataStart
     data_start:
+
 .segment DataEnd
     data_end:

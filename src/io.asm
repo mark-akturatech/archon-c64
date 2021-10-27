@@ -10,9 +10,11 @@
 .const VARTAB   = $2D   // Used for zero page loops
 .const ARYTAB   = $2F   // Used for zero page loops
 .const STREND   = $31   // Used for zero page loops
+.const CURLIN   = $39   // Used for zero page loops
 .const OLDTXT   = $3D   // Used for zero page loops
 .const DATLIN   = $3F   // Used for zero page loops
 .const DATPTR   = $41   // Used for zero page loops
+.const VARPNT   = $47   // Used for zero page loops
 .const FORPNT   = $49   // Used for zero page loops
 .const LSTX     = $C5   // Matrix Coordinate of Last Key Pressed, 64=None Pressed
 .const FREEZP   = $FB   // Four Free Bytes of Zero Page for User Programs
