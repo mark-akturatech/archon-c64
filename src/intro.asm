@@ -84,10 +84,10 @@ import_sprites:
     sta SP0COL,x
     lda sprite.logo_x_pos,x
     sta SP0X,y
-    sta sprite.curr_x_pos,x
+    sta main.sprite.curr_x_pos,x
     lda sprite.logo_y_pos,x
     sta SP0Y,y
-    sta sprite.curr_y_pos,x
+    sta main.sprite.curr_y_pos,x
     dex
     bpl !loop-
     // Final y-pos of Archon title sprites afters animate from bottom of screen.
@@ -112,7 +112,7 @@ interrupt_handler:
 state__scroll_title:
     ldx #$01 // process two sprites groups ("avatar" comprises 3 sprites and "freefall" comprises 2)
 !loop:
-    lda sprite.curr_y_pos+3,X
+    lda main.sprite.curr_y_pos+3,X
     cmp sprite.final_y_pos,x
     beq !next+ // stop moving if at final position
     bcs scroll_up
@@ -120,7 +120,7 @@ state__scroll_title:
     adc #$02
     // Only updates the first sprite current position in the group. Not sure why as scroll up updates the position of
     // all sprites in the group.
-    sta sprite.curr_y_pos+3,x
+    sta main.sprite.curr_y_pos+3,x
     ldy #$04
 !move_loop:
     sta SP4Y,y // move sprite 4 and 5
@@ -133,7 +133,7 @@ scroll_up:
     sbc #$02
     ldy #$03
 !update_pos:
-    sta sprite.curr_y_pos,y
+    sta main.sprite.curr_y_pos,y
     dey
     bpl !update_pos-
     ldy #$06
@@ -337,17 +337,17 @@ state__avatar_bounce:
     ldx #$03
     ldy #$06
 !loop:
-    lda sprite.curr_y_pos,x
+    lda main.sprite.curr_y_pos,x
     // Add the direction pointer to the current sprite positions.
     // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
     clc
     adc main.temp.data__sprite_y_direction_offset
-    sta sprite.curr_y_pos,x
+    sta main.sprite.curr_y_pos,x
     sta SP0Y,y
-    lda sprite.curr_x_pos,x
+    lda main.sprite.curr_x_pos,x
     clc
     adc main.temp.data__sprite_x_direction_offset
-    sta sprite.curr_x_pos,x
+    sta main.sprite.curr_x_pos,x
     sta SP0X,y
     dey
     dey
@@ -412,9 +412,9 @@ chase_set_sprites:
     // Confifure sprite colors and positions
     ldx #$03
 !loop:
-    lda sprite.curr_x_pos,x
+    lda main.sprite.curr_x_pos,x
     lsr
-    sta sprite.curr_x_pos,x
+    sta main.sprite.curr_x_pos,x
     lda sprite.character_color,x
     sta SP0COL,x
     dex
@@ -438,12 +438,12 @@ animate_characters:
     txa
     asl
     tay
-    lda sprite.curr_x_pos,x
+    lda main.sprite.curr_x_pos,x
     cmp sprite.character_end_x_pos,x
     beq !next+
     clc
     adc sprite.character_direction,x
-    sta sprite.curr_x_pos,x
+    sta main.sprite.curr_x_pos,x
     asl // Move by two pixels at a time
     sta SP0X,y
     // C64 requires 9 bits for sprite X position. Therefore sprite is set using sprite X position AND we may need to
@@ -606,12 +606,6 @@ state__end_intro:
     x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
     // BD15
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
-
-    // BD3E
-    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
-
-    // BD46
-    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
 
     // BD58
     x_direction_flag: .byte $00 // Is positive number for right direction, negative for left direction

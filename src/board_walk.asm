@@ -51,7 +51,7 @@ add_piece:
     jsr board.set_player_color
     jsr board.draw_board
     jsr board.draw_border
-    jsr board.draw_magic_squares     // ??? could be wrong
+    jsr board.create_magic_square_sprite
     ldx main.temp.data__piece_offset
     // Read piece and location.
     // Each piece is represented as 4 bytes in a table.
@@ -91,7 +91,10 @@ animate_piece:
 
 // 8FE6
 interrupt_handler:
+    jsr board.draw_magic_square
     // todo
+    // 8FE9  AD D0 BC   lda  main_state_flag_update_state
+    // 8FEC  10 03      bpl  W8FF1
     jmp  common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------

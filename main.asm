@@ -294,7 +294,37 @@ play_intro:
 
 .namespace math {
     // 8DC3
-    pow2: .byte $01, $02, $04, $08, $10, $20, $40, $80 // Pre-calculated powers of 2
+    pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
+}
+
+.namespace sprite {
+    // 8DBF
+    _00_screen_ptr: .byte (VICGOFF / BYTES_PER_SPRITE) + 00 // Sprite 0 screen pointer
+
+    // 8DC0
+    _24_screen_ptr: .byte (VICGOFF / BYTES_PER_SPRITE) + 24 // Sprite 24 screen pointer
+
+    // 8DC1
+    _48_screen_ptr: .byte (VICGOFF / BYTES_PER_SPRITE) + 48 // Sprite 48 screen pointer
+
+    // 8DC2
+    _56_screen_ptr: .byte (VICGOFF / BYTES_PER_SPRITE) + 56 // Sprite 56 screen pointer
+
+    // 8DCB
+    _00_memory_ptr: // Pointer to sprite 0 graphic memory area
+        .byte <(GRPMEM + 00 * BYTES_PER_SPRITE), >(GRPMEM + 00 * BYTES_PER_SPRITE)
+
+    // 8DCD
+    _24_memory_ptr: // Pointer to sprite 24 (dec) graphic memory area
+        .byte <(GRPMEM + 24 * BYTES_PER_SPRITE), >(GRPMEM + 24 * BYTES_PER_SPRITE)
+
+    // 8DCF
+    _48_memory_ptr: // Pointer to sprite 48 (dec) graphic memory area
+        .byte <(GRPMEM + 48 * BYTES_PER_SPRITE), >(GRPMEM + 48 * BYTES_PER_SPRITE)
+
+    // 8DD1
+    _56_memory_ptr: // Pointer to sprite 56 (dec) graphic memory area
+        .byte <(GRPMEM + 56 * BYTES_PER_SPRITE), >(GRPMEM + 56 * BYTES_PER_SPRITE)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -340,6 +370,14 @@ stack_ptr_store: .byte $00
     color_mem_offset: .byte $00 // Screen offset to color ram
 }
 
+.namespace sprite {
+    // BD3E
+    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
+
+    // BD46
+    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
+}
+
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
 // readbility.
 .namespace temp {
@@ -349,11 +387,22 @@ stack_ptr_store: .byte $00
 
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
+    data__curr_board_piece: // Index to start of character dot data for current board piece
         .byte $00
 
     // BF1B
     ptr__sprite: // Intro sprite data pointer
         .byte $00
+
+    // BF20
+    data__math_store_1: // Temporary storage used for math operations
+        .byte $00
+
+    // BF21
+    data__math_store_2: // Temporary storage used for math operations
+        .byte $00
+
+    // BF21
 
     // BF22
     flag__sprites_initialized: // Is TRUE if intro character sprites are initialized

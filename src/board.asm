@@ -9,6 +9,43 @@
 
 .segment Common
 
+// 8D80
+// Places a sprite at a given location and enables the sprite.
+// The following prerequisites are required:
+// - The sprite location is set in `main_sprite_curr_x_pos` and `main_sprite_curr_y_pos`.
+// - X register is loaded with the sprite number to be enabled.
+// - Y register is loaded with 2 * the sprite number to be enabled.
+// The Y position is offset by 50 and X position is doubled and then offset by 24.
+render_sprite:
+    lda main.sprite.curr_y_pos,x
+    clc
+    adc #$32
+    sta SP0Y,y
+    //
+    lda main.sprite.curr_x_pos,x
+    clc
+    adc main.sprite.curr_x_pos,x
+    sta main.temp.data__math_store_1
+    lda #$00
+    adc #$00
+    sta main.temp.data__math_store_2
+    lda main.temp.data__math_store_1
+    adc #$18
+    sta SP0X,y
+    lda main.temp.data__math_store_2
+    adc #$00
+    beq !next+
+    lda MSIGX
+    ora main.math.pow2,x
+    sta MSIGX
+    rts
+!next:
+    lda main.math.pow2,x
+    eor #$FF
+    and MSIGX
+    sta MSIGX
+    rts
+
 // 915B
 // Inverts the color character dot data in character memory for the player tile. The character is a square block that is
 // toggled between two different color bits.
@@ -99,7 +136,7 @@ draw_square:
     // 90ED  6D 4E BD   adc  WBD4E
     // 90F0  CA         dex
     // 90F1  D0 F9      bne  W90EC
-    // 90F3  8D 1A BF   sta  temp_data__curr_color
+    // 90F3  8D 1A BF   sta  temp_data__curr_board_piece
     // 90F6  4C 00 91   jmp  W9100
     //
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
@@ -108,7 +145,7 @@ draw_square:
     // and call `render_sqaure_row` again to draw the next two characters.
     lda (CURLIN),y
     and #$7F
-    sta main.temp.data__curr_color
+    sta main.temp.data__curr_board_piece
     lda (CURLIN),y
     bmi !next+
     lda board_data.square_color_data__square+1
@@ -146,16 +183,16 @@ draw_sqaure_part:
     lda #$03
     sta main.temp.data__counter
 !loop:
-    lda main.temp.data__curr_color
+    lda main.temp.data__curr_board_piece
     sta (FREEZP+2),y
     lda (VARPNT),y
     and #$F0
     ora  main.temp.data__current_square_color_code
     sta (VARPNT),y
     iny
-//     lda WBD4E
+//     lda WBD4E <-- this must be TRUE for draw piece
 //     bmi W9155
-//     inc temp_data__curr_color
+//     inc main.temp.data__curr_board_piece // THIS DREW PIECES!!!!!!!!!!!!
 // W9155:
     dec main.temp.data__counter
     bne !loop-
@@ -238,8 +275,50 @@ draw_border:
     rts
 
 // 927A
-draw_magic_squares:
+// Create the sprite used to indicate a magic board square.
+// The sprite is stored in sprite offset 48.
+create_magic_square_sprite:
+    lda main.sprite._48_memory_ptr
+    sta FREEZP+2
+    lda main.sprite._48_memory_ptr+1
+    sta FREEZP+3
+    ldx #$00
+    ldy #$00
+!loop:
+    lda sprite.magic_sqauare_data,x
+    sta (FREEZP+2),y
+    iny
+    iny
+    iny
+    inx
+    cpx #$0C
+    bcc !loop-
+    // Set sprite color.
+    lda #LIGHT_GRAY
+    sta SP0COL+7
     rts
+
+// 92BB
+draw_magic_square:
+    ldy magic_square_counter
+    iny
+    cpy #$05                         // Total number of magic sqaures
+    bcc !next+
+    ldy #$00
+!next:
+    .const SPRITE_NUMBER=7
+    sty magic_square_counter
+    lda sprite.magic_square_x_pos,y
+    sta main.sprite.curr_x_pos+SPRITE_NUMBER
+    lda sprite.magic_square_y_pos,y
+    sta main.sprite.curr_y_pos+SPRITE_NUMBER
+    //
+    ldx #SPRITE_NUMBER
+    lda main.sprite._48_screen_ptr
+    sta SPTMEM+SPRITE_NUMBER
+    ldy #(SPRITE_NUMBER*2)
+    jmp render_sprite
+
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -304,6 +383,19 @@ draw_magic_squares:
     row_color_hi_ptr: // High byte memory offset of sqaure color data for each board row
         .fill NUM_SQAURES_PER_ROW, >(sqaure_colors + i * NUM_SQAURES_PER_ROW)
 }
+
+.namespace sprite {
+    // 929B
+    magic_sqauare_data: // Sprite data used to create the magic square icon
+        .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
+
+    // 92E1
+    magic_square_x_pos: .byte $4A, $1A, $4A, $4A, $7A // Sprite X position of each magic square
+
+    // 92E6
+    magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
@@ -320,3 +412,6 @@ curr_color_phase: .byte $00 // Current board color phase (colors phase between l
 
 // BD7C
 square_occupant_data: .fill 9*9, $00 // Board square occupant data (#$80 for no occupant)
+
+// BF44
+magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
