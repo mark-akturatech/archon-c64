@@ -66,18 +66,18 @@ write_text:
     sta FREEZP+1
     ldy #$00
 !loop:
-    lda (io_FREEZP),y
-    bpl !next
+    lda (FREEZP),y
+    bpl !next+
     rts
 !next:
     // Convert petscii to correct game character map offset.
     and #$3F
     clc
-    adc #$C0 
+    adc #$C0
     sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x
     inx
     iny
-    jmp loop
+    jmp !loop-
 
 // 8965
 // Adds a piece to the board matrix.

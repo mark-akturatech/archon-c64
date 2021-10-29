@@ -25,6 +25,8 @@ complete_interrupt:
 // any of the non game states. if the game state is not in options state, then the game will jump directly to the
 // options state.
 check_option_keypress:
+.break
+lda sprites.character_offset
     lda LSTX
     cmp #KEY_NONE
     bne process_key
@@ -584,6 +586,21 @@ intro_music:
     outro_phrase_V3_ptr:
         .word phrase_20 // Outro music voice 3 phrase list
 }
+
+.namespace sprites {
+    // 8B27
+    // Offsets of each sprite character. A character comprises of multiple sprites (nominally 15) to provide animations
+    // for each direction and action. One character comprises only 10 sprites though.
+    .const BYTES_PER_CHAR_SPRITE = 54;
+    character_offset:
+        .fillword 13, source+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 1, source+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 6, source+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        
+    // Character icon sprites
+    source: .import binary "/assets/sprites-game.bin"
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------

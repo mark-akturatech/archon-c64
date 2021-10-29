@@ -40,21 +40,25 @@
 //---------------------------------------------------------------------------------------------------------------------
 // Basic Upstart
 //---------------------------------------------------------------------------------------------------------------------
-// create basic program with sys command to execute code
 .segment Upstart
-BasicUpstart2(entry)
+
+// create basic program with sys command to execute code
+BasicUpstart2(start)
+
 //---------------------------------------------------------------------------------------------------------------------
 // Entry
 //---------------------------------------------------------------------------------------------------------------------
 .segment Main
 
+// Implement our own logic to duplicate some of the functions originally performed in Block 3 (see readme.md file)
+// before the disassembly snapshot was taken.
+start:
+    jsr not_original.clear_variable_space
+    jsr not_original.import_charsets
+    jmp entry
+
 // 6100
 entry:
-    // Load in character sets.
-    // Character sets are loaded in some of the copy/move routines in 0100-01ff.
-    jsr not_original.import_charsets
-    jsr not_original.clear_variable_space
-
     // 6100  A9 00      lda #$00       // TODO: what are these variables
     // 6102  8D C0 BC sta WBCC0
     // 6105  8D C1 BC sta WBCC1      // players -> 2, light, dark
@@ -396,8 +400,6 @@ stack_ptr_store: .byte $00
     // BF21
     data__math_store_2: // Temporary storage used for math operations
         .byte $00
-
-    // BF21
 
     // BF22
     flag__sprites_initialized: // Is TRUE if intro character sprites are initialized

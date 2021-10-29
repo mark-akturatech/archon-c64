@@ -54,3 +54,9 @@
 // to the graphcis area.
 .const INITIALIZED = $02A7 // 00 for uninitialized, $80 for initialized
 .const STATE_PTR = $0334 // Pointers used to jump to various game states (intro, board, play)
+
+// Character pieces
+.const TROLL = $02
+.const GOBLIN = $03
+.const KNIGHT = $14
+.const GOLUM = $15

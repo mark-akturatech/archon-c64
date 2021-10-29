@@ -60,13 +60,33 @@ entry:
 
 // A98F
 // Imports sprites in to graphics area.
-// NOTE I am not using the original source code to do this. It is very dependent on location and uses sprites stored
-// in a non standard way (I could be wrong here). Instead, i have a direct sprite.bin file and copy the sprites in to
-// the correct location using a flexible matrix copy function described in the `not_original.asm` file.
 import_sprites:
-    jsr not_original.import_intro_sprites
+    // jsr not_original.import_intro_sprites
 
-    // AA09
+    // Add Archon and Avatar logo sprites
+    lda main.sprite._00_memory_ptr
+    sta FREEZP+2
+    lda main.sprite._00_memory_ptr+1
+    sta FREEZP+3
+    lda sprite.logo_ptr
+    sta FREEZP
+    lda sprite.logo_ptr+1
+    sta FREEZP+1
+    ldy #$00 // Copy 7 sprites (448 bytes)
+!loop: // Copy first 256 bytes
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    bne !loop-
+    inc FREEZP+1
+    inc FREEZP+3
+!loop: // Copy remaining 206 bytes
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    cpy #$C0
+    bcc !loop-
+
     // Pointer to first sprite: 64 bytes per sprite, start at graphmem offset. we add 6 as we are setting the first
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
@@ -501,8 +521,12 @@ state__end_intro:
     // A988
     logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
 
+    // ADAA:
+    chase_piece_id: .byte KNIGHT, TROLL, GOLUM, GOBLIN // Piece IDs of peices used in chase scene
+
     // ADB2
     character_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
+
     // ADB6
     character_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite
 
@@ -515,6 +539,15 @@ state__end_intro:
 
     // ADBE
     character_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase character sprites
+
+    // BACB
+    logo_ptr: .word source // Pointer to intro page logo sprites
+
+    // Sprites used by title page
+    // Sprites are contained in the following order:
+    // - 0-3: Archon logo (in 3 parts)
+    // - 4-6: Freefall logo (in 2 parts)
+    source: .import binary "/assets/sprites-intro.bin"
 }
 
 .namespace screen {

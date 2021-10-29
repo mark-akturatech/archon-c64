@@ -192,6 +192,7 @@ empty_sub:
     // - 15-18: right facing golum animation frames
     // - 19-22: right facing goblin animation frames
     intro_source: .import binary "/assets/sprites-intro.bin"
+
     // Represents the sprite locations within grapphics memory that each sprite will occupy. See comment on
     // `title_sprites` for a list of which sprite occupies which slot. The first word represents the first sprite,
     // second word the second sprite and so on. The sprite location is calculated by adding the offset to the GRPMEM
