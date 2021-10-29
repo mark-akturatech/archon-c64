@@ -18,8 +18,6 @@
 // The following compiler definitions (defined in const.asm) affect this method:
 // - INCLUDE_INTRO: If not defined, the build will NOT include the introduction/title pages. In this case, we
 //   do not load (or include) the title page character map.
-// - INCLUDE_GAME: If not defined, the build will NOT include the game pages. In this case, we do not load (or include)
-//   the board page character map.
 //
 // The character set will be loaded in to the correct locations within the selected `videoBank`.
 import_charsets:
@@ -35,7 +33,6 @@ import_charsets:
     ldx #$04
     jsr block_copy
 #endif
-#if INCLUDE_GAME
     lda #<charset.game
     sta FREEZP
     lda #>charset.game
@@ -45,9 +42,7 @@ import_charsets:
     lda #>CHRMEM2
     sta FREEZP+3
     ldx #$08
-    jsr block_copy
-#endif
-    rts
+    jmp block_copy
 
 // Copy a block of code from one memory location to another. A block consists of one or more contiguous blocks of
 // 255 bytes.
@@ -183,10 +178,9 @@ empty_sub:
 #if INCLUDE_INTRO
     intro: .import binary "/assets/charset-intro.bin"
 #endif
-#if INCLUDE_GAME
     game: .import binary "/assets/charset-game.bin"
-#endif
 }
+
 #if INCLUDE_INTRO
 .namespace sprite {
     // sprites used by title page

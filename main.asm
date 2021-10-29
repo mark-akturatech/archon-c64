@@ -35,9 +35,7 @@
     #import "src/intro.asm"
     #import "src/board_walk.asm"
 #endif
-#if INCLUDE_GAME
-    #import "src/game.asm"
-#endif
+#import "src/game.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
 // Basic Upstart
@@ -278,11 +276,7 @@ play_intro:
 .namespace state {
     // 4760
     game_fn_ptr: // Pointer to each main game function (intro, board, game)
-#if INCLUDE_GAME
         .word game.entry // TODO: this could be wrong
-#else
-        .word not_original.empty_sub
-#endif
 #if INCLUDE_INTRO
         .word board_walk.entry // TODO: this could be wrong
         .word intro.entry
@@ -388,6 +382,7 @@ stack_ptr_store: .byte $00
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
     data__curr_board_piece: // Index to start of character dot data for current board piece
+    data__math_store: // Temporary storage used for math operations
         .byte $00
 
     // BF1B

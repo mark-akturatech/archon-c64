@@ -9,7 +9,6 @@
 // Build control
 //---------------------------------------------------------------------------------------------------------------------
 #define INCLUDE_INTRO // comment to build the application without the introduction/title sequence
-#define INCLUDE_GAME // comment to build the application without the game portion
 
 //---------------------------------------------------------------------------------------------------------------------
 // Keyboard key constants

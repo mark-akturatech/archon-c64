@@ -520,32 +520,28 @@ state__end_intro:
 .namespace screen {
     // A8A5
     string_data_ptr: // Pointer to string data for each string
-        .word string_5, string_6, string_7, string_4, string_2, string_2, string_2, string_2, string_3, string_1
+        .word string_4, string_5, string_6, string_3, string_1, string_1, string_1, string_1, string_2
+        .word board.screen.string_68
 
     // A8B9
     string_color_data: .byte $07, $0e, $0e, $01, $0b, $0c, $0f, $01, $01, $08 // Color of each string
 
-    // A805
-    string_1: // Press run key to continue
-        .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
-        .byte $ff
-
     // A87F
-    string_2: // Top half of "free Fall" logo
+    string_1: // Top half of "free Fall" logo
         .byte $0b
         .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70
         .byte $71
         .byte $ff
 
     // A892
-    string_3: // Bottom half of "free Fall" logo
+    string_2: // Bottom half of "free Fall" logo
         .byte $0b
         .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72
         .byte $73
         .byte $ff
 
     // A8C3
-    string_4: // A .... Game
+    string_3: // A .... Game
         .byte $10, $13
         .text "A"
         .byte $80
@@ -554,7 +550,7 @@ state__end_intro:
         .byte $ff
 
     // A8CE
-    string_5: // By Anne Wesfall and Jon Freeman & Paul Reiche III
+    string_4: // By Anne Wesfall and Jon Freeman & Paul Reiche III
         .byte $08, $0c
         .text @"BY\$00ANNE\$00WESTFALL"
         .byte $80
@@ -566,7 +562,7 @@ state__end_intro:
         .byte $ff
 
     // A907
-    string_6: // Emptry string under authors - presumably here to allow text to be added for test versions etc
+    string_5: // Emptry string under authors - presumably here to allow text to be added for test versions etc
         .byte $0f, $01
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
@@ -574,7 +570,7 @@ state__end_intro:
         .byte $ff
 
     // A931
-    string_7: // Electronic Arts Logo
+    string_6: // Electronic Arts Logo
         .byte $12, $01
         .byte $16, $17, $17, $18, $19, $1a, $1b, $1c
         .byte $80, $13, $01

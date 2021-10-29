@@ -11,6 +11,7 @@
 .const ARYTAB   = $2F   // Used for zero page loops
 .const STREND   = $31   // Used for zero page loops
 .const CURLIN   = $39   // Used for zero page loops
+.const OLDLIN   = $3B   // Used for zero page loops
 .const OLDTXT   = $3D   // Used for zero page loops
 .const DATLIN   = $3F   // Used for zero page loops
 .const DATPTR   = $41   // Used for zero page loops

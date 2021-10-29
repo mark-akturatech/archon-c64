@@ -36,7 +36,8 @@ entry:
     lda %0111_1111
     sta SPMC
     //lda #$36
-    //sta WBCDF // WHAT IS THIS?
+    //sta WBCDF // WHAT IS THIS? ////////////////////////////////////////// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //
     // Adds piece types to the board one at a time. Each piece is added by animating it (flying or walking) to the
     // piece's square.
     // The anitmation is performed using sprites that are loaded in to the first four sprite slots for each piece. After
@@ -72,7 +73,7 @@ add_piece:
     jsr animate_piece
     lda main.temp.data__piece_offset
     clc
-    adc #$04
+    adc #$04 // 4 sprites per animation???
     cmp #(16 * 4) // Check if finished (16 piece types * 4 data bytes)
     bcc !next+
     rts
@@ -85,6 +86,7 @@ add_piece:
     jmp add_piece
 
 // 8EB0
+// Adds a piece to the board. Requires:
 animate_piece:
     // todo
     rts
@@ -92,10 +94,12 @@ animate_piece:
 // 8FE6
 interrupt_handler:
     jsr board.draw_magic_square
-    // todo
-    // 8FE9  AD D0 BC   lda  main_state_flag_update_state
-    // 8FEC  10 03      bpl  W8FF1
+    lda main.state.flag_update
+    bmi !next+
     jmp  common.complete_interrupt
+!next:
+    //.. TODO
+    jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets and constants

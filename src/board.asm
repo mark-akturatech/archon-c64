@@ -9,6 +9,91 @@
 
 .segment Common
 
+// 6422
+// Converts a board row and column coordinate to a corresponding sprite screen position.
+// Requires:
+// - A Register: Board column
+// - Y Register: Board row
+// - X Register: Sprite number
+// Sets `main.sprite.curr_x_pos,x` and `main.sprite.curr_y_pos,x` with the calculated position for all sprites except
+// sprite number 4.
+// Returns calculated X position in A register and Y position in Y register.
+convert_coord_sprite_pos:
+    // Calculate X position.
+    pha
+    asl
+    asl
+    asl
+    sta main.temp.data__math_store
+    pla
+    asl
+    asl
+    clc
+    adc main.temp.data__math_store
+    clc
+    adc #$1A
+    cpx #$04
+    bcs !next+
+    sta main.sprite.curr_x_pos,x
+!next:
+    pha
+    // Calculate Y position.
+    tya
+    asl
+    asl
+    asl
+    asl
+    clc
+    adc #$17
+    cpx #$04
+    bcs !next+
+    sta main.sprite.curr_y_pos,x
+!next:
+    tay
+    pla
+    rts
+
+// 6509
+// Writes a predefined text message to the board text area.
+// Requires:
+// - A regsiter set with the text message offset.
+write_text:
+    asl
+    tay
+    lda screen.message_ptr,y
+    sta FREEZP
+    lda screen.message_ptr+1,y
+    sta FREEZP+1
+    ldy #$00
+!loop:
+    lda (io_FREEZP),y
+    bpl !next
+    rts
+!next:
+    // Convert petscii to correct game character map offset.
+    and #$3F
+    clc
+    adc #$C0 
+    sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x
+    inx
+    iny
+    jmp loop
+
+// 8965
+// Adds a piece to the board matrix.
+// Requires the board row and column to be set in the temp data.
+add_piece_to_matrix:
+    ldy main.temp.data__current_board_row
+    lda board_data.row_occupancy_lo_ptr,y
+    sta OLDLIN
+    lda board_data.row_occupancy_hi_ptr,y
+    sta OLDLIN+1
+    //
+    ldy main.temp.data__current_board_col
+    lda main.temp.data__piece_type
+    sta (OLDLIN),y
+    rts
+
 // 8D80
 // Places a sprite at a given location and enables the sprite.
 // The following prerequisites are required:
@@ -320,6 +405,21 @@ draw_magic_square:
     jmp render_sprite
 
 
+// 9352
+// Clear text area underneath the board and reset the color to white.
+clear_text_area:
+    ldx #(CHARS_PER_SCREEN_ROW*2-1) // Two rows of text
+!loop:
+    lda #$00
+    sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x // Start at 23rd text row
+    lda (COLRAM+23*CHARS_PER_SCREEN_ROW),x
+    and #$F0
+    ora #$01
+    sta (COLRAM+23*CHARS_PER_SCREEN_ROW),x
+    dex
+    bpl !loop-
+    rts
+
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
@@ -394,6 +494,233 @@ draw_magic_square:
 
     // 92E6
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
+}
+
+.namespace screen {
+    // A21E
+    message_ptr: // Pointer to start predefined text message. Messages are FF terminated.
+        .word string_1,  string_2,  string_3,  string_4,  string_5,  string_6,  string_7,  string_8
+        .word string_9,  string_10, string_11, string_12, string_13, string_14, string_15, string_16
+        .word string_17, string_18, string_19, string_20, string_21, string_22, string_23, string_24
+        .word string_25, string_26, string_27, string_28, string_29, string_30, string_31, string_32
+        .word string_33, string_34, string_35, string_36, string_37, string_38, string_39, string_40
+        .word string_41, string_42, string_43, string_44, string_45, string_46, string_47, string_48
+        .word string_49, string_50, string_51, string_52, string_53, string_54, string_55, string_56
+        .word string_57, string_58, string_59, string_60, string_61, string_62, string_63, string_64
+        .word string_65, string_66, string_67, string_68, string_69, string_70, string_71
+
+    // A2AC
+    string_2: .text @"ALAS, MASTER, THIS ICON CANNOT MOVE\$ff"
+
+    // A2D0
+    string_3: .text @"DO YOU CHALLENGE THIS FOE?\$ff"
+
+    // A2EB
+    string_4: .text @"YOU HAVE MOVED YOUR LIMIT\$ff"
+
+    // A305
+    string_5: .text @"THE SQUARE AHEAD IS OCCUPIED\$ff"
+
+    // A322
+    string_7: .text @"THE LIGHT SIDE WINS\$ff"
+
+    // A336
+    string_8: .text @"THE DARK SIDE WINS\$ff"
+
+    // A349
+    string_9: .text @"IT IS A TIE\$ff"
+
+    // A355
+    string_10: .text @"THE FLOW OF TIME IS REVERSED\$ff"
+
+    // A372
+    string_11: .text @"WHICH ICON WILL YOU HEAL?\$ff"
+
+    // A38C
+    string_6: .text @"IT IS DONE\$ff"
+
+    // A397
+    string_12: .text @"WHICH ICON WILL YOU TELEPORT?\$ff"
+
+    // A3B5
+    string_13: .text @"WHERE WILL YOU TELEPORT IT?\$ff"
+
+    // A3D1
+    string_14: .text @"CHOOSE AN ICON TO TRANSPOSE\$ff"
+
+    // A3ED
+    string_15: .text @"EXCHANGE IT WITH WHICH ICON?\$ff"
+
+    // A40A
+    string_16: .text @"WHAT ICON WILL YOU REVIVE?\$ff"
+
+    // A425
+    string_17: .text @"PLACE IT WITHIN THE CHARMED SQUARE\$ff"
+
+    // A448
+    string_18: .text @"WHICH FOE WILL YOU IMPRISON?\$ff"
+
+    // A465
+    string_19: .text @"ALAS, MASTER, THERE IS NO OPENING IN THECHARMED SQUARE. CONJURE ANOTHER SPELL\$ff"
+
+    // A4B3
+    string_26: .text @"SEND IT TO THE TARGET\$ff"
+
+    // A4C9
+    string_54: .text @"THAT SPELL WOULD BE WASTED AT THIS TIME\$ff"
+
+    // A4F0
+    string_55: .text @"SELECT A SPELL\$ff"
+
+    // A500
+    string_20: .text @"HAPPILY, MASTER, ALL YOUR ICONS LIVE.   PLEASE CONJURE A DIFFERENT SPELL\$ff"
+
+    // A549
+    string_21: .text @"ALAS, THIS ICON IS IMPRISONED\$ff"
+
+    // A567
+    string_22: .text @"AN AIR\$ff"
+
+    // A56E
+    string_23: .text @"A FIRE\$ff"
+
+    // A575
+    string_25: .text @"A WATER\$ff"
+
+    // A57D
+    string_24: .text @"AN EARTH\$ff"
+
+    // A586
+    string_27: .text @"THE WIZARD\$ff"
+
+    // A591
+    string_28: .text @"THE SORCERESS\$ff"
+
+    // A59F
+    string_1: .text @"OH, WOE! YOUR SPELLS ARE GONE!\$ff"
+
+    //A5BE
+    string_29: .text @"UNICORN (GROUND 4)\$ff"
+
+    // A5D1
+    string_30: .text @"WIZARD (TELEPORT 3)\$ff"
+
+    // A5E5
+    string_31: .text @"ARCHER (GROUND 3)\$ff"
+
+    // A5F7
+    string_32: .text @"GOLEM (GROUND 3)\$ff"
+
+    // A608
+    string_33: .text @"VALKYRIE (FLY 3)\$ff"
+
+    // A619
+    string_34: .text @"DJINNI (FLY 4)\$ff"
+
+    // A628
+    string_35: .text @"PHOENIX (FLY 5)\$ff"
+
+    // A638
+    string_36: .text @"KNIGHT (GROUND 3)\$ff"
+
+    // A64A
+    string_37: .text @"BASILISK (GROUND 3)\$ff"
+
+    // A65E
+    string_38: .text @"SORCERESS (TELEPORT 3)\$ff"
+
+    // A675
+    string_39: .text @"MANTICORE (GROUND 3)\$ff"
+
+    // A68A
+    string_40: .text @"TROLL (GROUND 3)\$ff"
+
+    // A69B
+    string_41: .text @"SHAPESHIFTER (FLY 5)\$ff"
+
+    // A6B0
+    string_42: .text @"DRAGON (FLY 4)\$ff"
+
+    // A6BF
+    string_43: .text @"BANSHEE (FLY 3)\$ff"
+
+    // A6CF
+    string_44: .text @"GOBLIN (GROUND 3)\$ff"
+
+    // A6E1
+    string_45: .text @"TELEPORT\$ff"
+
+    // A6EA
+    string_46: .text @"HEAL\$ff"
+
+    // A6EF
+    string_47: .text @"SHIFT TIME\$ff"
+
+    // A6FA
+    string_48: .text @"EXCHANGE\$ff"
+
+    // A703
+    string_49: .text @"SUMMON ELEMENTAL\$ff"
+
+    // A714
+    string_50: .text @"REVIVE\$ff"
+
+    // A71B
+    string_51: .text @"IMPRISON\$ff"
+
+    // A724
+    string_52: .text @"CEASE CONJURING\$ff"
+
+    // A734
+    string_53: .text @"POWER POINTS ARE PROOF AGAINST MAGIC\$ff"
+
+    // A759
+    string_56: .text @"COMPUTER \$ff"
+
+    // A763
+    string_57: .text @"LIGHT \$ff"
+
+    // A76A
+    string_58: .text @"TWO-PLAYER \$ff"
+
+    // A776
+    string_59: .text @"FIRST\$ff"
+
+    // A77C
+    string_60: .text @"DARK \$ff"
+
+    // A782
+    string_61: .text @"WHEN READY\$ff"
+
+    // A78D
+    string_62: .text @" PRESS \$ff"
+
+    // A795
+    string_63: .text @"SPELL IS CANCELED. CHOOSE ANOTHER\$ff"
+
+    // A7B7
+    string_64: .text @"THE GAME IS ENDED...\$ff"
+
+    // A7CC
+    string_65: .text @"IT IS A STALEMATE\$ff"
+
+    // A7DE
+    string_66: .text @" ELEMENTAL APPEARS!\$ff"
+
+    // A7F2
+    string_67: .text @" CONJURES A SPELL!\$ff"
+
+    //A805
+    string_68: .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE\$ff"
+
+    // A81F
+    string_69: .text @"F7\$ff"
+
+    // A822
+    string_70: .text @"F5: \$ff"
+
+    // A827
+    string_71: .text @"F3: \$ff"
 }
 
 //---------------------------------------------------------------------------------------------------------------------

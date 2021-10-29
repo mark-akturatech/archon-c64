@@ -412,13 +412,11 @@ initialize_music:
     // Configure music pointers.
     ldy #$05
 !loop:
-#if INCLUDE_GAME
     lda sound.music_track_flag
     bpl intro_music
     lda music.outro_phrase_ptr,y
     jmp !next+
 intro_music:
-#endif
 #if INCLUDE_INTRO
     lda music.intro_phrase_ptr,y
 #endif
@@ -494,10 +492,8 @@ intro_music:
 #endif
     initial_phrase_list_ptr: // Initial phrases for both intro and outro music
         .word phrase_1, phrase_2, phrase_3
-#if INCLUDE_GAME
     outro_phrase_ptr: // Pointers for outro music phrase list for each voice
         .word outro_phrase_V1_ptr, outro_phrase_V2_ptr, outro_phrase_V3_ptr
-#endif
 
     // Music notes and commands.
     phrase_1: // Notes (00 to FA) and commands (FB to FF) for music phrase
