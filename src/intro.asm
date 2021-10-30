@@ -61,8 +61,42 @@ entry:
 // A98F
 // Imports sprites in to graphics area.
 import_sprites:
-    // jsr not_original.import_intro_sprites
-
+    // Copy in character pieces for chase scene
+    lda #$80
+    sta board.sprite.copy_character_set_flag
+    lda #$36
+    sta board.sprite.copy_length
+    lda main.sprite._24_memory_ptr
+    sta FREEZP+2
+    sta main.temp.data__temp_store_1
+    lda main.sprite._24_memory_ptr+1
+    sta FREEZP+3
+    ldx #$03 // Copy 4 characters (0 offset)
+import_sprite_character:
+    ldy sprite.chase_piece_id,x
+    sty board.character.piece_type
+    lda board.character.setup_matrix,y
+    sta board.character.piece_offset,x
+    jsr board.sprite_initialize
+    lda sprite.direction_flag,x
+    sta main.temp.data__character_sprite_frame // Always copy frame 0 of characterset but invert where required
+    lda #$04 // Copy 4 frames for each character
+    sta board.sprite.default_direction_flag // This is just being used as temporary counter storage
+import_sprite_frame:
+    jsr board.add_sprite_to_graphics
+    lda main.temp.data__temp_store_1
+    clc
+    adc #$40 // Pointer to next frame
+    sta FREEZP+2
+    sta main.temp.data__temp_store_1
+    bcc !next+
+    inc FREEZP+3
+!next:
+    inc main.temp.data__character_sprite_frame
+    dec board.sprite.default_direction_flag
+    bne import_sprite_frame
+    dex
+    bpl import_sprite_character
     // Add Archon and Avatar logo sprites
     lda main.sprite._00_memory_ptr
     sta FREEZP+2
@@ -522,7 +556,10 @@ state__end_intro:
     logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
 
     // ADAA:
-    chase_piece_id: .byte KNIGHT, TROLL, GOLUM, GOBLIN // Piece IDs of peices used in chase scene
+    chase_piece_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Piece IDs of peices used in chase scene
+
+    // ADAE:
+    direction_flag: .byte $00, $00, $80, $80 // Direction flags of intro sprites ($80=invert direction)
 
     // ADB2
     character_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)

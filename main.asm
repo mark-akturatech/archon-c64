@@ -22,7 +22,7 @@
 .segmentdef Intro [startAfter="Common"]
 .segmentdef BoardWalk [startAfter="Intro"]
 .segmentdef Game [startAfter="BoardWalk"]
-.segmentdef Assets [startAfter="Game", align=$100]
+.segmentdef Assets [startAfter="Game"]
 //
 .segmentdef DataStart [startAfter="Assets", virtual]
 .segmentdef Data [startAfter="DataStart", virtual]
@@ -387,10 +387,16 @@ stack_ptr_store: .byte $00
     data__curr_color: // Color of the current intro string being rendered
     data__curr_board_piece: // Index to start of character dot data for current board piece
     data__math_store: // Temporary storage used for math operations
+    data__curr_count: // Temporary storage used to keep track of a counter
         .byte $00
 
     // BF1B
     ptr__sprite: // Intro sprite data pointer
+    data__temp_store: // Temporary data storage area
+        .byte $00
+        .byte $00
+        .byte $00
+        .byte $00
         .byte $00
 
     // BF20
@@ -411,10 +417,6 @@ stack_ptr_store: .byte $00
 
     // BF28
     data__current_board_col: // Board column for rendered piece
-        .byte $00
-
-    // BF2D
-    data__piece_type: // Type of board piece
         .byte $00
 
     // BF30
@@ -441,10 +443,12 @@ stack_ptr_store: .byte $00
 
     // BF23
     data__sprite_y_direction_offset: // Amount added to y plan to move sprite to the left or right (uses rollover)
+    data__temp_store_1: // Temporary data storage
         .byte $00
 
     // BF24
     data__sprite_x_direction_offset: // Amount added to x plan to move sprite to the left or right (uses rollover)
     data__current_square_color_code: // Color code used to render
+    data__character_sprite_frame: // Frame offset of sprite character set. Add #$80 to invert the frame on copy.
         .byte $00
 }

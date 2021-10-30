@@ -63,7 +63,7 @@ add_piece:
     //   07 pieces, row offset is the start row and other pieces are adde done after the other below it.
     // There are a total of 16 different piece types.
     lda piece.data,x
-    sta main.temp.data__piece_type
+    sta board.character.piece_type
     lda piece.data+1,x
     sta main.temp.data__num_pieces
     lda piece.data+2,x
@@ -107,14 +107,22 @@ interrupt_handler:
 .segment Assets
 
 .namespace piece {
-    // 8dF6
+    // 8DF6
     data: // Contains data for each board piece (type, number, location, row offset)
-        .byte $03, $07, $01, $01, $14, $07, $07, $01
-        .byte $01, $02, $01, $08, $12, $02, $07, $08
-        .byte $00, $02, $00, $08, $13, $02, $08, $08
-        .byte $02, $02, $00, $07, $15, $02, $08, $07
-        .byte $04, $02, $00, $06, $17, $02, $08, $06
-        .byte $06, $01, $00, $03, $1D, $01, $08, $05
-        .byte $0A, $01, $00, $05, $19, $01, $08, $03
-        .byte $08, $01, $00, $04, $1B, $01, $08, $04
+        .byte KNIGHT, $07, $01, $01
+        .byte GOBLIN, $07, $07, $01
+        .byte ARCHER, $02, $01, $08
+        .byte MANTICORE, $02, $07, $08
+        .byte VALKYRIE, $02, $00, $08
+        .byte BANSHEE, $02, $08, $08
+        .byte GOLEM, $02, $00, $07
+        .byte TROLL, $02, $08, $07
+        .byte UNICORN, $02, $00, $06
+        .byte BASILISK, $02, $08, $06
+        .byte DJINNI, $01, $00, $03
+        .byte DRAGON, $01, $08, $05
+        .byte PHOENIX, $01, $00, $05
+        .byte SHAPESHIFTER, $01, $08, $03
+        .byte WIZARD, $01, $00, $04
+        .byte SORCERESS, $01, $08, $04
 }

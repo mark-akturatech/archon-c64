@@ -53,6 +53,43 @@ convert_coord_sprite_pos:
     pla
     rts
 
+// 644D
+// Determine sprite source data address for a given peice, set the sprite color and direction and enable.
+sprite_initialize:
+    lda character.piece_offset,x
+    asl
+    tay
+    lda sprite.character_offset,y
+    sta sprite.copy_source_lo_ptr,x
+    lda sprite.character_offset+1,y
+    sta sprite.copy_source_hi_ptr,x
+    lda character.piece_type,x
+    cmp #AIR_ELEMENTAL // Is sprite an elemental?
+    bcc !next+
+    and  #$03
+    tay
+    lda sprite.elemental_color,y
+    bpl intialize_enable_sprite
+!next:
+    ldy #$00 // Set Y to 0 for light piece, 1 for dark piece
+    cmp #MANTICORE // Dark piece
+    bcc !next+
+    iny
+!next:
+    lda sprite.character_color,y
+intialize_enable_sprite:
+    sta SP0COL,x
+    lda main.math.pow2,x
+    ora SPENA
+    sta SPENA
+    lda character.piece_offset,x
+    and #$08 // Pieces with bit 8 set are dark pieces
+    beq !next+
+    lda #$11
+!next:
+    sta sprite.default_direction_flag,x
+    rts
+
 // 6509
 // Writes a predefined text message to the board text area.
 // Requires:
@@ -90,8 +127,131 @@ add_piece_to_matrix:
     sta OLDLIN+1
     //
     ldy main.temp.data__current_board_col
-    lda main.temp.data__piece_type
+    lda character.piece_type
     sta (OLDLIN),y
+    rts
+
+// 8C6D
+// Copies a sprite frame in to graphical memory.
+// Also includes additional functionality to add a mirrored sprite to graphics memory.
+add_sprite_to_graphics:
+    lda main.temp.data__character_sprite_frame
+    and #$7F // The offset has #$80 if the sprite frame should be inverted on copy
+    // Get frame source memory address.
+    // This is done by first reading the sprite source offset of the character set and then adding the frame offset.
+    asl
+    tay
+    lda sprite.frame_offset,y
+    clc
+    adc sprite.copy_source_lo_ptr,x
+    sta FREEZP
+    lda sprite.copy_source_hi_ptr,x
+    adc sprite.frame_offset+1,y
+    sta FREEZP+1
+//     lda  WBF49                        // TODO!!!!!!!!!!!!! - I think the copy below copies and entire sprite character set
+//     bmi  board_move_sprite
+//     cpx  #$02
+//     bcc  board_move_sprite
+//     txa
+//     and  #$01
+//     tay
+//     lda  board_character_piece_offset,y
+//     and  #$07
+//     cmp  #$06
+//     bne  W8CA3
+//     lda  #$FF
+//     sta  board_sprite_copy_length
+//     jmp  board_move_sprite
+
+// W8CA3:
+//     ldy  #$00
+// W8CA5:
+//     lda  main_temp_data__character_sprite_frame
+//     bpl  W8CBF
+//     lda  #$08
+//     sta  temp_data__curr_color
+//     lda  (io_FREEZP),y
+//     sta  temp_ptr__sprite
+// W8CB4:
+//     ror  temp_ptr__sprite
+//     rol
+//     dec  temp_data__curr_color
+//     bne  W8CB4
+//     beq  W8CC1
+// W8CBF:
+//     lda  (io_FREEZP),y
+// W8CC1:
+//     sta  (io_FREEZP+2),y
+//     inc  io_FREEZP+2
+//     inc  io_FREEZP+2
+//     iny
+//     cpy  board_sprite_copy_length
+//     bcc  W8CA5
+//     rts
+move_sprite:
+    ldy #$00
+    lda main.temp.data__character_sprite_frame // Invert piece?
+    bmi move_sprite_and_invert
+!loop:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    cpy sprite.copy_length
+    bcc !loop-
+    rts
+// Mirror the sprite on copy - used for when sprite is moving in the opposite direction.    
+move_sprite_and_invert:
+    lda #$0A
+    sta main.temp.data__curr_count // Sprite is inverted in 10 blocks
+    tya
+    clc
+    adc #$02
+    tay
+    lda (FREEZP),y
+    sta main.temp.data__temp_store+2
+    dey
+    lda (FREEZP),y
+    sta main.temp.data__temp_store+1
+    dey
+    lda (FREEZP),y
+    sta main.temp.data__temp_store
+    lda #$00
+    sta main.temp.data__temp_store+3
+    sta main.temp.data__temp_store+4
+!loop:
+    jsr invert_bytes
+    jsr invert_bytes
+    pha
+    and #$C0
+    beq !next+
+    cmp #$C0
+    beq !next+
+    pla
+    eor #$C0
+    jmp !next++
+!next:
+    pla
+!next:
+    dec main.temp.data__curr_count
+    bne !loop-
+    sta (FREEZP+2),y
+    iny
+    lda main.temp.data__temp_store+3
+    sta (FREEZP+2),y
+    iny
+    lda main.temp.data__temp_store+4
+    sta (FREEZP+2),y
+    iny
+    cpy sprite.copy_length
+    bcc move_sprite_and_invert
+    rts
+invert_bytes:
+    rol main.temp.data__temp_store+2
+    rol main.temp.data__temp_store+1
+    rol main.temp.data__temp_store
+    ror
+    ror main.temp.data__temp_store+3
+    ror main.temp.data__temp_store+4
     rts
 
 // 8D80
@@ -485,6 +645,30 @@ clear_text_area:
 }
 
 .namespace sprite {
+    // 8B27
+    // Source offset of the first frame of each character sprite. A character comprises of multiple sprites
+    // (nominally 15) to provide animations for each direction and action. One character comprises only 10 sprites
+    // though.
+    .const BYTES_PER_CHAR_SPRITE = 54;
+    character_offset:
+        .fillword 13, source+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 1, source+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 6, source+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+
+    // 8BDA
+    elemental_color: // Color of each elemental (air, fire, earth, water)
+        .byte LIGHT_GRAY, RED, BROWN, BLUE
+
+    // 8D44
+    frame_offset: // Memory offset of each sprite frame within a sprite set
+        .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
+        .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
+        .word $02F4, $0008, $0000, $0010, $0018 // TODO: are last 4 needed?
+
+    // 906F
+    character_color: // Color of character based on side (light, dark)
+        .byte YELLOW, LIGHT_BLUE
+
     // 929B
     magic_sqauare_data: // Sprite data used to create the magic square icon
         .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
@@ -494,6 +678,10 @@ clear_text_area:
 
     // 92E6
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
+
+    // BAE-3D3F and AE23-BACA
+    // Character icon sprites
+    source: .import binary "/assets/sprites-game.bin"
 }
 
 .namespace screen {
@@ -723,6 +911,25 @@ clear_text_area:
     string_71: .text @"F3: \$ff"
 }
 
+.namespace character {
+    // 8AFF
+    // Matrix used to determine offset of each piece type AND determine which peices occupy which sqaures on initial
+    // setup.
+    // This is a little bit odd - the numbers below are indexes used to retrieve an address from
+    // `sprite.character_offset` to determine the source sprite memory address. The `Character Piece Type` are actually
+    // an offset in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling
+    // us to read the 6th word of the sprite character offset to determine the first frame of the Phoenix character
+    // set.
+    // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial piece setup
+    // with 2 bytes represeting two columns of each row. The setup starts with all the light peices, then dark.
+    setup_matrix:
+        .byte $04, $02, $03, $07, $00, $07, $05, $07
+        .byte $01, $07, $06, $07, $00, $07, $03, $07
+        .byte $04, $02, $0A, $0E, $0F, $0B, $0F, $08
+        .byte $0F, $0C, $0F, $09, $0F, $0D, $0F, $08
+        .byte $0F, $0B, $0A, $0E, $10, $11, $12, $13
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
@@ -742,3 +949,31 @@ square_occupant_data: .fill 9*9, $00 // Board square occupant data (#$80 for no 
 
 // BF44
 magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
+
+.namespace character {
+    // BF29
+    piece_offset: .byte $00 // Character piece offset used to determine which sprite to copy
+
+    // BF2D
+    piece_type: .byte $00 // Type of board piece (See `Character piece types` constants)
+}
+
+.namespace sprite {
+    // BC29
+    copy_piece_id: .byte $00, $00, $00, $00 // Character piece ID used to determine which sprite to copy
+
+    // BCD4
+    copy_source_lo_ptr: .byte $00, $00, $00, $00 // Low byte pointer to sprite frame source data
+
+    // BCD8
+    copy_source_hi_ptr: .byte $00, $00, $00, $00 // High byte pointer to sprite frame source data
+
+    // BCE3
+    default_direction_flag: .byte $00, $00, $00, $00 // Default direction of character peice (> 0 for inverted)
+
+    // BCDF
+    copy_length: .byte $00 // Number of bytes to copy for the given sprite
+
+    // BF49
+    copy_character_set_flag: .byte $00 // Set #$80 to copy individual character frame in to graphical memory
+}

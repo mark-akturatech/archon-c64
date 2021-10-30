@@ -55,8 +55,24 @@
 .const INITIALIZED = $02A7 // 00 for uninitialized, $80 for initialized
 .const STATE_PTR = $0334 // Pointers used to jump to various game states (intro, board, play)
 
-// Character pieces
-.const TROLL = $02
-.const GOBLIN = $03
-.const KNIGHT = $14
-.const GOLUM = $15
+// Character piece types
+.const VALKYRIE = $00        // Sprite offset: 04
+.const ARCHER = $01          // Sprite offset: 02
+.const GOLEM = $02           // Sprite offset: 03
+.const KNIGHT = $03          // Sprite offset: 07
+.const UNICORN = $04         // Sprite offset: 00
+.const DJINNI = $06          // Sprite offset: 05
+.const WIZARD = $08          // Sprite offset: 01
+.const PHOENIX = $0A         // Sprite offset: 06
+.const MANTICORE = $12       // Sprite offset: 0A
+.const BANSHEE = $13         // Sprite offset: 0E
+.const GOBLIN = $14          // Sprite offset: 0F
+.const TROLL = $15           // Sprite offset: 0B
+.const BASILISK = $17        // Sprite offset: 08
+.const SHAPESHIFTER = $19    // Sprite offset: 0C
+.const SORCERESS = $1B       // Sprite offset: 09
+.const DRAGON = $1D          // Sprite offset: 0D
+.const AIR_ELEMENTAL = $24   // Sprite offset: 10
+.const FIRE_ELEMENTAL = $25  // Sprite offset: 11
+.const EARTH_ELEMENTAL = $26 // Sprite offset: 12
+.const WATER_ELEMENTAL = $27 // Sprite offset: 13
