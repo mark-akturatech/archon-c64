@@ -18,13 +18,16 @@
 .const KEY_F5 = $06 // F5 KEY
 .const KEY_F7 = $03 // F7 KEY
 .const KEY_Q = $Bf // Q key
+
 //---------------------------------------------------------------------------------------------------------------------
 // Video memory configuration
 //---------------------------------------------------------------------------------------------------------------------
+
 // Define video bank memory constants
 .var videoBankCode = List().add(%11, %10, %01, %00).lock()
 .var videoBankAddress = List().add($0000, $4000, $8000, $C000).lock()
 .var videoBankGrphMemOffset = List().add($2000, $1000, $2000, $1000).lock()
+
 // Set the video memory bank:
 // Bank 0 - configuration: %11; memory offset: $0000
 // Bank 1 - configuration: %10; memory offset: $4000
@@ -34,6 +37,7 @@
 .const VICBANK = videoBankCode.get(videoBank)
 .const VICMEM = videoBankAddress.get(videoBank)
 .const VICGOFF = videoBankGrphMemOffset.get(videoBank);
+
 // Derive applications specific video bank constants
 .const CHRMEM1  = VICMEM + $0000    // start of character set memory for intro (half set only)
 .const CHRMEM2  = VICMEM + $0800    // start of character set memory for board (full set)
@@ -46,6 +50,7 @@
 
 // Characters per screen row
 .const CHARS_PER_SCREEN_ROW = 40;
+
 //---------------------------------------------------------------------------------------------------------------------
 // Application specific constants
 //---------------------------------------------------------------------------------------------------------------------
@@ -53,6 +58,7 @@
 // the graphics area. we don't need it as this source representation is fully relocatable and does not load any logic in
 // to the graphcis area.
 .const INITIALIZED = $02A7 // 00 for uninitialized, $80 for initialized
+
 .const STATE_PTR = $0334 // Pointers used to jump to various game states (intro, board, play)
 
 // Character piece types

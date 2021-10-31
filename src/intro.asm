@@ -81,7 +81,7 @@ import_sprite_character:
     lda sprite.direction_flag,x
     sta main.temp.data__character_sprite_frame // Always copy frame 0 of characterset but invert where required
     lda #$04 // Copy 4 frames for each character
-    sta board.sprite.default_direction_flag // This is just being used as temporary counter storage
+    sta main.temp.data__frame_count
 import_sprite_frame:
     jsr board.add_sprite_to_graphics
     lda main.temp.data__temp_store_1
@@ -93,7 +93,7 @@ import_sprite_frame:
     inc FREEZP+3
 !next:
     inc main.temp.data__character_sprite_frame
-    dec board.sprite.default_direction_flag
+    dec main.temp.data__frame_count
     bne import_sprite_frame
     dex
     bpl import_sprite_character
@@ -668,8 +668,10 @@ state__end_intro:
 
     // BCE9
     y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
+
     // BCEA
     x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
+
     // BD15
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
 

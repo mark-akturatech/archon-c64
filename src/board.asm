@@ -9,6 +9,19 @@
 
 .segment Common
 
+// 62EB
+// Gets sound for the current piece.
+// X may be 0 or 1, allowing sound to be retrieved for both characters in a battle.
+get_sound_for_piece:
+    ldy character.piece_offset,x
+    lda sound.character_phrase,y
+    tay
+    lda sound.phrase_ptr,y
+    sta sound.phrase_lo_ptr,x
+    lda sound.phrase_ptr+1,y
+    sta sound.phrase_hi_ptr,x
+    rts
+
 // 6422
 // Converts a board row and column coordinate to a corresponding sprite screen position.
 // Requires:
@@ -87,13 +100,14 @@ intialize_enable_sprite:
     beq !next+
     lda #$11
 !next:
-    sta sprite.default_direction_flag,x
+    sta main.temp.default_direction_flag,x
     rts
 
 // 6509
 // Writes a predefined text message to the board text area.
 // Requires:
 // - A regsiter set with the text message offset.
+// - X register with column offset.
 write_text:
     asl
     tay
@@ -199,7 +213,7 @@ move_sprite:
     cpy sprite.copy_length
     bcc !loop-
     rts
-// Mirror the sprite on copy - used for when sprite is moving in the opposite direction.    
+// Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
 move_sprite_and_invert:
     lda #$0A
     sta main.temp.data__curr_count // Sprite is inverted in 10 blocks
@@ -354,43 +368,49 @@ draw_row:
     //
 draw_square:
     ldy main.temp.data__curr_column
-    // 90BD  2C 14 BD   bit  WBD14
-    // 90C0  70 3E      bvs  W9100
-    // 90C2  10 15      bpl  W90D9
-    // 90C4  A9 80      lda  #$80
-    // 90C6  8D 4E BD   sta  WBD4E
-    // 90C9  AD 28 BF   lda  temp_data__current_board_col
-    // 90CC  CD 31 BF   cmp  temp_data__curr_column
-    // 90CF  D0 28      bne  W90F9
-    // 90D1  AD 26 BF   lda  temp_data__current_board_row
-    // 90D4  CD 30 BF   cmp  temp_data__curr_line
-    // 90D7  D0 20      bne  W90F9
-    // W90D9:
-    // 90D9  B1 FB      lda  (io_FREEZP),y
-    // 90DB  30 04      bmi  W90E1
-    // 90DD  AA         tax
-    // 90DE  BD FF 8A   lda  W8AFF,x
-    // W90E1:
-    // 90E1  8D 4E BD   sta  WBD4E
-    // 90E4  30 13      bmi  W90F9
-    // 90E6  A2 06      ldx  #$06
-    // 90E8  B1 39      lda  (io_CURLIN),y
-    // 90EA  29 7F      and  #$7F
-    // W90EC:
-    // 90EC  18         clc
-    // 90ED  6D 4E BD   adc  WBD4E
-    // 90F0  CA         dex
-    // 90F1  D0 F9      bne  W90EC
-    // 90F3  8D 1A BF   sta  temp_data__curr_board_piece
-    // 90F6  4C 00 91   jmp  W9100
-    //
+    bit character.sqaure_render_flag
+    bvs render_square // Disable piece render
+    bpl render_piece
+    // Only render piece for a given row and coloumn.
+    lda #$80
+    sta draw_square_piece_flag
+    lda main.temp.data__current_board_col
+    cmp main.temp.data__curr_column
+    bne draw_empty_square
+    lda main.temp.data__current_board_row
+    cmp main.temp.data__curr_line
+    bne draw_empty_square
+render_piece:
+    lda (FREEZP),y
+    bmi !next+ // if $80 (blank)
+    tax
+    lda character.setup_matrix,x  // Get character dot data offset
+!next:
+    sta draw_square_piece_flag
+    bmi draw_empty_square
+    // Here we calculate the piece starting character. We do this as follows:
+    // - Set $60 if the piece has a light or variable color background
+    // - Multiply the piece offset by 6 to allow for 6 characters per piece type
+    // - Add both together to get the actual character starting offset
+    ldx #$06 // Each piece compriss a block 6 characters (3 x 2)
+    lda (CURLIN),y  // Get sqaure background color (will be 0 for dark, 60 for light and variable)
+    and #$7F
+!loop:
+    clc
+    adc draw_square_piece_flag
+    dex
+    bne !loop-
+    sta main.temp.data__board_piece_char_offset
+    jmp render_square
+draw_empty_square:
+    lda (CURLIN),y
+    and #$7F
+    sta main.temp.data__board_piece_char_offset
+render_square:
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
     // - offset = row offset + (current column * 2) + current column
     // We call `render_sqaure_row` which draws 2 characters. We then increase the offset by 40 (moves to next line)
     // and call `render_sqaure_row` again to draw the next two characters.
-    lda (CURLIN),y
-    and #$7F
-    sta main.temp.data__curr_board_piece
     lda (CURLIN),y
     bmi !next+
     lda board_data.square_color_data__square+1
@@ -428,17 +448,18 @@ draw_sqaure_part:
     lda #$03
     sta main.temp.data__counter
 !loop:
-    lda main.temp.data__curr_board_piece
+    lda main.temp.data__board_piece_char_offset
     sta (FREEZP+2),y
     lda (VARPNT),y
     and #$F0
-    ora  main.temp.data__current_square_color_code
+    ora main.temp.data__current_square_color_code
     sta (VARPNT),y
     iny
-//     lda WBD4E <-- this must be TRUE for draw piece
-//     bmi W9155
-//     inc main.temp.data__curr_board_piece // THIS DREW PIECES!!!!!!!!!!!!
-// W9155:
+    lda draw_square_piece_flag
+    bmi !next+
+    // Draw the board piece. The piece comprises 4 contiguous characters.
+    inc main.temp.data__board_piece_char_offset
+!next:
     dec main.temp.data__counter
     bne !loop-
     rts
@@ -928,6 +949,73 @@ clear_text_area:
         .byte $04, $02, $0A, $0E, $0F, $0B, $0F, $08
         .byte $0F, $0C, $0F, $09, $0F, $0D, $0F, $08
         .byte $0F, $0B, $0A, $0E, $10, $11, $12, $13
+
+    // 8B7C
+    // The ID of the string used to represent each piece type using piece offset as index.
+    string_id:
+        .byte $1C, $1D, $1E, $1F, $20, $21, $22, $23 
+        .byte $24, $25, $26, $27, $28, $29, $2A, $2B 
+}
+
+.namespace sound {
+    // 8B94
+    phrase_ptr:
+        .word phrase_walk_large, phrase_fly_01, phrase_fly_02, phrase_walk_quad
+        .word phrase_fly_03, phrase_fly_large, phrase_shoot_01, phrase_shoot_02
+        .word phrase_shoot_03, phrase_shoot_04, phrase_walk_slither
+
+    // 8BAA
+    shoot_phrase:
+    // Sound phrase used for shot sound of each piece type. The data is an index to the character sound pointer array.
+        .byte $0C, $0C, $0C, $0C, $0C, $0C, $10, $0E 
+        .byte $0C, $0C, $0C, $0C, $0C, $0C, $12, $0E 
+        .byte $0C, $0C, $0C, $0C
+
+    // 8BBE
+    // Sound phrase used for each piece type. The data is an index to the character sound pointer array.
+    character_phrase:
+        .byte $06, $08, $08, $00, $02, $02, $0A, $08 
+        .byte $14, $08, $06, $00, $02, $04, $02, $08 
+        .byte $02, $02, $00, $04  
+
+    // A15E
+    phrase_walk_large:
+        .byte $00, $08, $34, $00, $20, $03, $81, $00 
+        .byte $08, $34, $00, $20, $01, $81, $FE 
+    phrase_fly_01:
+        .byte $00, $04, $00, $40, $60, $08, $81, $04 
+        .byte $00, $40, $60, $0A, $81, $FE
+    phrase_fly_02:
+        .byte $00, $08, $70, $00, $E2, $04, $21, $08 
+        .byte $00, $00, $00, $00, $00, $FE
+    phrase_walk_slither:
+        .byte $00, $08, $70, $00, $C0, $07, $21, $08 
+        .byte $70, $00, $C0, $07, $00, $FE
+    phrase_walk_quad:
+        .byte $04, $01, $00, $00, $02, $81, $00, $04 
+        .byte $01, $00, $00, $03, $81, $00, $04, $01 
+        .byte $00, $00, $04, $81, $00, $04, $01, $00 
+        .byte $00, $00, $00, $00, $FE     
+    phrase_fly_03:
+        .byte $00, $04, $12, $00, $20, $03, $81, $04 
+        .byte $12, $00, $20, $03, $00, $04, $12, $00 
+        .byte $20, $02, $81, $04, $12, $00, $20, $02 
+        .byte $00, $FE                    
+    phrase_shoot_03:
+        .byte $00, $32, $A9, $00, $EF, $31, $81, $FF 
+        .byte $00, $12, $08, $00, $C4, $07, $41, $FF 
+        .byte $00, $12, $08, $00, $D0, $3B, $43, $FF 
+    phrase_shoot_04:
+        .byte $00, $28, $99, $00, $6A, $6A, $21, $FF 
+    phrase_fly_large:
+        .byte $00, $10, $84, $00, $00, $06, $81, $FE 
+    phrase_shoot_01:
+        .byte $00, $80, $4B, $00, $00, $21, $81, $FF 
+    phrase_shoot_02:
+        .byte $00, $10, $86, $00, $F0, $F0, $81, $FF 
+        .byte $00, $1E, $09, $00, $3E, $2A, $11, $FF 
+        .byte $00, $1E, $09, $00, $1F, $16, $11, $FF 
+        .byte $00, $80, $03, $00, $00, $23, $11, $FF     
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -944,6 +1032,9 @@ flag__current_player: .byte $00 // Is positive for light, negative for dark
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
 
+// BD4E
+draw_square_piece_flag: .byte $00 // Set flag to #$80 to draw a piece on the board square
+
 // BD7C
 square_occupant_data: .fill 9*9, $00 // Board square occupant data (#$80 for no occupant)
 
@@ -951,11 +1042,16 @@ square_occupant_data: .fill 9*9, $00 // Board square occupant data (#$80 for no 
 magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
 
 .namespace character {
+    // BD14
+    // Set to 0 to render all occupied squares, $80 to disable rendering characters and $01-$79 to render a specified
+    // cell only.
+    sqaure_render_flag: .byte $00
+
     // BF29
     piece_offset: .byte $00 // Character piece offset used to determine which sprite to copy
 
     // BF2D
-    piece_type: .byte $00 // Type of board piece (See `Character piece types` constants)
+    piece_type: .byte $00, $00, $00, $00 // Type of board piece (See `Character piece types` constants)
 }
 
 .namespace sprite {
@@ -968,12 +1064,17 @@ magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
     // BCD8
     copy_source_hi_ptr: .byte $00, $00, $00, $00 // High byte pointer to sprite frame source data
 
-    // BCE3
-    default_direction_flag: .byte $00, $00, $00, $00 // Default direction of character peice (> 0 for inverted)
-
     // BCDF
     copy_length: .byte $00 // Number of bytes to copy for the given sprite
 
     // BF49
     copy_character_set_flag: .byte $00 // Set #$80 to copy individual character frame in to graphical memory
+}
+
+.namespace sound {
+    // BF12
+    phrase_lo_ptr: .byte $00, $00 // Lo byte pointer to sound phrase for current piece
+
+    // BF14
+    phrase_hi_ptr: .byte $00, $00 // Hi byte pointer to sound phrase for current piece
 }

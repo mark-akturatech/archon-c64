@@ -379,19 +379,35 @@ stack_ptr_store: .byte $00
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
 // readbility.
 .namespace temp {
+    // BCE3
+    default_direction_flag:
+    data__frame_count:
+        .byte $00
+        .byte $00, $00, $00 // Default direction of character peice (> 0 for inverted)
+
+    // BD17
+    data__sprite_final_x_pos: // Final X position of animated sprite
+        .byte $00
+
+    // BD26
+    data__curr_sprite_count: // Current sprite counter
+        .byte $00
+
     // BD38
     data__num_pieces: // Number of baord pieces to render
         .byte $00
 
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
-    data__curr_board_piece: // Index to start of character dot data for current board piece
+    data__board_piece_char_offset: // Index to character dot data for current board piece part
     data__math_store: // Temporary storage used for math operations
     data__curr_count: // Temporary storage used to keep track of a counter
+    data__x_pixels_per_move: // Pixels to move intro sprite for each frame
         .byte $00
 
     // BF1B
     ptr__sprite: // Intro sprite data pointer
+    data__curr_x_pos: // Current calculated sprite X position
     data__temp_store: // Temporary data storage area
         .byte $00
         .byte $00
@@ -410,6 +426,10 @@ stack_ptr_store: .byte $00
     // BF22
     flag__sprites_initialized: // Is TRUE if intro character sprites are initialized
          .byte $00
+
+    // BF25
+    data__sprite_final_y_pos: // Final Y position of animated sprite
+        .byte $00
 
     // BF26
     data__current_board_row: // Board row offset for rendered piece
@@ -435,6 +455,10 @@ stack_ptr_store: .byte $00
 
     // BD7B
     data__counter: // Temporary counter
+        .byte $00
+
+    // BF3B
+    data__sprite_y_offset: // Calculated Y offset for each sprite in walk in intro
         .byte $00
 
     // BF3C
