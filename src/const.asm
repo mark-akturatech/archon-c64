@@ -82,3 +82,11 @@
 .const FIRE_ELEMENTAL = $25  // Sprite offset: 11
 .const EARTH_ELEMENTAL = $26 // Sprite offset: 12
 .const WATER_ELEMENTAL = $27 // Sprite offset: 13
+
+// Sound
+.const SOUND_CMD_STOP_NOTE = $00    // Stop note
+.const SOUND_CMD_SET_DELAY = $FB    // Set delay
+.const SOUND_CMD_RELEASE_NOTE = $FC // Immediate release
+.const SOUND_CMD_NEXT_STATE = $FD   // End state - used to trigger code at points in the music
+.const SOUND_CMD_NEXT_PHRASE = $FE  // Go to next phrase (or repeat current phrase)
+.const SOUND_CMD_END = $FF          // End phrase and turn off voice

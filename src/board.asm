@@ -602,8 +602,90 @@ clear_text_area:
     rts
 
 // A0B1
+// Plays a character movement or shoot sound.
 play_character_sound:
-    // TODO
+    ldx #$01
+    // Character sounds can be played on voices 1 and 2 sepparately. this allows two character movement sounds to be
+    // played at the same time.
+    // If 00, then means don't play sound for that character.
+!loop:
+    lda common.sound.player_voice_enable_flag,x
+    beq !next+
+    jsr play_voice
+!next:
+    dex
+    bpl !loop-
+    rts
+play_voice:
+    lda common.sound.new_note_delay,x
+    beq configure_voice
+    dec common.sound.new_note_delay,x
+    bne !return+
+configure_voice:
+    txa
+    asl
+    tay
+    lda common.sound.note_data_fn_ptr,y
+    sta common.sound.current_note_data_fn_ptr
+    lda common.sound.note_data_fn_ptr+1,y
+    sta common.sound.current_note_data_fn_ptr+1
+    lda common.sound.voice_io_addr,y
+    sta FREEZP+2 // SID voice address
+    lda common.sound.voice_io_addr+1,y
+    sta FREEZP+3
+get_next_note:
+    jsr common.get_note
+    cmp #SOUND_CMD_NEXT_PHRASE // Repeat phrase
+    beq repeat_phrase
+    cmp #SOUND_CMD_END // Finished - turn off sound
+    beq stop_sound
+    cmp #SOUND_CMD_STOP_NOTE // Stop note
+    bne get_note_data
+    ldy #$04
+    sta (FREEZP+2),y
+    jmp get_next_note
+get_note_data:
+    // If the phrase data is not a command (ie FE, FF or 00), then the data represents a note. A note comprises several
+    // bytes as follows:
+    // - 00: Delay/note hold
+    // - 01: Attack/decay
+    // - 02: Sustain/Release
+    // - 03: Frequency Lo
+    // - 04: Frequency Hi
+    // - 05: Voice control (wafeform etc)
+    sta common.sound.new_note_delay,x
+    jsr common.get_note
+    ldy #$05
+    sta (FREEZP+2),y
+    jsr common.get_note
+    ldy #$06
+    sta (FREEZP+2),y
+    jsr common.get_note
+    ldy #$00
+    sta (FREEZP+2),y
+    jsr common.get_note
+    ldy #$01
+    sta (FREEZP+2),y
+    jsr common.get_note
+    ldy #$04
+    sta (FREEZP+2),y
+!return:
+    rts
+repeat_phrase:
+    txa
+    asl
+    tay
+    lda board.sound.phrase_lo_ptr,x
+    sta OLDTXT,y
+    lda board.sound.phrase_hi_ptr,x
+    sta OLDTXT+1,y
+    jmp get_next_note
+stop_sound:
+    ldy #$04
+    lda #$00
+    sta (FREEZP+2),y
+    sta common.sound.player_voice_enable_flag,x
+    sta common.sound.new_note_delay,x
     rts
 
 //---------------------------------------------------------------------------------------------------------------------

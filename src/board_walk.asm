@@ -226,14 +226,16 @@ add_piece_to_board:
     ldx #$0A // Column offset 10
     jsr board.write_text
     // Set character sound.
-    ldx #$00 
+    ldx #$00
     jsr board.get_sound_for_piece
     lda board.sound.phrase_lo_ptr
     sta OLDTXT // pointer to sound phrase
     lda board.sound.phrase_hi_ptr
     sta OLDTXT+1
+    // Enable character sounds on voice 1 only. Comprises two bytes; one for each player. `common_stop_sound` clears
+    // both bytes to 00, so both voices are turned off by default
     lda #$80
-    sta common.sound.current_phrase_data_fn_ptr  // <<< I THINK THIS IS USED FOR SOMETHING ELSE
+    sta common.sound.player_voice_enable_flag // Enable voice 1 sound
     jsr common.wait_for_key
     rts
 

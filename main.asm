@@ -134,9 +134,11 @@ skip_intro:
     ora #%0001_0000
     sta SCROLX
     //
+#if INCLUDE_INTRO    
     lda state.flag_play_intro
     beq skip_board_walk
     jsr board_walk.entry
+#endif
 skip_board_walk:
     rts
 

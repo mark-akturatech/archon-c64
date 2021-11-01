@@ -229,17 +229,9 @@ skip_command:
 // AC5B
 // Reads a command from the current phrase data. Commands can be notes or special commands. See `play_music` for
 // details.
-.enum {
-    CMD_STOP_NOTE=$00,
-    CMD_SET_DELAY=$fb,
-    CMD_RELEASE_NOTE=$fc,
-    CMD_NEXT_STATE=$fd,
-    CMD_NEXT_PHRASE=$fe,
-    CMD_END=$ff
-}
 get_next_command:
     jsr get_note
-    cmp #CMD_END // Stop voice
+    cmp #SOUND_CMD_END // Stop voice
     bne !next+
     // Reset voice.
     ldy #$04
@@ -247,18 +239,18 @@ get_next_command:
     sta (FREEZP+2),y // FREEZP+2 is ptr to base SID control address for current voice
     rts
 !next:
-    cmp #CMD_NEXT_PHRASE // Phrase finished - load next phrase
+    cmp #SOUND_CMD_NEXT_PHRASE // Phrase finished - load next phrase
     bne !next+
     jsr get_next_phrase
     jmp get_next_command
 !next:
-    cmp #CMD_NEXT_STATE // Set next into animation state
+    cmp #SOUND_CMD_NEXT_STATE // Set next into animation state
     beq set_state
-    cmp #CMD_SET_DELAY // Set delay
+    cmp #SOUND_CMD_SET_DELAY // Set delay
     beq set_delay
-    cmp #CMD_STOP_NOTE // Stop note
+    cmp #SOUND_CMD_STOP_NOTE // Stop note
     beq clear_note
-    cmp #CMD_RELEASE_NOTE // Release note
+    cmp #SOUND_CMD_RELEASE_NOTE // Release note
     beq release_note
     // Play note - sets gate filter, loads the command in to voice hi frequency control, reads the next command and
     // then loads that in to the voice lo frequency control.
@@ -595,7 +587,9 @@ intro_music:
     current_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
 
     // BF08
-    current_phrase_data_fn_ptr: .word $0000 // Pointer to function to read current phrase for current voice
+    current_phrase_data_fn_ptr: // Pointer to function to read current phrase for current voice
+    player_voice_enable_flag: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
+        .word $0000
 
     // BF0B
     new_note_delay: .byte $00, $00, $00 // New note delay timer
