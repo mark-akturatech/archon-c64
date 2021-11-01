@@ -82,7 +82,7 @@ add_piece:
     // Toggle current player.
     lda board.flag__current_player
     eor #$FF
-    lda board.flag__current_player
+    sta board.flag__current_player
     jmp add_piece
 
 // 8EB0
@@ -136,17 +136,17 @@ add_7_pieces:
 add_piece_to_board:
     // Creates sprites for each piece and animates them walking/flying in to the board position.
     lda #$00 // Starting X position
-    ldy #$04 // Pixels to move each frame
+    ldy #$04 // Pixels to move for each alternative piece
     ldx board.flag__current_player
     bpl !next+ // Start at right side and move to the left for player 2
     lda #$94
-    ldy #$FC 
+    ldy #$FC
 !next:
     sty main.temp.data__x_pixels_per_move
     sta main.temp.data__curr_x_pos
     ldx main.temp.data__num_pieces
     dex
-    stx main.temp.data__curr_sprite_count
+    stx main.temp.data__sprite_count
 !loop:
     lda main.temp.data__curr_x_pos
     sta main.sprite.curr_x_pos,x
@@ -182,7 +182,7 @@ add_piece_to_board:
     lda #BLACK // Set multicolor background color to black
     sta SPMC0
     // Calculate starting Y position and color of each sprite.
-    ldx main.temp.data__curr_sprite_count
+    ldx main.temp.data__sprite_count
 !loop:
     lda SP0COL
     sta SP0COL,x
@@ -226,12 +226,13 @@ add_piece_to_board:
     ldx #$0A // Column offset 10
     jsr board.write_text
     // Set character sound.
+    ldx #$00 
     jsr board.get_sound_for_piece
     lda board.sound.phrase_lo_ptr
     sta OLDTXT // pointer to sound phrase
     lda board.sound.phrase_hi_ptr
-    sta OLDTXT+1                  
-    lda #$80                         
+    sta OLDTXT+1
+    lda #$80
     sta common.sound.current_phrase_data_fn_ptr  // <<< I THINK THIS IS USED FOR SOMETHING ELSE
     jsr common.wait_for_key
     rts
@@ -243,7 +244,58 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    //.. TODO
+    jsr board.play_character_sound
+    // Update sprite frame and position.
+    lda #$FF
+    sta main.temp.data__curr_sprite_count
+    // Only update sprite position on every second interrupt.
+    lda main.temp.flag__alternating_state
+    eor #$FF
+    sta main.temp.flag__alternating_state
+    bmi update_sprite
+    jmp common.complete_interrupt
+update_sprite:
+    ldy #$01
+    lda board.flag__current_player
+    bpl !next+
+    ldy #$FF
+!next:
+    sty main.temp.data__sprite_x_direction_offset_1 // Set direction
+    ldx main.temp.data__sprite_count
+    lda main.temp.flag__alternating_state_1
+    eor #$FF
+    sta main.temp.flag__alternating_state_1
+    bmi check_sprite // Only update animation frame on every second position update
+    inc intro.sprite.animation_counter
+check_sprite:
+    lda main.sprite.curr_x_pos,x
+    cmp main.temp.data__sprite_final_x_pos
+    bne update_sprite_pos
+    inc main.temp.data__curr_sprite_count
+    jmp next_sprite
+update_sprite_pos:
+    clc
+    adc main.temp.data__sprite_x_direction_offset_1
+    sta main.sprite.curr_x_pos,x
+    txa
+    asl
+    tay
+    lda intro.sprite.animation_counter
+    and #$03 // Set animation frame (0 to 3)
+    clc
+    adc main.sprite._00_screen_ptr
+    sta SPTMEM,x
+    jsr board.render_sprite
+next_sprite:
+    dex
+    bpl check_sprite // Set additional sprites
+    ldx main.temp.data__sprite_count
+    cpx main.temp.data__curr_sprite_count
+    bne !next+
+    //
+    lda #$80
+    sta main.state.flag_update
+!next:
     jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------

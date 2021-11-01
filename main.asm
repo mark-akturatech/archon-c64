@@ -385,12 +385,28 @@ stack_ptr_store: .byte $00
         .byte $00
         .byte $00, $00, $00 // Default direction of character peice (> 0 for inverted)
 
+    // BCEE
+    flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
+        .byte $00
+
+    // BCFE
+    data__curr_sprite_count: // Current animated sprite counter (used to animate multiple sprites)
+        .byte $00
+
+    // BCEF
+    flag__alternating_state_1: // Alternating state flag (alternates between 00 and FF)
+        .byte $00
+
+    // BD0D
+    data__sprite_x_direction_offset_1: // Amount added to x plan to move sprite to the left or right (uses rollover)
+        .byte $00
+
     // BD17
     data__sprite_final_x_pos: // Final X position of animated sprite
         .byte $00
 
     // BD26
-    data__curr_sprite_count: // Current sprite counter
+    data__sprite_count: // Current sprite counter
         .byte $00
 
     // BD38
