@@ -6,7 +6,7 @@
 #import "src/io.asm"
 #import "src/const.asm"
 
-.segment BoardWalk
+.segment Intro
 
 // 8E36
 entry:
@@ -88,7 +88,7 @@ add_piece:
 // 8EB0
 // Adds a piece to the board.
 animate_piece:
-    ldx #$04 // TODO: WHY 4?
+    ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
     lda main.temp.data__current_board_col
     ldy main.temp.data__current_board_row
     jsr board.convert_coord_sprite_pos

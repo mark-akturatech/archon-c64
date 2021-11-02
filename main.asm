@@ -6,27 +6,43 @@
 //
 // Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
 //
-// Full resepct to the original authors:
+// Full resepct to the awesome authors:
 // - Anne Westfall, Jon Freeman, Paul Reiche III
 //
 // THANK YOU FOR MANY YEARS OF MEMORABLE GAMING. ARCHON ROCKS AND ALWAYS WILL!!!
 //---------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+// Notes:
+// - This is not a byte for byte memory replication. The source is fully relocatable and pays no heed to original 
+//   memory locations. Original memory locations are provided as comments above each variable, constant or method
+//   for reference.
+// - The source does not include any original logic that moves code or data around. The source code below has been
+//   developed so that it all loads entirely in place. This is to aide radability and also alows easy addition or
+//   modification of code.
+// - The source uses screen memory bank at $4000 and has logic to move code and data from this area. Here we use
+//   the $8000 bank so that the code can all remain in place. However, to make enough room, we have hard coded the
+//   character dot dat to load directly in to the required memory location.
+// - The source uses the same data memory addresses for different purposes. For example `BF24` may store the current
+//   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we may have
+//   added multiple lables to the same memory address. TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!! 
+
 #import "src/io.asm"
 #import "src/const.asm"
 
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, BoardWalk, Game, Assets"]
+.file [name="main.prg", segments="Upstart, Main, Common, Intro, Game, Assets, ScreenMemory"]
+
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
-.segmentdef BoardWalk [startAfter="Intro"]
-.segmentdef Game [startAfter="BoardWalk"]
+.segmentdef Game [startAfter="Intro"]
 .segmentdef Assets [startAfter="Game"]
 //
-.segmentdef DataStart [startAfter="Assets", virtual]
+.segmentdef ScreenMemory [start=$8000]
+//
+.segmentdef DataStart [start=$C000, virtual]
 .segmentdef Data [startAfter="DataStart", virtual]
-.segmentdef DataEnd [startAfter="Data", max=$7fff, virtual]
+.segmentdef DataEnd [startAfter="Data",  virtual]
 
 #import "src/common.asm"
 #import "src/board.asm"
@@ -54,7 +70,6 @@ BasicUpstart2(start)
 // before the disassembly snapshot was taken.
 start:
     jsr not_original.clear_variable_space
-    jsr not_original.import_charsets
     jmp entry
 
 // 6100
@@ -70,9 +85,9 @@ entry:
     lda #$80
     sta state.flag_play_intro // Non zero to play intro, $00 to skip
     sta state.flag_setup_progress // Flag used by keycheck routine to test for run/stop or Q (if set)
-    lda #$03
-    sta state.NFI_001
-    lda INITIALIZED
+    // lda #$03
+    // sta WBCCB
+    lda initialized_flag
     bmi skip_prep
     jsr prep
 skip_prep:
@@ -80,7 +95,6 @@ skip_prep:
 restart_game_loop:
     ldx stack_ptr_store
     txs
-    // skip 612c to 612f as this resets the stack pointer back after the decryption/move logic has played with it.
     jsr common.stop_sound
     // skip 6133 to 6148 as it clears variable area. this is needed due to app relocating code on load. we don't need
     // this.
@@ -146,19 +160,19 @@ skip_board_walk:
 prep:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #$80
-    sta INITIALIZED
+    sta initialized_flag
     // Store system interrupt handler pointer so we can call it from our own interrupt handler.
     lda CINV
     sta interrupt.raster_fn_ptr
     lda CINV+1
     sta interrupt.raster_fn_ptr+1
-    // skip 4711-475F - moves stuff around. we'll just set any intiial values in our assets segment.
+    // skip 4711-4765 - moves stuff around. we'll just set any intiial values in our assets segment.
 main_prep_game_states:
     // Configure game state function handlers.
     ldx #$05
 !loop:
     lda state.game_fn_ptr,x
-    sta STATE_PTR,x
+    sta state.curr_game_fn_ptr,x
     dex
     bpl !loop-
     rts
@@ -264,15 +278,15 @@ interrupt_interceptor:
 
 // 8010
 play_game:
-    jmp (STATE_PTR)
+    jmp (state.curr_game_fn_ptr)
 
 // 8013
 play_board_setup:
-    jmp (STATE_PTR+2)
+    jmp (state.curr_game_fn_ptr+2)
 
 // 8016
 play_intro:
-    jmp (STATE_PTR+4)
+    jmp (state.curr_game_fn_ptr+4)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -327,13 +341,27 @@ play_intro:
         .byte <(GRPMEM + 56 * BYTES_PER_SPRITE), >(GRPMEM + 56 * BYTES_PER_SPRITE)
 }
 
+.segment ScreenMemory
+
+#if INCLUDE_INTRO
+    * = CHRMEM1
+    .import binary "/assets/charset-intro.bin"
+#endif
+
+* = CHRMEM2
+.import binary "/assets/charset-game.bin"
+
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
+// 02A7
+initialized_flag: .byte $00 // 00 for uninitialized, $80 for initialized
+
 // BCC4
 stack_ptr_store: .byte $00
+
 .namespace interrupt {
     // BCCC
     system_fn_ptr: .word $0000 // System interrupt handler function pointer
@@ -343,6 +371,9 @@ stack_ptr_store: .byte $00
 }
 
 .namespace state {
+    // 0334
+    curr_game_fn_ptr: .word $0000, $0000, $0000 // Pointers used to jump to various game states (intro, board, play)
+
     // BCC3 -> seems to be key chjeck state maybe??
     flag_setup_progress: .byte $00 // Game setup state ($80 = intro, $00 = board walk, $ff = options)
 
