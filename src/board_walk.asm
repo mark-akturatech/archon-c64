@@ -80,9 +80,9 @@ add_piece:
 !next:
     sta main.temp.data__piece_offset
     // Toggle current player.
-    lda board.flag__current_player
+    lda main.game_state.flag__current_player
     eor #$FF
-    sta board.flag__current_player
+    sta main.game_state.flag__current_player
     jmp add_piece
 
 // 8EB0
@@ -137,7 +137,7 @@ add_piece_to_board:
     // Creates sprites for each piece and animates them walking/flying in to the board position.
     lda #$00 // Starting X position
     ldy #$04 // Pixels to move for each alternative piece
-    ldx board.flag__current_player
+    ldx main.game_state.flag__current_player
     bpl !next+ // Start at right side and move to the left for player 2
     lda #$94
     ldy #$FC
@@ -196,7 +196,7 @@ add_piece_to_board:
     // Load sprites in to graphical memory. Add first 4 frames of the sprite character set.
     lda #$80
     sta board.sprite.copy_character_set_flag
-    and board.flag__current_player
+    and main.game_state.flag__current_player
     sta main.temp.data__character_sprite_frame
     lda #$04
     sta main.temp.data__frame_count
@@ -258,7 +258,7 @@ interrupt_handler:
     jmp common.complete_interrupt
 update_sprite:
     ldy #$01
-    lda board.flag__current_player
+    lda main.game_state.flag__current_player
     bpl !next+
     ldy #$FF
 !next:

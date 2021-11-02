@@ -41,8 +41,8 @@ advance_intro_state:
     cmp #$40
     bne advance_intro_state
     // Advance game state.
-    lda #$07
-    sta main.state.NFI_001
+    // lda #$07
+    // sta WBCCB  // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lda #$80
     sta main.state.flag_update
     // Remove intro interrupt handler.
@@ -580,7 +580,7 @@ intro_music:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment Data
+.segment DynamicData
 
 .namespace sound {
     // BD66

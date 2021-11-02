@@ -13,7 +13,7 @@
 //---------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Notes:
-// - This is not a byte for byte memory replication. The source is fully relocatable and pays no heed to original 
+// - This is not a byte for byte memory replication. The source is fully relocatable and pays no heed to original
 //   memory locations. Original memory locations are provided as comments above each variable, constant or method
 //   for reference.
 // - The source does not include any original logic that moves code or data around. The source code below has been
@@ -24,7 +24,7 @@
 //   character dot dat to load directly in to the required memory location.
 // - The source uses the same data memory addresses for different purposes. For example `BF24` may store the current
 //   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we may have
-//   added multiple lables to the same memory address. TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!! 
+//   added multiple lables to the same memory address. TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!
 
 #import "src/io.asm"
 #import "src/const.asm"
@@ -36,17 +36,17 @@
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
 .segmentdef Game [startAfter="Intro"]
-.segmentdef Assets [startAfter="Game"]
+.segmentdef Assets [startAfter="Game", max=$7FFF]
 //
 .segmentdef ScreenMemory [start=$8000]
 //
-.segmentdef DataStart [start=$C000, virtual]
-.segmentdef Data [startAfter="DataStart", virtual]
-.segmentdef DataEnd [startAfter="Data",  virtual]
+.segmentdef Data [start=$C000, max=$CFFF, virtual] // Data set once on game initialization
+.segmentdef DynamicDataStart [startAfter="Data", virtual] // Data that is reset on each game state change
+.segmentdef DynamicData [startAfter="DynamicDataStart", virtual]
+.segmentdef DynamicDataEnd [startAfter="DynamicData",  virtual]
 
 #import "src/common.asm"
 #import "src/board.asm"
-#import "src/not_original.asm"
 #if INCLUDE_INTRO
     #import "src/intro.asm"
     #import "src/board_walk.asm"
@@ -59,27 +59,21 @@
 .segment Upstart
 
 // create basic program with sys command to execute code
-BasicUpstart2(start)
+BasicUpstart2(entry)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Entry
 //---------------------------------------------------------------------------------------------------------------------
 .segment Main
 
-// Implement our own logic to duplicate some of the functions originally performed in Block 3 (see readme.md file)
-// before the disassembly snapshot was taken.
-start:
-    jsr not_original.clear_variable_space
-    jmp entry
-
 // 6100
 entry:
     // 6100  A9 00      lda #$00       // TODO: what are these variables
-    // 6102  8D C0 BC sta WBCC0
+    // 6102  8D C0 BC sta WBCC0 // not dynamic!
     // 6105  8D C1 BC sta WBCC1      // players -> 2, light, dark
     // 6108  8D C5 BC sta WBCC5
     lda #$55 // Set light as first player
-    sta board.flag__first_player
+    sta game_state.flag__first_player
     tsx
     stx stack_ptr_store
     lda #$80
@@ -96,17 +90,101 @@ restart_game_loop:
     ldx stack_ptr_store
     txs
     jsr common.stop_sound
-    // skip 6133 to 6148 as it clears variable area. this is needed due to app relocating code on load. we don't need
-    // this.
+    // Clears variable storage area.
+    lda #<dynamic_data_start
+    sta FREEZP+2
+    lda #>dynamic_data_start
+    sta FREEZP+3
+    ldx #>((dynamic_data_end + $0100) - dynamic_data_start) // Number of blocks to clear + 1
+    lda #$00
+    tay
+!loop:
+    sta (FREEZP+2),y
+    iny
+    bne !loop-
+    inc FREEZP+3
+    dex
+    bne !loop-
+    //
     jsr common.clear_screen
     jsr common.clear_sprites
-    // skip 6150 to 618A as it moves more stuff around. not too sure why yet.
-    // 618B
+    // 6150  A2 23      ldx  #$23 // TODO: why copy the setup matrix? OH - is this the location of each piece as game progresses. I reckon so.
+    // W6152:
+    // 6152  BC FF 8A   ldy  board_character_setup_matrix,x
+    // 6155  B9 B3 8A   lda  W8AB3,y
+    // 6158  9D FD BD   sta  WBDFD,x
+    // 615B  CA         dex
+    // 615C  10 F4      bpl  W6152
     lda #>COLRAM
     sec
     sbc #>SCNMEM
     sta screen.color_mem_offset
-    // skip 6193 to 6219 as it moves more stuff around. not too sure why yet.
+    // 6193  A9 51      lda  #$51 // TODO: I reckon this does stuff like sets up 2 powers, board matrix etc so these can be in data mem instead of assets??
+    // 6195  8D 1A BF   sta  temp_data__curr_color
+    // 6198  A9 00      lda  #$00
+    // 619A  8D 1B BF   sta  temp_ptr__sprite
+    // 619D  AA         tax
+    // W619E:
+    // 619E  AD 1A BF   lda  temp_data__curr_color
+    // 61A1  9D E4 BE   sta  WBEE4,x
+    // 61A4  A9 44      lda  #$44
+    // 61A6  18         clc
+    // 61A7  6D 1B BF   adc  temp_ptr__sprite
+    // 61AA  9D EF BE   sta  WBEEF,x
+    // 61AD  AD 1A BF   lda  temp_data__curr_color
+    // 61B0  18         clc
+    // 61B1  69 50      adc  #$50
+    // 61B3  8D 1A BF   sta  temp_data__curr_color
+    // 61B6  90 03      bcc  W61BB
+    // 61B8  EE 1B BF   inc  temp_ptr__sprite
+    // W61BB:
+    // 61BB  E8         inx
+    // 61BC  E0 0B      cpx  #$0B
+    // 61BE  90 DE      bcc  W619E
+    // 61C0  A9 7C      lda  #$7C
+    // 61C2  8D 1A BF   sta  temp_data__curr_color
+    // 61C5  A9 00      lda  #$00
+    // 61C7  8D 1B BF   sta  temp_ptr__sprite
+    // 61CA  AA         tax
+    // W61CB:
+    // 61CB  AD 1A BF   lda  temp_data__curr_color
+    // 61CE  9D C0 BE   sta  board_row_occupancy_lo_ptr,x
+    // 61D1  A9 BD      lda  #$BD
+    // 61D3  18         clc
+    // 61D4  6D 1B BF   adc  temp_ptr__sprite
+    // 61D7  9D C9 BE   sta  board_row_occupancy_hi_ptr,x
+    // 61DA  AD 1A BF   lda  temp_data__curr_color
+    // 61DD  18         clc
+    // 61DE  69 09      adc  #$09
+    // 61E0  8D 1A BF   sta  temp_data__curr_color
+    // 61E3  90 03      bcc  W61E8
+    // 61E5  EE 1B BF   inc  temp_ptr__sprite
+    // W61E8:
+    // 61E8  E8         inx
+    // 61E9  E0 09      cpx  #$09
+    // 61EB  90 DE      bcc  W61CB
+    // 61ED  A9 5D      lda  #$5D
+    // 61EF  8D 1A BF   sta  temp_data__curr_color
+    // 61F2  A9 00      lda  #$00
+    // 61F4  8D 1B BF   sta  temp_ptr__sprite
+    // 61F7  AA         tax
+    // W61F8:
+    // 61F8  AD 1A BF   lda  temp_data__curr_color
+    // 61FB  9D D2 BE   sta  board_row_color_lo_ptr,x
+    // 61FE  A9 0B      lda  #$0B
+    // 6200  18         clc
+    // 6201  6D 1B BF   adc  temp_ptr__sprite
+    // 6204  9D DB BE   sta  board_row_color_hi_ptr,x
+    // 6207  AD 1A BF   lda  temp_data__curr_color
+    // 620A  18         clc
+    // 620B  69 09      adc  #$09
+    // 620D  8D 1A BF   sta  temp_data__curr_color
+    // 6210  90 03      bcc  W6215
+    // 6212  EE 1B BF   inc  temp_ptr__sprite
+    // W6215:
+    // 6215  E8         inx
+    // 6216  E0 09      cpx  #$09
+    // 6218  90 DE      bcc  W61F8
     lda #$80
     sta state.flag_update
     // Clear board square occupancy data.
@@ -117,8 +195,8 @@ restart_game_loop:
     bpl !loop-
     // 6227  8D 24 BD sta WBD24  // TODO: what are these variables?
     // 622A 8D 25 BD sta WBD25
-    lda board.flag__first_player
-    sta board.flag__current_player
+    lda game_state.flag__first_player
+    sta game_state.flag__current_player
     // Set default board phase color.
     ldy #$03
     lda board.board_data.color_phase_data,y
@@ -148,7 +226,7 @@ skip_intro:
     ora #%0001_0000
     sta SCROLX
     //
-#if INCLUDE_INTRO    
+#if INCLUDE_INTRO
     lda state.flag_play_intro
     beq skip_board_walk
     jsr board_walk.entry
@@ -297,12 +375,11 @@ play_intro:
     // 4760
     game_fn_ptr: // Pointer to each main game function (intro, board, game)
         .word game.entry // TODO: this could be wrong
+        .word game.entry // TODO: this could be wrong
 #if INCLUDE_INTRO
-        .word board_walk.entry // TODO: this could be wrong
         .word intro.entry
 #else
-        .word not_original.empty_sub
-        .word not_original.empty_sub
+        .word game.entry
 #endif
 }
 
@@ -351,13 +428,22 @@ play_intro:
 * = CHRMEM2
 .import binary "/assets/charset-game.bin"
 
+
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
+// Assets
 //---------------------------------------------------------------------------------------------------------------------
-.segment Data
+// Contains constants, assets and resources included in the compiled file.
+.segment Assets
 
 // 02A7
 initialized_flag: .byte $00 // 00 for uninitialized, $80 for initialized
+
+//---------------------------------------------------------------------------------------------------------------------
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+// Data in this area are not cleared on state change.
+//
+.segment Data
 
 // BCC4
 stack_ptr_store: .byte $00
@@ -374,21 +460,37 @@ stack_ptr_store: .byte $00
     // 0334
     curr_game_fn_ptr: .word $0000, $0000, $0000 // Pointers used to jump to various game states (intro, board, play)
 
-    // BCC3 -> seems to be key chjeck state maybe??
+    // BCC3 -> seems to be key check state maybe??
     flag_setup_progress: .byte $00 // Game setup state ($80 = intro, $00 = board walk, $ff = options)
 
     // BCC7
     counter: .byte $00 // State counter (increments after each state change)
-
-    // BCCB
-    NFI_001: .byte $00 // TODO: NO IDEA WHAT THIS IS
 
     // BCD0
     flag_update: .byte $00 // Is set to $80 to indicate that the game state should be changed to the next state
 
     // BCD1
     flag_play_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
+}
 
+.namespace game_state {
+    // BCC2
+    flag__first_player: .byte $00 // Is positive for light, negative for dark
+
+    // BCC6
+    flag__current_player: .byte $00 // Is positive for light, negative for dark
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
+// of the data area.
+//
+.segment DynamicDataStart
+    dynamic_data_start:
+
+.segment DynamicData
+
+.namespace state {
     // BCD3
     flag_update_on_interrupt: .byte $00 // Is set to non zero if the game state should be updated after next interrupt
 
@@ -525,3 +627,6 @@ stack_ptr_store: .byte $00
     data__character_sprite_frame: // Frame offset of sprite character set. Add #$80 to invert the frame on copy.
         .byte $00
 }
+
+.segment DynamicDataEnd
+    dynamic_data_end:

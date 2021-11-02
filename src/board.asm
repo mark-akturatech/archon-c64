@@ -318,7 +318,7 @@ set_player_color:
     lda #>(CHRMEM2 + player_dot_data_offset)
     sta FREEZP+3
     ldy #$07
-    lda flag__current_player
+    lda main.game_state.flag__current_player
 !loop:
     sta (FREEZP+2),y
     dey
@@ -1108,13 +1108,7 @@ stop_sound:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment Data
-
-// BCC2
-flag__first_player: .byte $00 // Is positive for light, negative for dark
-
-// BCC6
-flag__current_player: .byte $00 // Is positive for light, negative for dark
+.segment DynamicData
 
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
