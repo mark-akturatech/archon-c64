@@ -14,7 +14,6 @@ entry:
     //Configure graphics area again. We seem to do this alot.
     lda #%0001_0010
     sta VMCSB
-
     // Enable multicolor text mode again.
     lda SCROLX
     ora #%0001_0000
@@ -37,11 +36,10 @@ entry:
     sta SPMC
     lda #$36 // 54 bytes per sprite
     sta board.sprite.copy_length
-    //
     // Adds piece types to the board one at a time. Each piece is added by animating it (flying or walking) to the
     // piece's square.
     // The anitmation is performed using sprites that are loaded in to the first four sprite slots for each piece. After
-    // the animation is completed, the piece is drawn on to the square using character set characters.
+    // the animation is completed, the piece is drawn on to the square using character set dot data.
     // The board is redrawn for each piece.
     // The board current player indication (border color) is toggled as each side's piece is loaded.
     // The board is a 9x9 grid.
@@ -63,13 +61,13 @@ add_piece:
     //   row offset is the start row and other pieces are adde done after the other below it.
     // There are a total of 16 different piece types.
     lda piece.data,x
-    sta board.character.piece_type
+    sta board.piece.type
     lda piece.data+1,x
     sta main.temp.data__num_pieces
     lda piece.data+2,x
-    sta main.temp.data__current_board_col
+    sta main.temp.data__curr_board_col
     lda piece.data+3,x
-    sta main.temp.data__current_board_row
+    sta main.temp.data__curr_board_row
     jsr animate_piece
     lda main.temp.data__piece_offset
     clc
@@ -80,27 +78,27 @@ add_piece:
 !next:
     sta main.temp.data__piece_offset
     // Toggle current player.
-    lda main.game_state.flag__current_player
+    lda game.state.flag__is_curr_player_light
     eor #$FF
-    sta main.game_state.flag__current_player
+    sta game.state.flag__is_curr_player_light
     jmp add_piece
 
 // 8EB0
 // Adds a piece to the board.
 animate_piece:
     ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
-    lda main.temp.data__current_board_col
-    ldy main.temp.data__current_board_row
+    lda main.temp.data__curr_board_col
+    ldy main.temp.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     sta main.temp.data__sprite_final_x_pos
     sty main.temp.data__sprite_final_y_pos
     lda main.temp.data__num_pieces
     cmp #$07 // Adding 7 pieces (knights, goblins)?
     bne !next+
-    sta main.temp.data__current_board_row // Start at row 7
+    sta main.temp.data__curr_board_row // Start at row 7
 add_7_pieces:
     jsr board.add_piece_to_matrix
-    dec main.temp.data__current_board_row
+    dec main.temp.data__curr_board_row
     bne add_7_pieces
     lda #$01 // Unused code?
     ldx #$10
@@ -112,16 +110,16 @@ add_7_pieces:
     cmp #$02 // Adding 2 pieces?
     bcc add_piece_to_board
     // Add 2 pieces.
-    lda main.temp.data__current_board_row
+    lda main.temp.data__curr_board_row
     sta main.temp.data__curr_line
     lda #$08
     sec
-    sbc main.temp.data__current_board_row
-    sta main.temp.data__current_board_row
+    sbc main.temp.data__curr_board_row
+    sta main.temp.data__curr_board_row
     jsr board.add_piece_to_matrix
     lda main.temp.data__curr_line
     sec
-    sbc main.temp.data__current_board_row
+    sbc main.temp.data__curr_board_row
     bcs !next+
     eor #$FF
     adc #$01
@@ -137,7 +135,7 @@ add_piece_to_board:
     // Creates sprites for each piece and animates them walking/flying in to the board position.
     lda #$00 // Starting X position
     ldy #$04 // Pixels to move for each alternative piece
-    ldx main.game_state.flag__current_player
+    ldx game.state.flag__is_curr_player_light
     bpl !next+ // Start at right side and move to the left for player 2
     lda #$94
     ldy #$FC
@@ -149,11 +147,11 @@ add_piece_to_board:
     stx main.temp.data__sprite_count
 !loop:
     lda main.temp.data__curr_x_pos
-    sta main.sprite.curr_x_pos,x
+    sta common.sprite.curr_x_pos,x
     dex
     clc
     adc main.temp.data__x_pixels_per_move
-    sta main.sprite.curr_x_pos,x
+    sta common.sprite.curr_x_pos,x
     dex
     bpl !loop-
     ldx #$06
@@ -168,9 +166,9 @@ add_piece_to_board:
     //
     ldx #$00
     stx intro.sprite.animation_counter
-    ldy board.character.piece_type
-    lda board.character.setup_matrix,y
-    sta board.character.piece_offset
+    ldy board.piece.type
+    lda board.piece.initial_matrix,y
+    sta board.piece.offset
     jsr board.sprite_initialize
     // Configure sprites.
     lda #%1111_1111 // Enable all sprites
@@ -187,23 +185,23 @@ add_piece_to_board:
     lda SP0COL
     sta SP0COL,x
     lda main.temp.data__sprite_final_y_pos
-    sta main.sprite.curr_y_pos,x
+    sta common.sprite.curr_y_pos,x
     clc
     adc main.temp.data__sprite_y_offset
     sta main.temp.data__sprite_final_y_pos
     dex
     bpl !loop-
     // Load sprites in to graphical memory. Add first 4 frames of the sprite character set.
-    lda #$80
-    sta board.sprite.copy_character_set_flag
-    and main.game_state.flag__current_player
+    lda #FLAG_ENABLE
+    sta board.sprite.flag__copy_animation_group
+    and game.state.flag__is_curr_player_light
     sta main.temp.data__character_sprite_frame
     lda #$04
     sta main.temp.data__frame_count
-    lda main.sprite._00_memory_ptr
+    lda main.sprite.mem_ptr_00
     sta FREEZP+2
     sta main.temp.data__sprite_y_direction_offset
-    lda main.sprite._00_memory_ptr+1
+    lda main.sprite.mem_ptr_00+1
     sta FREEZP+3
     ldx #$00
 !loop:
@@ -221,8 +219,8 @@ add_piece_to_board:
     bne !loop-
     // Display piece name.
     jsr board.clear_text_area
-    ldy board.character.piece_offset
-    lda board.character.string_id,y
+    ldy board.piece.offset
+    lda board.piece.string_id,y
     ldx #$0A // Column offset 10
     jsr board.write_text
     // Set character sound.
@@ -234,15 +232,15 @@ add_piece_to_board:
     sta OLDTXT+1
     // Enable character sounds on voice 1 only. Comprises two bytes; one for each player. `common_stop_sound` clears
     // both bytes to 00, so both voices are turned off by default
-    lda #$80
-    sta common.sound.player_voice_enable_flag // Enable voice 1 sound
+    lda #FLAG_ENABLE
+    sta common.sound.flag__enable_voice // Enable voice 1 sound
     jsr common.wait_for_key
     rts
 
 // 8FE6
 interrupt_handler:
     jsr board.draw_magic_square
-    lda main.state.flag_update
+    lda main.interrupt.flag__enable
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -258,7 +256,7 @@ interrupt_handler:
     jmp common.complete_interrupt
 update_sprite:
     ldy #$01
-    lda main.game_state.flag__current_player
+    lda game.state.flag__is_curr_player_light
     bpl !next+
     ldy #$FF
 !next:
@@ -270,7 +268,7 @@ update_sprite:
     bmi check_sprite // Only update animation frame on every second position update
     inc intro.sprite.animation_counter
 check_sprite:
-    lda main.sprite.curr_x_pos,x
+    lda common.sprite.curr_x_pos,x
     cmp main.temp.data__sprite_final_x_pos
     bne update_sprite_pos
     inc main.temp.data__curr_sprite_count
@@ -278,14 +276,14 @@ check_sprite:
 update_sprite_pos:
     clc
     adc main.temp.data__sprite_x_direction_offset_1
-    sta main.sprite.curr_x_pos,x
+    sta common.sprite.curr_x_pos,x
     txa
     asl
     tay
     lda intro.sprite.animation_counter
     and #$03 // Set animation frame (0 to 3)
     clc
-    adc main.sprite._00_screen_ptr
+    adc main.sprite.offset_00
     sta SPTMEM,x
     jsr board.render_sprite
 next_sprite:
@@ -295,8 +293,8 @@ next_sprite:
     cpx main.temp.data__curr_sprite_count
     bne !next+
     //
-    lda #$80
-    sta main.state.flag_update
+    lda #FLAG_ENABLE
+    sta main.interrupt.flag__enable
 !next:
     jmp common.complete_interrupt
 
@@ -307,21 +305,23 @@ next_sprite:
 
 .namespace piece {
     // 8DF6
-    data: // Contains data for each board piece (type, number, location, row offset)
-        .byte KNIGHT, $07, $01, $01
-        .byte GOBLIN, $07, $07, $01
-        .byte ARCHER, $02, $01, $08
-        .byte MANTICORE, $02, $07, $08
-        .byte VALKYRIE, $02, $00, $08
-        .byte BANSHEE, $02, $08, $08
-        .byte GOLEM, $02, $00, $07
-        .byte TROLL, $02, $08, $07
-        .byte UNICORN, $02, $00, $06
-        .byte BASILISK, $02, $08, $06
-        .byte DJINNI, $01, $00, $03
-        .byte DRAGON, $01, $08, $05
-        .byte PHOENIX, $01, $00, $05
-        .byte SHAPESHIFTER, $01, $08, $03
-        .byte WIZARD, $01, $00, $04
-        .byte SORCERESS, $01, $08, $04
+    // Contains data for each board piece (type, number of, column, row offset). The data is represented in the order
+    // that the pieces are added to the board.
+    data:
+        .byte KNIGHT,       7, 1, 1
+        .byte GOBLIN,       7, 7, 1
+        .byte ARCHER,       2, 1, 8
+        .byte MANTICORE,    2, 7, 8
+        .byte VALKYRIE,     2, 0, 8
+        .byte BANSHEE,      2, 8, 8
+        .byte GOLEM,        2, 0, 7
+        .byte TROLL,        2, 8, 7
+        .byte UNICORN,      2, 0, 6
+        .byte BASILISK,     2, 8, 6
+        .byte DJINNI,       1, 0, 3
+        .byte DRAGON,       1, 8, 5
+        .byte PHOENIX,      1, 0, 5
+        .byte SHAPESHIFTER, 1, 8, 3
+        .byte WIZARD,       1, 0, 4
+        .byte SORCERESS,    1, 8, 4
 }

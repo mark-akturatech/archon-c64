@@ -43,8 +43,8 @@ advance_intro_state:
     // Advance game state.
     // lda #$07
     // sta WBCCB  // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    lda #$80
-    sta main.state.flag_update
+    lda #FLAG_ENABLE
+    sta main.interrupt.flag__enable
     // Remove intro interrupt handler.
     sei
     lda #<complete_interrupt
@@ -57,12 +57,12 @@ advance_intro_state:
     lda #$12
     sta VMCSB
     //
-    lda #$FF
-    sta main.state.flag_setup_progress
+    lda #$FF // Go straight to options page
+    sta main.curr_pre_game_progress
     // Skip intro.
-    lda #$00
-    sta main.state.flag_play_intro
-    sta main.state.flag_update_on_interrupt
+    lda #FLAG_DISABLE
+    sta main.flag__enable_intro
+    sta main.interrupt.flag__enable_next
     rts
 
 // 677C
@@ -80,11 +80,10 @@ check_stop_keypess:
     beq !loop-
     jsr advance_intro_state
     jmp main.restart_game_loop
-// 6792
 !next:
-    lda main.state.flag_update_on_interrupt
+    lda main.interrupt.flag__enable_next
     eor #$ff
-    sta main.state.flag_update_on_interrupt
+    sta main.interrupt.flag__enable_next
 !loop:
     jsr STOP
     beq !loop-
@@ -106,7 +105,7 @@ stop_sound:
     ldy #$04
     lda #$00
     sta (FREEZP+2),y
-    sta sound.current_phrase_data_fn_ptr,x
+    sta sound.curr_phrase_data_fn_ptr,x
     sta sound.new_note_delay,x
     dex
     bpl !loop-
@@ -141,12 +140,12 @@ clear_sprites:
 // 905C
 // Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 wait_for_key:
-    lda #$00
-    sta main.state.flag_update
+    lda #FLAG_DISABLE
+    sta main.interrupt.flag__enable
 !loop:
     jsr check_option_keypress
     jsr check_stop_keypess
-    lda main.state.flag_update
+    lda main.interrupt.flag__enable
     beq !loop-
     jmp stop_sound
 
@@ -195,24 +194,24 @@ play_music:
     asl
     tay
     lda sound.note_data_fn_ptr,y
-    sta sound.current_note_data_fn_ptr
+    sta sound.curr_note_data_fn_ptr
     lda sound.note_data_fn_ptr+1,y
-    sta sound.current_note_data_fn_ptr+1
+    sta sound.curr_note_data_fn_ptr+1
     lda sound.voice_io_addr,y
     sta FREEZP+2
     lda sound.voice_io_addr+1,y
     sta FREEZP+3
     lda sound.phrase_data_fn_ptr,y
-    sta sound.current_phrase_data_fn_ptr
+    sta sound.curr_phrase_data_fn_ptr
     lda sound.phrase_data_fn_ptr+1,y
-    sta sound.current_phrase_data_fn_ptr+1
+    sta sound.curr_phrase_data_fn_ptr+1
     //
     lda sound.note_delay_counter,x
     beq delay_done
     cmp #$02
     bne decrease_delay
     // Release note just before delay expires.
-    lda sound.current_control,x
+    lda sound.curr_voice_control,x
     and #$FE
     ldy #$04
     sta (FREEZP+2),y
@@ -248,7 +247,7 @@ get_next_command:
     beq set_state
     cmp #SOUND_CMD_SET_DELAY // Set delay
     beq set_delay
-    cmp #SOUND_CMD_STOP_NOTE // Stop note
+    cmp #SOUND_CMD_NO_NOTE // Stop note
     beq clear_note
     cmp #SOUND_CMD_RELEASE_NOTE // Release note
     beq release_note
@@ -256,7 +255,7 @@ get_next_command:
     // then loads that in to the voice lo frequency control.
     pha
     ldy #$04
-    lda sound.current_control,x
+    lda sound.curr_voice_control,x
     and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
     ldy #$01
@@ -273,9 +272,9 @@ set_state:
     asl
     tay
     lda intro.state.fn_ptr,y
-    sta main.state.current_fn_ptr
+    sta main.state.curr_fn_ptr
     lda intro.state.fn_ptr+1,y
-    sta main.state.current_fn_ptr+1
+    sta main.state.curr_fn_ptr+1
 #endif
     jmp get_next_command
 clear_note:
@@ -288,12 +287,12 @@ set_delay:
     jmp get_next_command
 release_note:
     ldy #$04
-    lda sound.current_control,x
+    lda sound.curr_voice_control,x
     and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
 set_note:
     ldy #$04
-    lda sound.current_control,x // Set default note control value for voice
+    lda sound.curr_voice_control,x // Set default note control value for voice
     sta (FREEZP+2),y
 !return:
     lda sound.new_note_delay,x
@@ -304,7 +303,7 @@ set_note:
 // Read note from current music loop and increment the note pointer.
 get_note: // Get note for current voice and increment note pointer
     ldy #$00
-    jmp (sound.current_note_data_fn_ptr)
+    jmp (sound.curr_note_data_fn_ptr)
 
 // A143
 get_note_V1: // Get note for voice 1 and increment note pointer
@@ -335,7 +334,7 @@ get_note_V3: // Get note for voice 3 and increment note pointer
 // Read a phrase for the current music loop and increment the phrase pointer.
 get_next_phrase: // Get phrase for current voice and increment phrase pointer
     ldy #$00
-    jmp (sound.current_phrase_data_fn_ptr)
+    jmp (sound.curr_phrase_data_fn_ptr)
 
 // ACDFD
 get_phrase_V1: // Get phrase for voice 1 and increment phrase pointer
@@ -404,7 +403,7 @@ initialize_music:
     // Configure music pointers.
     ldy #$05
 !loop:
-    lda sound.music_track_flag
+    lda sound.flag__play_outro
     bpl intro_music
     lda music.outro_phrase_ptr,y
     jmp !next+
@@ -435,7 +434,7 @@ intro_music:
     lda sound.sustain,x
     sta (FREEZP+2),y
     lda sound.control,x
-    sta sound.current_control,x
+    sta sound.curr_voice_control,x
     dey
     lda sound.attack,x
     sta (FREEZP+2),y
@@ -460,7 +459,7 @@ intro_music:
     sustain: .byte $a3, $82, $07 // Voice sustain values
 
     // AD6D
-    control: .byte $21, $21, $21 // Voice sustain values
+    control: .byte $21, $21, $21 // Voice control values
 
     // AD70
     attack: .byte $07, $07, $07 // Voice attack values
@@ -489,69 +488,106 @@ intro_music:
 
     // Music notes and commands.
     phrase_1: // Notes (00 to FA) and commands (FB to FF) for music phrase
-        .byte $FB, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2
+        .byte SOUND_CMD_SET_DELAY, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2
         .byte $0E, $EF, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $13, $EF, $15, $1F, $16, $60
-        .byte $17, $B5, $FE
+        .byte $17, $B5
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_2:
-        .byte $FB, $38, $00, $FB, $07, $0E, $18, $0D, $4E, $0C, $8F, $0B, $DA, $0B, $30, $0A
-        .byte $8F, $09, $F7, $09, $68, $FE
+        .byte SOUND_CMD_SET_DELAY, $38, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
+        .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_3:
-        .byte $FB, $1C, $00, $FB, $07, $0E, $18, $0D, $4E, $0C, $8F, $0B, $DA, $0B, $30, $0A
-        .byte $8F, $09, $F7, $09, $68, $08, $E1, $08, $61, $07, $E9, $07, $77, $FE
+        .byte SOUND_CMD_SET_DELAY, $1C, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
+        .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68, $08, $E1, $08, $61, $07, $E9, $07, $77
+        .byte SOUND_CMD_NEXT_PHRASE
 #if INCLUDE_INTRO
     phrase_4:
-        .byte $FD, $FB, $70, $19, $1E, $FB, $38, $12, $D1, $FB, $1C, $15, $1F, $FB, $09, $12
-        .byte $D1, $11, $C3, $FB, $0A, $0E, $18, $FB, $E0, $1C, $31, $FE
+        .byte SOUND_CMD_NEXT_STATE, SOUND_CMD_SET_DELAY, $70, $19, $1E, SOUND_CMD_SET_DELAY, $38, $12, $D1
+        .byte SOUND_CMD_SET_DELAY, $1C, $15, $1F, SOUND_CMD_SET_DELAY, $09, $12, $D1, $11, $C3, SOUND_CMD_SET_DELAY
+        .byte $0A, $0E, $18, SOUND_CMD_SET_DELAY, $E0, $1C, $31
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_5:
-        .byte $FB, $70, $19, $3E, $FB, $38, $12, $E9, $FB, $1C, $15, $3A, $FB, $09, $12, $E9
-        .byte $11, $D9, $FB, $0A, $0E, $2A, $FB, $E0, $1C, $55, $FE
+        .byte SOUND_CMD_SET_DELAY, $70, $19, $3E, SOUND_CMD_SET_DELAY, $38, $12, $E9, SOUND_CMD_SET_DELAY, $1C, $15
+        .byte $3A, SOUND_CMD_SET_DELAY, $09, $12, $E9, $11, $D9, SOUND_CMD_SET_DELAY, $0A, $0E, $2A
+        .byte SOUND_CMD_SET_DELAY, $E0, $1C, $55
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_6:
-        .byte $FB, $07
+        .byte SOUND_CMD_SET_DELAY, $07
     phrase_7:
-        .byte $07, $0C, $FC, $0A, $8F, $FC, $0E, $18, $FC, $0A, $8F, $FC, $FE
+        .byte $07, $0C, SOUND_CMD_RELEASE_NOTE, $0A, $8F, SOUND_CMD_RELEASE_NOTE, $0E, $18, SOUND_CMD_RELEASE_NOTE
+        .byte $0A, $8F, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_8:
-        .byte $09, $68, $FC, $0E, $18, $FC, $12, $D1, $FC, $0E, $18, $FC, $FE
+        .byte $09, $68, SOUND_CMD_RELEASE_NOTE, $0E, $18, SOUND_CMD_RELEASE_NOTE, $12, $D1, SOUND_CMD_RELEASE_NOTE
+        .byte $0E, $18, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_9:
-        .byte $06, $47, $FC, $09, $68, $FC, $0C, $8F, $FC, $09, $68, $FC, $FE
+        .byte $06, $47, SOUND_CMD_RELEASE_NOTE, $09, $68, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE
+        .byte $09, $68, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NEXT_PHRASE
     phrase_10:
-        .byte $FB, $07, $00, $00, $17, $B5, $FC, $1C, $31, $FC, $1F, $A5, $FC, $23, $86, $FC
-        .byte $1F, $A5, $FC, $1C, $31, $FC, $17, $B5, $FC, $1F, $A5, $FC, $17, $B5, $FC, $1C
-        .byte $31, $FC, $17, $B5, $FC, $11, $C3, $FC, $17, $B5, $FC, $0B, $DA, $FC, $11, $C3
-        .byte $FC, $00, $00, $19, $1E, $FC, $1F, $A5, $FC, $23, $86, $FC, $25, $A2, $FC, $23
-        .byte $86, $FC, $1F, $A5, $FC, $19, $1E, $FC, $23, $86, $FC, $19, $1E, $FC, $1F, $A5
-        .byte $FC, $19, $1E, $FC, $12, $D1, $FC, $19, $1E, $FC, $0C, $8F, $FC, $12, $D1, $FC
+        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
+        .byte $1C, $31, SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE
+        .byte $1F, $A5, SOUND_CMD_RELEASE_NOTE, $1C, $31, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
+        .byte $1F, $A5, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE, $1C, $31, SOUND_CMD_RELEASE_NOTE
+        .byte $17, $B5, SOUND_CMD_RELEASE_NOTE, $11, $C3, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
+        .byte $0B, $DA, SOUND_CMD_RELEASE_NOTE, $11, $C3, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NO_NOTE
+        .byte SOUND_CMD_NO_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $23, $86
+        .byte SOUND_CMD_RELEASE_NOTE, $25, $A2, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE, $1F, $A5
+        .byte SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE, $19, $1E
+        .byte SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $12, $D1
+        .byte SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE, $12, $D1
+        .byte SOUND_CMD_RELEASE_NOTE
     phrase_11:
-        .byte $00, $00, $10, $C3, $11, $C3, $1C, $31, $1A, $9C, $16, $60, $17, $B5, $1A, $9C
-        .byte $1C, $31, $1F, $A5, $21, $87, $23, $86, $1C, $31, $FB, $0E, $17, $B5, $FB, $07
-        .byte $FD, $FE
+        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $10, $C3, $11, $C3, $1C, $31, $1A, $9C, $16, $60, $17, $B5
+        .byte $1A, $9C, $1C, $31, $1F, $A5, $21, $87, $23, $86, $1C, $31, SOUND_CMD_SET_DELAY, $0E, $17, $B5
+        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NEXT_STATE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_12:
-        .byte $FB, $07, $00, $00, $17, $D3, $FC, $1C, $55, $FC, $1F, $CD, $FC, $23, $B3, $FC
-        .byte $1F, $CD, $FC, $1C, $55, $FC, $17, $D3, $FC, $1F, $CD, $FC, $17, $D3, $FC, $1C
-        .byte $55, $FC, $17, $D3, $FC, $11, $D9, $FC, $17, $D3, $FC, $0B, $E9, $FC, $11, $D9
-        .byte $FC, $00, $00, $19, $3E, $FC, $1F, $CD, $FC, $23, $B3, $FC, $25, $D2, $FC, $23
-        .byte $B3, $FC, $1F, $CD, $FC, $19, $3E, $FC, $23, $B3, $FC, $19, $3E, $FC, $1F, $CD
-        .byte $FC, $19, $3E, $FC, $12, $E9, $FC, $19, $3E, $FC, $0C, $9F, $FC, $12, $E9, $FC
+        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
+        .byte $1C, $55, SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE
+        .byte $1F, $CD, SOUND_CMD_RELEASE_NOTE, $1C, $55, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
+        .byte $1F, $CD, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE, $1C, $55, SOUND_CMD_RELEASE_NOTE
+        .byte $17, $D3, SOUND_CMD_RELEASE_NOTE, $11, $D9, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
+        .byte $0B, $E9, SOUND_CMD_RELEASE_NOTE, $11, $D9, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NO_NOTE
+        .byte SOUND_CMD_NO_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $23, $B3
+        .byte SOUND_CMD_RELEASE_NOTE, $25, $D2, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE, $1F, $CD
+        .byte SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE, $19, $3E
+        .byte SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $12, $E9
+        .byte SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $0C, $9F, SOUND_CMD_RELEASE_NOTE, $12, $E9
+        .byte SOUND_CMD_RELEASE_NOTE
     phrase_13:
-        .byte $00, $00, $10, $D8, $11, $D9, $1C, $55, $1A, $BE, $16, $7C, $17, $D3, $1A, $BE
-        .byte $1C, $55, $1F, $CD, $21, $B1, $23, $86, $1C, $55, $FB, $0E, $17, $D3, $FB, $07
-        .byte $FE
+        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $10, $D8, $11, $D9, $1C, $55, $1A, $BE, $16, $7C, $17, $D3
+        .byte $1A, $BE, $1C, $55, $1F, $CD, $21, $B1, $23, $86, $1C, $55, SOUND_CMD_SET_DELAY, $0E, $17, $D3
+        .byte SOUND_CMD_SET_DELAY, $07
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_14:
-        .byte $FB, $07
+        .byte SOUND_CMD_SET_DELAY, $07
     phrase_15:
-        .byte $05, $ED, $FC, $08, $E1, $FC, $0B, $DA, $FC, $08, $E1, $FC, $FE
+        .byte $05, $ED, SOUND_CMD_RELEASE_NOTE, $08, $E1, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE
+        .byte $08, $E1, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_16:
-        .byte $06, $47, $FC, $09, $68, $FC, $0C, $8F, $FC, $09, $68, $FC, $FE
+        .byte $06, $47, SOUND_CMD_RELEASE_NOTE, $09, $68, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE
+        .byte $09, $68, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_17:
-        .byte $05, $ED, $FC, $08, $E1, $FC, $0B, $DA, $FC, $08, $E1, $FC, $FE
+        .byte $05, $ED, SOUND_CMD_RELEASE_NOTE, $08, $E1, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE
+        .byte $08, $E1, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
     phrase_18:
-        .byte $07, $E9, $FC, $0B, $DA, $FC, $0F, $D2, $FC, $0B, $DA, $FC, $FE
+        .byte $07, $E9, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE, $0F, $D2, SOUND_CMD_RELEASE_NOTE
+        .byte $0B, $DA, SOUND_CMD_RELEASE_NOTE
+        .byte SOUND_CMD_NEXT_PHRASE
 #endif
     phrase_19:
-        .byte $FB, $70, $19, $1E, $FF
+        .byte SOUND_CMD_SET_DELAY, $70, $19, $1E
+        .byte SOUND_CMD_END
     phrase_20:
-        .byte $FB, $70, $0A, $8F, $FD, $FF
+        .byte SOUND_CMD_SET_DELAY, $70, $0A, $8F, SOUND_CMD_NEXT_STATE
+        .byte SOUND_CMD_END
     phrase_21:
-        .byte $FB, $70, $07, $0C, $FF
+        .byte SOUND_CMD_SET_DELAY, $70, $07, $0C
+        .byte SOUND_CMD_END
 
     // Music phraseology.
 #if INCLUDE_INTRO
@@ -582,13 +618,21 @@ intro_music:
 //---------------------------------------------------------------------------------------------------------------------
 .segment DynamicData
 
+.namespace sprite {
+    // BD3E
+    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
+
+    // BD46
+    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
+}
+
 .namespace sound {
     // BD66
-    current_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
+    curr_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
 
     // BF08
-    current_phrase_data_fn_ptr: // Pointer to function to read current phrase for current voice
-    player_voice_enable_flag: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
+    curr_phrase_data_fn_ptr: // Pointer to function to read current phrase for current voice
+    flag__enable_voice: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
         .word $0000
 
     // BF0B
@@ -598,8 +642,8 @@ intro_music:
     note_delay_counter: .byte $00, $00, $00 // Current note delay countdown
 
     // BF4D
-    current_control: .byte $00, $00, $00 // Current voice control value
+    curr_voice_control: .byte $00, $00, $00 // Current voice control value
 
     // BF50
-    music_track_flag: .byte $00 // Is 00 for title music and 80 for game end music
+    flag__play_outro: .byte $00 // Is 00 for title music and 80 for game end music
 }

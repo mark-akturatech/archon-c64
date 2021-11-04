@@ -20,67 +20,81 @@
 .const KEY_Q = $Bf // Q key
 
 //---------------------------------------------------------------------------------------------------------------------
-// Video memory configuration
+// Miscellaneous constants
 //---------------------------------------------------------------------------------------------------------------------
 
-// Define video bank memory constants
-.var videoBankCode = List().add(%11, %10, %01, %00).lock()
-.var videoBankAddress = List().add($0000, $4000, $8000, $C000).lock()
-.var videoBankGrphMemOffset = List().add($2000, $1000, $2000, $1000).lock()
-
-// Set the video memory bank:
-// Bank 0 - configuration: %11; memory offset: $0000
-// Bank 1 - configuration: %10; memory offset: $4000
-// Bank 2 - configuration: %01; memory offset: $8000
-// Bank 3 - configuration: %00; memory offset: $C000
-.const videoBank = 2;
-.const VICBANK = videoBankCode.get(videoBank)
-.const VICMEM = videoBankAddress.get(videoBank)
-.const VICGOFF = videoBankGrphMemOffset.get(videoBank);
-
-// Derive applications specific video bank constants
-.const CHRMEM1  = VICMEM + $0000    // start of character set memory for intro (half set only)
-.const CHRMEM2  = VICMEM + $0800    // start of character set memory for board (full set)
-.const SCNMEM = VICMEM + $0400    // start of screen memory (overlaps bottom half CHRMEM1 as CHRMEM1 is a half set)
-.const SPTMEM = SCNMEM + $03f8    // start of sprite location memory
-.const GRPMEM = VICMEM + VICGOFF // start of graphics/sprite memory
-
 // Bytes consumed by each sprite
-.const BYTES_PER_SPRITE = 64; // each sprite consumes 64 bytes of memory
+.const BYTES_PER_SPRITE = 64;
 
 // Characters per screen row
 .const CHARS_PER_SCREEN_ROW = 40;
+
+// Flag constants
+.const FLAG_DISABLE = $00; // Off
+.const FLAG_ENABLE = $80; // Enabled
 
 //---------------------------------------------------------------------------------------------------------------------
 // Application specific constants
 //---------------------------------------------------------------------------------------------------------------------
 
-// Character piece types
-.const VALKYRIE = $00        // Sprite offset: 04
-.const ARCHER = $01          // Sprite offset: 02
-.const GOLEM = $02           // Sprite offset: 03
-.const KNIGHT = $03          // Sprite offset: 07
-.const UNICORN = $04         // Sprite offset: 00
-.const DJINNI = $06          // Sprite offset: 05
-.const WIZARD = $08          // Sprite offset: 01
-.const PHOENIX = $0A         // Sprite offset: 06
-.const MANTICORE = $12       // Sprite offset: 0A
-.const BANSHEE = $13         // Sprite offset: 0E
-.const GOBLIN = $14          // Sprite offset: 0F
-.const TROLL = $15           // Sprite offset: 0B
-.const BASILISK = $17        // Sprite offset: 08
-.const SHAPESHIFTER = $19    // Sprite offset: 0C
-.const SORCERESS = $1B       // Sprite offset: 09
-.const DRAGON = $1D          // Sprite offset: 0D
-.const AIR_ELEMENTAL = $24   // Sprite offset: 10
-.const FIRE_ELEMENTAL = $25  // Sprite offset: 11
-.const EARTH_ELEMENTAL = $26 // Sprite offset: 12
-.const WATER_ELEMENTAL = $27 // Sprite offset: 13
+// Character piece type IDs.
+.const VALKYRIE = $00
+.const ARCHER = $01
+.const GOLEM = $02
+.const KNIGHT = $03
+.const UNICORN = $04
+.const DJINNI = $06
+.const WIZARD = $08
+.const PHOENIX = $0A
+.const MANTICORE = $12
+.const BANSHEE = $13
+.const GOBLIN = $14
+.const TROLL = $15
+.const BASILISK = $17
+.const SHAPESHIFTER = $19
+.const SORCERESS = $1B
+.const DRAGON = $1D
+.const AIR_ELEMENTAL = $24
+.const FIRE_ELEMENTAL = $25
+.const EARTH_ELEMENTAL = $26
+.const WATER_ELEMENTAL = $27
+
+// Character piece offset.
+// Offsets are used to determine the correct sprite set and character dot data.
+.const VALKYRIE_OFFSET = $04
+.const ARCHER_OFFSET = $02
+.const GOLEM_OFFSET = $03
+.const KNIGHT_OFFSET = $07
+.const UNICORN_OFFSET = $00
+.const DJINNI_OFFSET = $05
+.const WIZARD_OFFSET = $01
+.const PHOENIX_OFFSET = $06
+.const MANTICORE_OFFSET = $0A
+.const BANSHEE_OFFSET = $0E
+.const GOBLIN_OFFSET = $0F
+.const TROLL_OFFSET = $0B
+.const BASILISK_OFFSET = $08
+.const SHAPESHIFTER_OFFSET = $0C
+.const SORCERESS_OFFSET = $09
+.const DRAGON_OFFSET = $0D
+.const AIR_ELEMENTAL_OFFSET = $10
+.const FIRE_ELEMENTAL_OFFSET = $11
+.const EARTH_ELEMENTAL_OFFSET = $12
+.const WATER_ELEMENTAL_OFFSET = $13
 
 // Sound
-.const SOUND_CMD_STOP_NOTE = $00    // Stop note
+.const SOUND_CMD_NO_NOTE = $00    // Stop note
 .const SOUND_CMD_SET_DELAY = $FB    // Set delay
 .const SOUND_CMD_RELEASE_NOTE = $FC // Immediate release
 .const SOUND_CMD_NEXT_STATE = $FD   // End state - used to trigger code at points in the music
 .const SOUND_CMD_NEXT_PHRASE = $FE  // Go to next phrase (or repeat current phrase)
 .const SOUND_CMD_END = $FF          // End phrase and turn off voice
+
+// Strings
+.const STRING_CMD_END = $FF         // End of string
+.const STRING_CMD_NEWLINE = $80     // New line (row and column offset follow)
+
+// Board
+.const BOARD_NUM_COLS = 9
+.const BOARD_NUM_ROWS = 9
+.const BOARD_INITIAL_NUM_PIECES = BOARD_NUM_ROWS * 2 * 2 // Each side has 2 columns full of pieces

@@ -13,14 +13,12 @@ entry:
     jsr common.clear_sprites
     jsr import_sprites
     jsr common.initialize_music
-
     // Configure screen.
     lda SCROLX
     and #%1110_1111 // multicolor bitmap mode off
     sta SCROLX
     lda #%0001_0000 // $0000-$07FF char memory, $0400-$07FF screen memory
     sta VMCSB
-
     // Configure sprites.
     lda #%0000_1111 // first 4 sprites multicolor; last 4 sprints single color
     sta SPMC
@@ -28,7 +26,6 @@ entry:
     sta XXPAND
     lda #%1111_1111 // enable all sprites
     sta SPENA
-
     // Set interrupt handler to set intro loop state.
     sei
     lda #<interrupt_handler
@@ -36,24 +33,20 @@ entry:
     lda #>interrupt_handler
     sta main.interrupt.system_fn_ptr+1
     cli
-
     // Black border and background.
     lda #$00
     sta main.state.counter
     sta EXTCOL
     sta BGCOL0
-
     // Set multicolor sprite second color.
     lda sprite.logo_color
     sta SPMC0
     sta SPMC1
-
     // Configure the starting intro state function.
     lda #<state__scroll_title
-    sta main.state.current_fn_ptr
+    sta main.state.curr_fn_ptr
     lda #>state__scroll_title
-    sta main.state.current_fn_ptr+1
-
+    sta main.state.curr_fn_ptr+1
     // Busy wait for break key. Interrupts will play the music and animations while we wait.
     jsr common.wait_for_key
     rts
@@ -62,23 +55,23 @@ entry:
 // Imports sprites in to graphics area.
 import_sprites:
     // Copy in character pieces for chase scene
-    lda #$80
-    sta board.sprite.copy_character_set_flag
+    lda #FLAG_ENABLE
+    sta board.sprite.flag__copy_animation_group
     lda #$36
     sta board.sprite.copy_length
-    lda main.sprite._24_memory_ptr
+    lda main.sprite.mem_ptr_24
     sta FREEZP+2
     sta main.temp.data__temp_store_1
-    lda main.sprite._24_memory_ptr+1
+    lda main.sprite.mem_ptr_24+1
     sta FREEZP+3
     ldx #$03 // Copy 4 characters (0 offset)
 import_sprite_character:
-    ldy sprite.chase_piece_id,x
-    sty board.character.piece_type
-    lda board.character.setup_matrix,y
-    sta board.character.piece_offset,x
+    ldy sprite.piece_id,x
+    sty board.piece.type
+    lda board.piece.initial_matrix,y
+    sta board.piece.offset,x
     jsr board.sprite_initialize
-    lda sprite.direction_flag,x
+    lda sprite.flag__is_piece_mirrored,x
     sta main.temp.data__character_sprite_frame // Always copy frame 0 of characterset but invert where required
     lda #$04 // Copy 4 frames for each character
     sta main.temp.data__frame_count
@@ -98,13 +91,13 @@ import_sprite_frame:
     dex
     bpl import_sprite_character
     // Add Archon and Avatar logo sprites
-    lda main.sprite._00_memory_ptr
+    lda main.sprite.mem_ptr_00
     sta FREEZP+2
-    lda main.sprite._00_memory_ptr+1
+    lda main.sprite.mem_ptr_00+1
     sta FREEZP+3
-    lda sprite.logo_ptr
+    lda sprite.logo_source_ptr
     sta FREEZP
-    lda sprite.logo_ptr+1
+    lda sprite.logo_source_ptr+1
     sta FREEZP+1
     ldy #$00 // Copy 7 sprites (448 bytes)
 !loop: // Copy first 256 bytes
@@ -120,7 +113,6 @@ import_sprite_frame:
     iny
     cpy #$C0
     bcc !loop-
-
     // Pointer to first sprite: 64 bytes per sprite, start at graphmem offset. we add 6 as we are setting the first
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
@@ -138,10 +130,10 @@ import_sprite_frame:
     sta SP0COL,x
     lda sprite.logo_x_pos,x
     sta SP0X,y
-    sta main.sprite.curr_x_pos,x
+    sta common.sprite.curr_x_pos,x
     lda sprite.logo_y_pos,x
     sta SP0Y,y
-    sta main.sprite.curr_y_pos,x
+    sta common.sprite.curr_y_pos,x
     dex
     bpl !loop-
     // Final y-pos of Archon title sprites afters animate from bottom of screen.
@@ -154,19 +146,20 @@ import_sprite_frame:
 
 // AA42
 interrupt_handler:
-    lda main.state.flag_update
+    lda main.interrupt.flag__enable
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda main.state.flag_update_on_interrupt
-    sta main.state.flag_update
+    lda main.interrupt.flag__enable_next
+    sta main.interrupt.flag__enable
     jsr common.play_music
-    jmp (main.state.current_fn_ptr)
+    jmp (main.state.curr_fn_ptr)
+
 // AA56
 state__scroll_title:
     ldx #$01 // process two sprites groups ("avatar" comprises 3 sprites and "freefall" comprises 2)
 !loop:
-    lda main.sprite.curr_y_pos+3,X
+    lda common.sprite.curr_y_pos+3,X
     cmp sprite.final_y_pos,x
     beq !next+ // stop moving if at final position
     bcs scroll_up
@@ -174,7 +167,7 @@ state__scroll_title:
     adc #$02
     // Only updates the first sprite current position in the group. Not sure why as scroll up updates the position of
     // all sprites in the group.
-    sta main.sprite.curr_y_pos+3,x
+    sta common.sprite.curr_y_pos+3,x
     ldy #$04
 !move_loop:
     sta SP4Y,y // move sprite 4 and 5
@@ -187,7 +180,7 @@ scroll_up:
     sbc #$02
     ldy #$03
 !update_pos:
-    sta main.sprite.curr_y_pos,y
+    sta common.sprite.curr_y_pos,y
     dey
     bpl !update_pos-
     ldy #$06
@@ -203,9 +196,8 @@ scroll_up:
 
 // AA8B
 state__draw_freefall_logo:
-    lda #$80
-    sta main.temp.flag__string_control
-
+    lda #FLAG_ENABLE
+    sta main.temp.flag__string_position_control
     // Remove sprites 4 to 7 (Freefall logo).
     // The sprites are replaces with text characters after the animation has completed.
     ldx #$04
@@ -235,16 +227,15 @@ state__draw_freefall_logo:
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
     // read the screen rows from the remaining string messages.
     lda #$00
-    sta main.temp.flag__string_control
+    sta main.temp.flag__string_position_control
     jsr screen_draw_text
     //
     dec main.temp.data__msg_offset // Set to pointer next string to display in next state
-
     // Start scrolling Avatar logo colors
     lda #<state__avatar_color_scroll
-    sta main.state.current_fn_ptr
+    sta main.state.curr_fn_ptr
     lda #>state__avatar_color_scroll
-    sta main.state.current_fn_ptr+1
+    sta main.state.curr_fn_ptr+1
     jmp common.complete_interrupt
 
 // AACF
@@ -285,7 +276,7 @@ get_next_char:
     and #$F0
     ora main.temp.data__curr_color
     sta (FORPNT),y
-    // Next character.
+    // Next piece.
     inc FORPNT
     inc FREEZP+2
     bne get_next_char
@@ -305,7 +296,7 @@ get_next_char:
 // The string is terminated with a $ff byte.
 // Spaces are represented as $00.
 screen_calc_start_addr:
-    lda main.temp.flag__string_control
+    lda main.temp.flag__string_position_control
     bmi skip_sceen_row // flag = $80 or $c0
     // Read screen row.
     lda (FREEZP),y
@@ -321,7 +312,7 @@ skip_sceen_row:
     clc
     adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
-    bit main.temp.flag__string_control
+    bit main.temp.flag__string_position_control
     bvc !next+ // flag = $c0
     lda #$06 // Hard coded screen column offset if BF3C flag set
     bne skip_sceen_column
@@ -353,36 +344,36 @@ state__show_authors:
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
-    sta main.temp.flag__string_control
+    sta main.temp.flag__string_position_control
     lda #$09
     sta main.temp.data__msg_offset
     ldx #$18
     jsr screen_draw_text
     // Bounce the Avatar logo.
     lda #<state__avatar_bounce
-    sta main.state.current_fn_ptr
+    sta main.state.curr_fn_ptr
     lda #>state__avatar_bounce
-    sta main.state.current_fn_ptr+1
+    sta main.state.curr_fn_ptr+1
     // Initialize sprite registers used to bounce the logo in the next state.
     lda #$0E
     sta sprite.x_move_counter
     sta sprite.y_move_counter
     lda #$FF
-    sta sprite.x_direction_flag
+    sta sprite.x_direction_addend
     jmp common.complete_interrupt
 
 // AB83
 // Bounce the Avatar logo in a sawtooth pattern within a defined rectangle on the screen.
 state__avatar_bounce:
     lda #$01 // +1 (down)
-    ldy sprite.y_direction_flag
+    ldy sprite.y_direction_addend
     bpl !next+
     lda #$FF // -1 (up)
 !next:
     sta main.temp.data__sprite_y_direction_offset
     //
     lda #$01 // +1 (right)
-    ldy sprite.x_direction_flag
+    ldy sprite.x_direction_addend
     bpl !next+
     lda #$FF // -1 (left)
 !next:
@@ -391,17 +382,17 @@ state__avatar_bounce:
     ldx #$03
     ldy #$06
 !loop:
-    lda main.sprite.curr_y_pos,x
+    lda common.sprite.curr_y_pos,x
     // Add the direction pointer to the current sprite positions.
     // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
     clc
     adc main.temp.data__sprite_y_direction_offset
-    sta main.sprite.curr_y_pos,x
+    sta common.sprite.curr_y_pos,x
     sta SP0Y,y
-    lda main.sprite.curr_x_pos,x
+    lda common.sprite.curr_x_pos,x
     clc
     adc main.temp.data__sprite_x_direction_offset
-    sta main.sprite.curr_x_pos,x
+    sta common.sprite.curr_x_pos,x
     sta SP0X,y
     dey
     dey
@@ -412,17 +403,17 @@ state__avatar_bounce:
     bne !next+
     lda #$07
     sta sprite.y_move_counter
-    lda sprite.y_direction_flag
+    lda sprite.y_direction_addend
     eor #$FF
-    sta sprite.y_direction_flag
+    sta sprite.y_direction_addend
 !next:
     dec sprite.x_move_counter
     bne state__avatar_color_scroll
     lda #$1C
     sta sprite.x_move_counter
-    lda sprite.x_direction_flag
+    lda sprite.x_direction_addend
     eor #$FF
-    sta sprite.x_direction_flag
+    sta sprite.x_direction_addend
 
 // ABE2
 // Scroll the colors on the Avatar logo.
@@ -455,21 +446,21 @@ state__avatar_color_scroll:
 
 // AD83
 state__chase_scene:
-    lda main.temp.flag__sprites_initialized
+    lda main.temp.flag__are_sprites_initialized
     bpl chase_set_sprites // Initialise sprites on first run only
     jmp animate_characters
 chase_set_sprites:
     lda #BLACK
     sta SPMC0 // Set sprite multicolor (character border) to black
-    lda #$80
-    sta main.temp.flag__sprites_initialized // Set sprites intiialised flag
+    lda #FLAG_ENABLE
+    sta main.temp.flag__are_sprites_initialized // Set sprites intiialised flag
     // Confifure sprite colors and positions
     ldx #$03
 !loop:
-    lda main.sprite.curr_x_pos,x
+    lda common.sprite.curr_x_pos,x
     lsr
-    sta main.sprite.curr_x_pos,x
-    lda sprite.character_color,x
+    sta common.sprite.curr_x_pos,x
+    lda sprite.piece_color,x
     sta SP0COL,x
     dex
     bpl !loop-
@@ -492,12 +483,12 @@ animate_characters:
     txa
     asl
     tay
-    lda main.sprite.curr_x_pos,x
-    cmp sprite.character_end_x_pos,x
+    lda common.sprite.curr_x_pos,x
+    cmp sprite.piece_end_x_pos,x
     beq !next+
     clc
-    adc sprite.character_direction,x
-    sta main.sprite.curr_x_pos,x
+    adc sprite.piece_direction,x
+    sta common.sprite.curr_x_pos,x
     asl // Move by two pixels at a time
     sta SP0X,y
     // C64 requires 9 bits for sprite X position. Therefore sprite is set using sprite X position AND we may need to
@@ -512,13 +503,13 @@ clear_sprite_x_pos_msb:
     eor #$FF
     and MSIGX
     sta MSIGX
-    // Set the sprite pointer to point to one of four sprites used for each character. A different frame is shown on
+    // Set the sprite pointer to point to one of four sprites used for each piece. A different frame is shown on
     // each movement.
 set_character_frame:
     lda sprite.animation_counter
     and #$03 // 1-4 animation frames
     clc
-    adc sprite.character_sprite_offsets,x
+    adc sprite.piece_sprite_offsets,x
     sta SPTMEM,x
 !next:
     dex
@@ -529,8 +520,8 @@ set_character_frame:
 // AC0E
 // Complete the current game state and move on.
 state__end_intro:
-    lda #$80
-    sta main.state.flag_update
+    lda #FLAG_ENABLE
+    sta main.interrupt.flag__enable
     jmp common.complete_interrupt
     rts
 
@@ -556,29 +547,30 @@ state__end_intro:
     logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
 
     // ADAA:
-    chase_piece_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Piece IDs of peices used in chase scene
+    piece_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Piece IDs of peices used in chase scene
 
-    // ADAE:
-    direction_flag: .byte $00, $00, $80, $80 // Direction flags of intro sprites ($80=invert direction)
+    // ADAE: 
+    flag__is_piece_mirrored: // Direction flags of intro sprites ($80=invert direction)
+        .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
 
     // ADB2
-    character_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
+    piece_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
 
     // ADB6
-    character_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite
+    piece_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite
 
     // ADBA
-    character_sprite_offsets: // Screen pointer sprite offsets for each character
+    piece_sprite_offsets: // Screen pointer sprite offsets for each character
         .byte (VICGOFF / BYTES_PER_SPRITE) + 24
         .byte (VICGOFF / BYTES_PER_SPRITE) + 28
         .byte (VICGOFF / BYTES_PER_SPRITE) + 32
         .byte (VICGOFF / BYTES_PER_SPRITE) + 36
 
     // ADBE
-    character_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase character sprites
+    piece_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase character sprites
 
     // BACB
-    logo_ptr: .word source // Pointer to intro page logo sprites
+    logo_source_ptr: .word source // Pointer to intro page logo sprites
 
     // Sprites used by title page
     // Sprites are contained in the following order:
@@ -590,68 +582,64 @@ state__end_intro:
 .namespace screen {
     // A8A5
     string_data_ptr: // Pointer to string data for each string
-        .word string_4, string_5, string_6, string_3, string_1, string_1, string_1, string_1, string_2
-        .word board.screen.string_68
+        .word string_0, string_1, string_2, string_3, string_4, string_4, string_4, string_4, string_5
+        .word board.screen.string_67
 
     // A8B9
-    string_color_data: .byte $07, $0e, $0e, $01, $0b, $0c, $0f, $01, $01, $08 // Color of each string
+    string_color_data: // Color of each string
+        .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE, DARK_GRAY, GRAY, LIGHT_GRAY, WHITE, WHITE, ORANGE
 
     // A87F
-    string_1: // Top half of "free Fall" logo
+    string_4: // Top half of "free Fall" logo
         .byte $0b
-        .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70
-        .byte $71
-        .byte $ff
+        .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70, $71
+        .byte STRING_CMD_END
 
     // A892
-    string_2: // Bottom half of "free Fall" logo
+    string_5: // Bottom half of "free Fall" logo
         .byte $0b
-        .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72
-        .byte $73
-        .byte $ff
+        .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
+        .byte STRING_CMD_END
 
     // A8C3
     string_3: // A .... Game
         .byte $10, $13
         .text "A"
-        .byte $80
-        .byte $18, $11
+        .byte STRING_CMD_NEWLINE, $18, $11
         .text "GAME"
-        .byte $ff
+        .byte STRING_CMD_END
 
     // A8CE
-    string_4: // By Anne Wesfall and Jon Freeman & Paul Reiche III
+    string_0: // By Anne Wesfall and Jon Freeman & Paul Reiche III
         .byte $08, $0c
         .text @"BY\$00ANNE\$00WESTFALL"
-        .byte $80
-        .byte $0a, $0b
+        .byte STRING_CMD_NEWLINE, $0a, $0b
         .text @"AND\$00JON\$00FREEMAN"
-        .byte $80
-        .byte $0c, $0d
+        .byte STRING_CMD_NEWLINE, $0c, $0d
         .text @"\$40\$00PAUL\$00REICHE\$00III"
-        .byte $ff
+        .byte STRING_CMD_END
 
     // A907
-    string_5: // Emptry string under authors - presumably here to allow text to be added for test versions etc
+    string_1: // Emptry string under authors - presumably here to allow text to be added for test versions etc
         .byte $0f, $01
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
         .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
         .byte $00, $00, $00, $00, $00, $00, $00
-        .byte $ff
+        .byte STRING_CMD_END
 
     // A931
-    string_6: // Electronic Arts Logo
+    string_2: // Electronic Arts Logo
         .byte $12, $01
         .byte $16, $17, $17, $18, $19, $1a, $1b, $1c
-        .byte $80, $13, $01
+        .byte STRING_CMD_NEWLINE, $13, $01
         .byte $1e, $1f, $1f, $20, $1f, $1f, $21, $22, $23
-        .byte $80, $14, $01
+        .byte STRING_CMD_NEWLINE, $14, $01
         .byte $24, $25, $25, $26, $27, $28, $29, $2a, $3f, $1d
-        .byte $80, $15, $01
+        .byte STRING_CMD_NEWLINE, $15, $01
         .byte $2b, $2c, $00, $00, $00, $00, $00, $00, $00, $00, $00, $2d, $2e
-        .byte $80, $16, $01
+        .byte STRING_CMD_NEWLINE, $16, $01
         .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
-        .byte $ff
+        .byte STRING_CMD_END
 }
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
@@ -676,8 +664,8 @@ state__end_intro:
     final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
 
     // BD58
-    x_direction_flag: .byte $00 // Is positive number for right direction, negative for left direction
+    x_direction_addend: .byte $00 // Is positive number for right direction, negative for left direction
 
     // BD59
-    y_direction_flag: .byte $00 // Is positive number for down direction, negative for up direction
+    y_direction_addend: .byte $00 // Is positive number for down direction, negative for up direction
 }
