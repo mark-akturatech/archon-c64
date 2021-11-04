@@ -197,7 +197,7 @@ scroll_up:
 // AA8B
 state__draw_freefall_logo:
     lda #FLAG_ENABLE
-    sta main.temp.flag__string_position_control
+    sta main.temp.flag__string_pos_control
     // Remove sprites 4 to 7 (Freefall logo).
     // The sprites are replaces with text characters after the animation has completed.
     ldx #$04
@@ -227,7 +227,7 @@ state__draw_freefall_logo:
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
     // read the screen rows from the remaining string messages.
     lda #$00
-    sta main.temp.flag__string_position_control
+    sta main.temp.flag__string_pos_control
     jsr screen_draw_text
     //
     dec main.temp.data__msg_offset // Set to pointer next string to display in next state
@@ -296,7 +296,7 @@ get_next_char:
 // The string is terminated with a $ff byte.
 // Spaces are represented as $00.
 screen_calc_start_addr:
-    lda main.temp.flag__string_position_control
+    lda main.temp.flag__string_pos_control
     bmi skip_sceen_row // flag = $80 or $c0
     // Read screen row.
     lda (FREEZP),y
@@ -312,7 +312,7 @@ skip_sceen_row:
     clc
     adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
-    bit main.temp.flag__string_position_control
+    bit main.temp.flag__string_pos_control
     bvc !next+ // flag = $c0
     lda #$06 // Hard coded screen column offset if BF3C flag set
     bne skip_sceen_column
@@ -344,7 +344,7 @@ state__show_authors:
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
-    sta main.temp.flag__string_position_control
+    sta main.temp.flag__string_pos_control
     lda #$09
     sta main.temp.data__msg_offset
     ldx #$18
@@ -487,7 +487,7 @@ animate_characters:
     cmp sprite.piece_end_x_pos,x
     beq !next+
     clc
-    adc sprite.piece_direction,x
+    adc sprite.piece_x_direction_addend,x
     sta common.sprite.curr_x_pos,x
     asl // Move by two pixels at a time
     sta SP0X,y
@@ -533,7 +533,8 @@ state__end_intro:
 .namespace state {
     // AD73
     fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
-        .word state__draw_freefall_logo, state__show_authors, state__avatar_bounce, state__chase_scene, state__end_intro
+        .word state__draw_freefall_logo, state__show_authors, state__avatar_bounce, state__chase_scene
+        .word state__end_intro
 }
 
 .namespace sprite {
@@ -554,7 +555,7 @@ state__end_intro:
         .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
 
     // ADB2
-    piece_direction: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
+    piece_x_direction_addend: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
 
     // ADB6
     piece_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite

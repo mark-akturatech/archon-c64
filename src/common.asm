@@ -3,9 +3,9 @@
 //---------------------------------------------------------------------------------------------------------------------
 // Contains common routines used by various pages and game states.
 //---------------------------------------------------------------------------------------------------------------------
-#importonce
 #import "src/io.asm"
 #import "src/const.asm"
+
 .segment Common
 
 // 638E
@@ -633,7 +633,7 @@ intro_music:
     // BF08
     curr_phrase_data_fn_ptr: // Pointer to function to read current phrase for current voice
     flag__enable_voice: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
-        .word $0000
+        .byte $00, $00
 
     // BF0B
     new_note_delay: .byte $00, $00, $00 // New note delay timer

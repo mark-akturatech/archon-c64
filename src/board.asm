@@ -761,7 +761,7 @@ stop_sound:
     frame_offset: // Memory offset of each sprite frame within a sprite set
         .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
         .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
-        .word $02F4, $0008, $0000, $0010, $0018 // TODO: are last 4 needed? !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        .word $02F4, $0008, $0000, $0010, $0018
 
     // 906F
     piece_color: // Color of character based on side (light, dark)
@@ -833,10 +833,10 @@ stop_sound:
         .word phrase_walk_quad    // 06
         .word phrase_fly_03       // 08
         .word phrase_fly_large    // 10
-        .word phrase_fire_01     // 12
-        .word phrase_fire_02     // 14
-        .word phrase_fire_03     // 16
-        .word phrase_fire_04     // 18
+        .word phrase_fire_01      // 12
+        .word phrase_fire_02      // 14
+        .word phrase_fire_03      // 16
+        .word phrase_fire_04      // 18
         .word phrase_walk_slither // 20
 
     // 8BAA

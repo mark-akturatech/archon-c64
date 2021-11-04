@@ -13,23 +13,24 @@
 //---------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Notes:
-// - This is not a byte for byte memory replication. The source is fully relocatable and pays no heed to original
+// - This is not a byte for byte memory replication. The code is fully relocatable and pays no heed to original
 //   memory locations. Original memory locations are provided as comments above each variable, constant or method
 //   for reference.
-// - The source does not include any original logic that moves code or data around. The source code below has been
+// - The source does not include any original logic that moves code or data around. The code below has been
 //   developed so that it all loads entirely in place. This is to aide radability and also alows easy addition or
 //   modification of code.
 // - The source uses screen memory bank at $4000 and has logic to move code and data from this area. Here we use
 //   the $8000 bank so that the code can all remain in place. However, to make enough room, we have hard coded the
-//   character dot dat to load directly in to the required memory location.
+//   character dot data to load directly in to the required memory location.
 // - The source uses the same data memory addresses for different purposes. For example `BF24` may store the current
-//   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we may have
-//   added multiple lables to the same memory address. TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!
+//   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we have
+//   added multiple lables to the same memory address. 
+//   TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-#import "src/io.asm"
-#import "src/const.asm"
-
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, Game, Assets, ScreenMemory"]
+//---------------------------------------------------------------------------------------------------------------------
+// Memory map
+//---------------------------------------------------------------------------------------------------------------------
+// Starts at $0801
 
 .segmentdef Upstart
 .segmentdef Main [startAfter="Upstart"]
@@ -45,6 +46,30 @@
 .segmentdef DynamicData [startAfter="DynamicDataStart", virtual]
 .segmentdef DynamicDataEnd [startAfter="DynamicData", max=$CFFF, virtual]
 
+//---------------------------------------------------------------------------------------------------------------------
+// Output File
+//---------------------------------------------------------------------------------------------------------------------
+// Save all segments to a prg file except the virtual data segments.
+
+.file [name="main.prg", segments="Upstart, Main, Common, Intro, Game, Assets, ScreenMemory"]
+
+//---------------------------------------------------------------------------------------------------------------------
+// Source Files
+//---------------------------------------------------------------------------------------------------------------------
+// The source code is split in to the following files:
+// - Main: Main game loop
+// - Common: Library of subroutines and assets used by various game states
+// - board: Subroutines and assets used to render the game board
+// - intro: Subroutines and assets used by the intro page (eg the dancing logo page)
+// - board_walk: Subroutines and assets used during the introduction to walk pieces on to the board
+// - game: Subroutines and assets used during main game play
+// - fight: Subroutines and assets used during fighting game play
+// Additionally, two constant files are used:
+// - io: contains standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names
+// - const: contains game specific constants
+
+#import "src/io.asm"
+#import "src/const.asm"
 #import "src/common.asm"
 #import "src/board.asm"
 #if INCLUDE_INTRO
@@ -58,7 +83,6 @@
 //---------------------------------------------------------------------------------------------------------------------
 .segment Upstart
 
-// create basic program with sys command to execute code
 BasicUpstart2(entry)
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -303,7 +327,16 @@ play_intro:
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
+// Assets are constant data, initialized variables and resources that are included in the prg file.
 .segment Assets
+
+// 02A7
+flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized
+
+.namespace screen {
+    // BF19
+    color_mem_offset: .byte >(COLRAM-SCNMEM) // Screen offset to color ram
+}
 
 .namespace state {
     // 4760
@@ -352,6 +385,10 @@ play_intro:
         .byte <(GRPMEM + 56 * BYTES_PER_SPRITE), >(GRPMEM + 56 * BYTES_PER_SPRITE)
 }
 
+//---------------------------------------------------------------------------------------------------------------------
+// Assets
+//---------------------------------------------------------------------------------------------------------------------
+// Load the character set directly in to graphic memory bank 2.
 .segment ScreenMemory
 
 #if INCLUDE_INTRO
@@ -362,26 +399,12 @@ play_intro:
 * = CHRMEM2
 .import binary "/assets/charset-game.bin"
 
-
-//---------------------------------------------------------------------------------------------------------------------
-// Assets
-//---------------------------------------------------------------------------------------------------------------------
-// Contains constants, assets and resources included in the compiled file.
-.segment Assets
-
-// 02A7
-flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized
-
-.namespace screen {
-    // BF19
-    color_mem_offset: .byte >(COLRAM-SCNMEM) // Screen offset to color ram
-}
-
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
-//
 .segment Data
 
 // BCC4
@@ -415,7 +438,6 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
 //---------------------------------------------------------------------------------------------------------------------
 // Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
 // of the data area.
-//
 .segment DynamicDataStart
     dynamic_data_start:
 
@@ -533,7 +555,7 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
         .byte $00
 
     // BF3C
-    flag__string_position_control: // Used to control string rendering in intro page
+    flag__string_pos_control: // Used to control string rendering in intro page
         .byte $00
 
     // BF23
