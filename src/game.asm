@@ -7,7 +7,48 @@
 #import "src/const.asm"
 
 .segment Game
+
+// 8019
 entry:
+    jsr common.clear_sprites
+    jsr board.clear_text_area
+    jsr common.stop_sound
+    lda #FLAG_DISABLE
+    sta board.flag__render_square_control
+    jsr board.draw_board
+    lda state.flag__is_curr_player_light
+    eor #$FF                         
+    sta state.flag__is_curr_player_light
+//     ldy WBCCB  // TODO!!!!!!!!!!!!!
+//     bpl W803A
+//     sta WBCC0
+// W803A:
+    // Get player and convert to 0 for light, 1 for dark.
+    lda state.flag__is_curr_player_light
+    and #$01
+    eor #$01
+    tay
+    lda board.sprite.piece_color,y
+    sta SP1COL // Set logo color
+    sta SP2COL
+W804B:
+    sta SP3COL // Set selection square color
+    jsr board.create_logo
+    jsr board.set_player_color
+    jsr board.draw_border
+    lda SPMC
+    and #%0111_0001 // Set sprites 1, 2, 3 to single color
+    sta SPMC
+    lda #BLACK
+    sta SPMC0
+    jsr board.create_selection_square
+    lda #%1111_1110 // Expand sprites 1, 2 and 3 horizontally
+    sta XXPAND
+    lda #%0000_0000
+    sta YXPAND
+    //....... 8071
+
+
     rts
 
 //---------------------------------------------------------------------------------------------------------------------

@@ -86,6 +86,9 @@
 .const SPMC0    = $D025 // Sprite Multicolor Register 0
 .const SPMC1    = $D026 // Sprite Multicolor Register 1
 .const SP0COL   = $D027 // Sprite 0 Color Register
+.const SP1COL   = $D028 // Sprite 1 Color Register
+.const SP2COL   = $D029 // Sprite 2 Color Register
+.const SP3COL   = $D02A // Sprite 3 Color Register
 .const COLRAM   = $D800 // Start of Color RAM
 
 // SID

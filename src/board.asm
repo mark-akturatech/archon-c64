@@ -216,22 +216,22 @@ move_sprite:
 // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
 move_sprite_and_invert:
     lda #$0A
-    sta main.temp.data__curr_count // Sprite is inverted in 10 blocks
+    sta main.temp.data__temp_store // Sprite is inverted in 10 blocks
     tya
     clc
     adc #$02
     tay
     lda (FREEZP),y
+    sta main.temp.data__temp_store+3
+    dey
+    lda (FREEZP),y
     sta main.temp.data__temp_store+2
     dey
     lda (FREEZP),y
     sta main.temp.data__temp_store+1
-    dey
-    lda (FREEZP),y
-    sta main.temp.data__temp_store
     lda #$00
-    sta main.temp.data__temp_store+3
     sta main.temp.data__temp_store+4
+    sta main.temp.data__temp_store+5
 !loop:
     jsr invert_bytes
     jsr invert_bytes
@@ -246,26 +246,26 @@ move_sprite_and_invert:
 !next:
     pla
 !next:
-    dec main.temp.data__curr_count
+    dec main.temp.data__temp_store
     bne !loop-
     sta (FREEZP+2),y
     iny
-    lda main.temp.data__temp_store+3
+    lda main.temp.data__temp_store+4
     sta (FREEZP+2),y
     iny
-    lda main.temp.data__temp_store+4
+    lda main.temp.data__temp_store+5
     sta (FREEZP+2),y
     iny
     cpy sprite.copy_length
     bcc move_sprite_and_invert
     rts
 invert_bytes:
+    rol main.temp.data__temp_store+3
     rol main.temp.data__temp_store+2
     rol main.temp.data__temp_store+1
-    rol main.temp.data__temp_store
     ror
-    ror main.temp.data__temp_store+3
     ror main.temp.data__temp_store+4
+    ror main.temp.data__temp_store+5
     rts
 
 // 8D80
@@ -540,6 +540,74 @@ draw_border:
     bpl !loop-
     rts
 
+// 91FB
+// Creates sprites in 56 and 57 from character dot data (creates "ARCHON"), position the sprites above the board,
+// set the sprite color to current player color and enable as sprite 2 and 3.
+create_logo:
+    lda main.sprite.mem_ptr_56
+    sta FREEZP+2 // Sprite location
+    sta main.temp.data__temp_store
+    sta main.temp.data__temp_store+1
+    lda main.sprite.mem_ptr_56+1
+    sta FREEZP+3
+    lda #$03 // Number of letters per sprite
+    sta main.temp.data__temp_store+2
+    ldx #$00
+convert_logo_character:
+    lda sprite.logo_string,x // Get logo letter
+    // Convert character to dot data offset.
+    and #$3F
+    asl
+    asl
+    asl
+    sta FREEZP // Character dot data offset
+    .const UPPERCASE_OFFSET = $600
+    lda #>(CHRMEM2 + UPPERCASE_OFFSET)
+    adc #$00
+    sta FREEZP+1
+    ldy #$00
+copy_character_to_sprite:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    inc FREEZP+2
+    inc FREEZP+2
+    cpy #$08
+    bcc copy_character_to_sprite
+    // Set next letter.
+    inc main.temp.data__temp_store
+    lda main.temp.data__temp_store
+    sta FREEZP+2
+    dec main.temp.data__temp_store+2
+    bne !next+
+    // Sprite full - Move to next sprite.
+    lda #$03
+    sta main.temp.data__temp_store+2
+    lda main.temp.data__temp_store+1
+    clc
+    adc #BYTES_PER_SPRITE
+    sta FREEZP+2
+    sta main.temp.data__temp_store
+    bne !next+
+    inc FREEZP+3           
+!next:
+    inx
+    cpx #$06 // Logo has 6 letters (ARCHON)
+    bcc convert_logo_character
+    // Configure and enable sprites.
+    lda #$38 // Place above board (positions hard coded)
+    sta SP2Y
+    sta SP3Y
+    lda #$84
+    sta SP2X
+    lda #$B4
+    sta SP3X
+    lda #((VICGOFF / BYTES_PER_SPRITE) + 56) // should use main.sprite.offset_56 but source doesn't :(
+    sta SPTMEM+2
+    lda #((VICGOFF / BYTES_PER_SPRITE) + 57)
+    sta SPTMEM+3
+    rts
+
 // 927A
 // Create the sprite used to indicate a magic board square.
 // The sprite is stored in sprite offset 48.
@@ -584,6 +652,44 @@ draw_magic_square:
     sta SPTMEM+SPRITE_NUMBER
     ldy #(SPRITE_NUMBER*2)
     jmp render_sprite
+
+
+// 92EB
+create_selection_square:
+    lda main.sprite.mem_ptr_24
+    sta FREEZP+2 // Sprite location
+    lda main.sprite.mem_ptr_24+1
+    sta FREEZP+3
+    ldy #$00
+    jsr selection_square__vert_line
+    // Draw sides.
+    ldx #$10 // 16 pixels high
+!loop:
+    lda #$C0 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    lda #$18 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    iny
+    dex
+    bne !loop-
+    jsr selection_square__vert_line
+    rts
+// Draw top/bottom.
+selection_square__vert_line:
+    ldx #$02
+!loop:
+    lda #$FF // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    lda #$F8 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    iny
+    dex
+    bne !loop-
+    rts
 
 // 9352
 // Clear text area underneath the board and reset the color to white.
@@ -766,6 +872,10 @@ stop_sound:
     // 906F
     piece_color: // Color of character based on side (light, dark)
         .byte YELLOW, LIGHT_BLUE
+
+    // 9274
+    logo_string: // Logo string that is converted to a sprite using character set dot data as sprite source data
+        .text "ARCHON"
 
     // 929B
     magic_sqauare_data: // Sprite data used to create the magic square icon

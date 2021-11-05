@@ -159,9 +159,11 @@ restart_game_loop:
     ldy #$03
     lda board.data.color_phase,y
     sta game.curr_color_phase
+#if INCLUDE_INTRO    
     lda flag__enable_intro
     beq skip_intro
     jsr play_intro
+#endif
 skip_intro:
     // Configure SID for main game.
     lda #$08
@@ -188,6 +190,9 @@ skip_intro:
     lda flag__enable_intro
     beq skip_board_walk
     jsr board_walk.entry
+#else
+    lda #%1111_1111 // Enable all sprites
+    sta SPENA
 #endif
 skip_board_walk:
     lda #$00
@@ -208,16 +213,16 @@ skip_board_walk:
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two pieces in the
     // row, clears the next 5 and then sets the last 2 pieces and repeats for each row.
     lda #$12
-    sta temp.data__curr_count // Player 2 piece matrix offset
+    sta temp.data__temp_store // Player 2 piece matrix offset
     lda #$00
-    sta temp.data__temp_store // Player 1 piece matrix offset
+    sta temp.data__temp_store+1 // Player 1 piece matrix offset
     tax
 board_setup_row_loop:
     ldy #$02
 board_setup_player_1_loop:
-    lda temp.data__temp_store
+    lda temp.data__temp_store+1
     sta game.curr_square_occupancy,x
-    inc temp.data__temp_store
+    inc temp.data__temp_store+1
     inx
     dey
     bne board_setup_player_1_loop
@@ -230,9 +235,9 @@ board_setup_empty_col_loop:
     bne board_setup_empty_col_loop
     ldy #$02
 board_setup_player_2_loop:
-    lda temp.data__curr_count
+    lda temp.data__temp_store
     sta game.curr_square_occupancy,x
-    inc temp.data__curr_count
+    inc temp.data__temp_store
     inx
     dey
     bne board_setup_player_2_loop
@@ -256,8 +261,7 @@ board_setup_player_2_loop:
     lda board.data.color_phase,y
     sta game.curr_color_phase
     jsr common.clear_screen
-    // // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    rts
+    jmp game.entry
 
 // 4700
 prep:
@@ -270,7 +274,6 @@ prep:
     lda CINV+1
     sta interrupt.raster_fn_ptr+1
     // skip 4711-4765 - moves stuff around. we'll just set any intiial values in our assets segment.
-main_prep_game_states:
     // Configure game state function handlers.
     ldx #$05
 !loop:
@@ -408,12 +411,12 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 .namespace state {
     // 4760
     game_fn_ptr: // Pointer to each main game function (intro, board, game)
-        .word game.entry // TODO: this could be wrong
-        .word game.entry // TODO: this could be wrong
+        .word $0000 // TODO: this could be wrong
+        .word $0000 // TODO: this could be wrong
 #if INCLUDE_INTRO
         .word intro.entry
 #else
-        .word game.entry
+        .word $0000
 #endif
 }
 
@@ -564,18 +567,20 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
     data__curr_color: // Color of the current intro string being rendered
     data__board_piece_char_offset: // Index to character dot data for current board piece part
     data__math_store: // Temporary storage used for math operations
-    data__curr_count: // Temporary storage used to keep track of a counter
     data__x_pixels_per_move: // Pixels to move intro sprite for each frame
+    data__temp_store: // Temporary data storage area
         .byte $00
-
     // BF1B
     ptr__sprite: // Intro sprite data pointer
     data__curr_x_pos: // Current calculated sprite X position
-    data__temp_store: // Temporary data storage area
         .byte $00
+    // BF1C
         .byte $00
+    // BF1D
         .byte $00
+    // BF1E
         .byte $00
+    // BF1F
         .byte $00
 
     // BF20
