@@ -29,9 +29,51 @@ check_option_keypress:
     cmp #KEY_NONE
     bne process_key
     rts
-    // TODO: see 639b
 process_key:
+    cmp #KEY_F7
+    bne !next+
+    // Start game.
+    jsr advance_intro_state   
+    lda #FLAG_DISABLE
+    // sta WBCCB // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta main.curr_pre_game_progress
+    // lda WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    jmp main.restart_game_loop
+!next:
+    cmp #KEY_F5
+    bne !next+
+    // Toggle first player.
+    lda game.state.flag__is_first_player_light
+    eor #$FF
+    sta game.state.flag__is_first_player_light
+    jsr advance_intro_state
+    jmp main.restart_game_loop
+!next:
+    cmp #KEY_F3
+    beq set_num_players
     rts
+set_num_players:
+    // Togglke two players, between player light, player dark
+    lda game.state.ai_player_control
+    clc
+    adc #$01
+    cmp #$03
+    bcc !next+
+    lda #$00
+!next:
+    sta game.state.ai_player_control
+    cmp #$00
+    beq !next+
+    lda game.state.flag__is_first_player_light
+    // cmp WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    bne !next+
+    eor #$FF
+!next:
+    // sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // sta WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    jsr advance_intro_state
+    jmp main.restart_game_loop
 
 // 63F3
 // Skip board walk and display game options.
@@ -42,7 +84,7 @@ advance_intro_state:
     bne advance_intro_state
     // Advance game state.
     // lda #$07
-    // sta WBCCB  // TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // sta WBCCB  // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lda #FLAG_ENABLE
     sta main.interrupt.flag__enable
     // Remove intro interrupt handler.

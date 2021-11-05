@@ -33,8 +33,11 @@ entry:
 .segment Data
 
 .namespace state {
+    // BCC1
+    ai_player_control: .byte $00 // Is 0 for none, 1 for computer plays light, 2 for computer plays dark
+
     // BCC2
-    flag__is_first_player_light: .byte $00 // Is positive for light, negative for dark // !!!!!!!!!! TODO MOVE TO OPTIONS.ASM
+    flag__is_first_player_light: .byte $00 // Is positive for light, negative for dark
 
     // BCC6
     flag__is_curr_player_light: .byte $00 // Is positive for light, negative for dark

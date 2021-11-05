@@ -92,10 +92,10 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
-    // 6100  A9 00      lda #$00       // TODO: what are these variables
-    // 6102  8D C0 BC sta WBCC0 // not dynamic!
-    // 6105  8D C1 BC sta WBCC1      // players -> 2, light, dark
-    // 6108  8D C5 BC sta WBCC5
+    lda #$00
+    // 6102  8D C0 BC sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta game.state.ai_player_control // AI disabled (two players)
+    // 6108  8D C5 BC sta WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lda #$55 // Set light as first player
     sta game.state.flag__is_first_player_light
     tsx
@@ -133,7 +133,7 @@ restart_game_loop:
     jsr common.clear_screen
     jsr common.clear_sprites
     // Set the initial strength of each piece.
-    ldx #(BOARD_INITIAL_NUM_PIECES - 1) // total number of pieces (0 offset)
+    ldx #(BOARD_INITIAL_NUM_PIECES - 1) // Total number of pieces (0 offset)
 !loop:
     ldy board.piece.initial_matrix,x
     lda board.piece.inital_strength,y
@@ -151,8 +151,8 @@ restart_game_loop:
     sta game.curr_square_occupancy,x
     dex
     bpl !loop-
-    // 6227  8D 24 BD sta WBD24  // TODO: what are these variables?
-    // 622A 8D 25 BD sta WBD25
+    // 6227  8D 24 BD sta WBD24  // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 622A 8D 25 BD sta WBD25   // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     lda game.state.flag__is_first_player_light
     sta game.state.flag__is_curr_player_light
     // Set default board phase color.
@@ -190,6 +190,73 @@ skip_intro:
     jsr board_walk.entry
 #endif
 skip_board_walk:
+    lda #$00
+    sta board.sprite.flag__copy_animation_group
+    lda #FLAG_DISABLE
+    sta flag__enable_intro
+    lda TIME+1
+    sta state.last_stored_time // Large jiffy (increments 256 jiffies aka ~ 4 seconds)
+    // NFI - sprite position maybe? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 6283  A2 0D      ldx #$0D
+    // 6285  A9 FD      lda #$FD
+    // !loop:
+    // 6287  9D FA BE   sta WBEFA,x
+    // 628A  CA         dex
+    // 628B  10 FA      bpl !loop-
+    //
+    // Set the board - This is done by setting each square to an index into the initial matrix which stores the piece in 
+    // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two pieces in the
+    // row, clears the next 5 and then sets the last 2 pieces and repeats for each row.
+    lda #$12
+    sta temp.data__curr_count // Player 2 piece matrix offset
+    lda #$00
+    sta temp.data__temp_store // Player 1 piece matrix offset
+    tax
+board_setup_row_loop:
+    ldy #$02
+board_setup_player_1_loop:
+    lda temp.data__temp_store
+    sta game.curr_square_occupancy,x
+    inc temp.data__temp_store
+    inx
+    dey
+    bne board_setup_player_1_loop
+    ldy #$05
+    lda #$80 // Empty cell
+board_setup_empty_col_loop:
+    sta game.curr_square_occupancy,x
+    inx
+    dey
+    bne board_setup_empty_col_loop
+    ldy #$02
+board_setup_player_2_loop:
+    lda temp.data__curr_count
+    sta game.curr_square_occupancy,x
+    inc temp.data__curr_count
+    inx
+    dey
+    bne board_setup_player_2_loop
+    cpx #(BOARD_NUM_COLS * BOARD_NUM_ROWS)
+    bcc board_setup_row_loop
+    //
+    lda game.state.flag__is_first_player_light
+    eor #$FF
+    // sta WBCCA // NFI << oh is this phase direction? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta game.state.flag__is_curr_player_light // Set current player
+    // Set starting board color.
+    lda #$06
+    ldy game.state.flag__is_curr_player_light
+    bpl !next+
+    clc
+    adc #$02
+!next:
+    // sta WBF40 // NFI is 06 for player 1 and 8 for player 2??? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    lsr // 6 becomes 0011 (3), 8 becomes 0100 (4)
+    tay
+    lda board.data.color_phase,y
+    sta game.curr_color_phase
+    jsr common.clear_screen
+    // // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!// TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     rts
 
 // 4700
@@ -449,6 +516,9 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
 }
 
 .namespace state {
+    // BD27
+    last_stored_time: .byte $00 // Last recorded major jiffy clock counter (256 jiffy counter)
+
     // BD30
     curr_fn_ptr: .word $0000 // Pointer to code that will run in the current state
 }
