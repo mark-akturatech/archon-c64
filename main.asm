@@ -24,7 +24,7 @@
 //   character dot data to load directly in to the required memory location.
 // - The source uses the same data memory addresses for different purposes. For example `BF24` may store the current
 //   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we have
-//   added multiple lables to the same memory address. 
+//   added multiple lables to the same memory address.
 //   TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -77,6 +77,7 @@
     #import "src/board_walk.asm"
 #endif
 #import "src/game.asm"
+#import "src/fight.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
 // Basic Upstart
@@ -133,10 +134,10 @@ restart_game_loop:
     jsr common.clear_screen
     jsr common.clear_sprites
     // Set the initial strength of each piece.
-    ldx #(BOARD_INITIAL_NUM_PIECES - 1) // Total number of pieces (0 offset)
+    ldx #(BOARD_NUM_PIECES - 1) // Total number of pieces (0 offset)
 !loop:
-    ldy board.piece.initial_matrix,x
-    lda board.piece.inital_strength,y
+    ldy board.piece.init_matrix,x
+    lda board.piece.init_strength,y
     sta game.curr_piece_strength,x
     dex
     bpl !loop-
@@ -159,7 +160,7 @@ restart_game_loop:
     ldy #$03
     lda board.data.color_phase,y
     sta game.curr_color_phase
-#if INCLUDE_INTRO    
+#if INCLUDE_INTRO
     lda flag__enable_intro
     beq skip_intro
     jsr play_intro
@@ -209,7 +210,7 @@ skip_board_walk:
     // 628A  CA         dex
     // 628B  10 FA      bpl !loop-
     //
-    // Set the board - This is done by setting each square to an index into the initial matrix which stores the piece in 
+    // Set the board - This is done by setting each square to an index into the initial matrix which stores the piece in
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two pieces in the
     // row, clears the next 5 and then sets the last 2 pieces and repeats for each row.
     lda #$12
@@ -387,7 +388,7 @@ play_game:
     jmp (state.curr_game_fn_ptr)
 
 // 8013
-play_board_setup:
+play_fight:
     jmp (state.curr_game_fn_ptr+2)
 
 // 8016
@@ -410,9 +411,9 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 
 .namespace state {
     // 4760
-    game_fn_ptr: // Pointer to each main game function (intro, board, game)
-        .word $0000 // TODO: this could be wrong
-        .word $0000 // TODO: this could be wrong
+    game_fn_ptr: // Pointer to each main game function
+        .word game.interrupt_handler
+        .word fight.interrupt_handler
 #if INCLUDE_INTRO
         .word intro.entry
 #else
@@ -529,18 +530,12 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
 // readbility.
 .namespace temp {
-    // BCE3
-    flag__is_piece_mirrored:
-    data__frame_count:
-        .byte $00
-        .byte $00, $00, $00 // Default direction of character peice (> 0 for inverted)
-
     // BCEE
     flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
         .byte $00
 
     // BCFE
-    data__curr_sprite_count: // Current animated sprite counter (used to animate multiple sprites)
+    data__curr_count: // Current counter value
         .byte $00
 
     // BCEF
@@ -570,17 +565,12 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
     data__x_pixels_per_move: // Pixels to move intro sprite for each frame
     data__temp_store: // Temporary data storage area
         .byte $00
-    // BF1B
     ptr__sprite: // Intro sprite data pointer
     data__curr_x_pos: // Current calculated sprite X position
         .byte $00
-    // BF1C
         .byte $00
-    // BF1D
         .byte $00
-    // BF1E
         .byte $00
-    // BF1F
         .byte $00
 
     // BF20
@@ -614,6 +604,22 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
 
     // BF31
     data__curr_column: // Current board column
+        .byte $00
+
+    // BF32
+    data__dark_piece_count: // Dark remaining piece count
+        .byte $00
+
+    // BF33
+    data__last_dark_piece_id: // Piece ID of last dark piece
+        .byte $00
+
+    // BF36
+    data__light_piece_count: // Light remaining piece count
+        .byte $00
+
+    // BF37
+    data__last_light_piece_id: // Piece ID of last light piece
         .byte $00
 
     // BD3A

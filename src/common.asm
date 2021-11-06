@@ -33,7 +33,7 @@ process_key:
     cmp #KEY_F7
     bne !next+
     // Start game.
-    jsr advance_intro_state   
+    jsr advance_intro_state
     lda #FLAG_DISABLE
     // sta WBCCB // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     sta main.curr_pre_game_progress
@@ -54,7 +54,7 @@ process_key:
     beq set_num_players
     rts
 set_num_players:
-    // Togglke two players, between player light, player dark
+    // Togglke between two players, player light, player dark
     lda game.state.ai_player_control
     clc
     adc #$01
@@ -456,7 +456,7 @@ intro_music:
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial phrase on all 3 voices.
-    lda music.initial_phrase_list_ptr,y
+    lda music.init_phrase_list_ptr,y
     sta OLDTXT,y
     dey
     bpl !loop-
@@ -514,7 +514,7 @@ intro_music:
 // 3D40
 .namespace music {
     // Music configuration.
-    // Music is played by playing notes pointed to by `initial_phrase_list_ptr` on each voice.
+    // Music is played by playing notes pointed to by `init_phrase_list_ptr` on each voice.
     // When the voice phrase list finishes, the music will look at the intro or outro phrase list pointers (
     // `intro_phrase_ptr` or `outro_phrase_ptr`) depending on the track being played. This list will then tell the
     // player which phrase to play next.
@@ -523,7 +523,7 @@ intro_music:
     intro_phrase_ptr: // Pointers for intro music phrase list for each voice
         .word intro_phrase_V1_ptr, intro_phrase_V2_ptr, intro_phrase_V3_ptr
 #endif
-    initial_phrase_list_ptr: // Initial phrases for both intro and outro music
+    init_phrase_list_ptr: // Initial phrases for both intro and outro music
         .word phrase_1, phrase_2, phrase_3
     outro_phrase_ptr: // Pointers for outro music phrase list for each voice
         .word outro_phrase_V1_ptr, outro_phrase_V2_ptr, outro_phrase_V3_ptr
@@ -661,6 +661,23 @@ intro_music:
 .segment DynamicData
 
 .namespace sprite {
+    // BCE3
+    init_animation_frame: .byte $00, $00, $00, $00 // Initial animation for up to 4 sprites
+
+    // BCE7
+    number: // Sprite number of up to 4 sprites
+    curr_animation_frame: // Current animation frame
+        .byte $00
+    animation_delay: // Delay between color changes when color scrolling avatar sprites
+        .byte $00
+    y_move_counter: // Number of moves left in y plane in current direction (will reverse direction on 0)
+        .byte $00
+    x_move_counter: // Number of moves left in x plane in current direction (will reverse direction on 0)
+        .byte $00
+
+    // BD15
+    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
+
     // BD3E
     curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
 

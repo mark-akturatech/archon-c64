@@ -19,7 +19,7 @@ entry:
     ora #%0001_0000
     sta SCROLX
     // Set interrupt handler to set intro loop state.
-    // Thinking this should have a SEI and CLI wrapping it, but it doesn't.
+    // Why no SEI and CLI wrapping it?
     lda #<interrupt_handler
     sta main.interrupt.system_fn_ptr
     lda #>interrupt_handler
@@ -165,9 +165,9 @@ add_piece_to_board:
     bpl !loop-
     //
     ldx #$00
-    stx intro.sprite.animation_counter
+    stx common.sprite.curr_animation_frame
     ldy board.piece.type
-    lda board.piece.initial_matrix,y
+    lda board.piece.init_matrix,y
     sta board.piece.offset
     jsr board.sprite_initialize
     // Configure sprites.
@@ -197,7 +197,7 @@ add_piece_to_board:
     and game.state.flag__is_curr_player_light
     sta main.temp.data__character_sprite_frame
     lda #$04
-    sta main.temp.data__frame_count
+    sta common.sprite.init_animation_frame
     lda main.sprite.mem_ptr_00
     sta FREEZP+2
     sta main.temp.data__sprite_y_direction_offset
@@ -215,7 +215,7 @@ add_piece_to_board:
     inc FREEZP+3
 !next:
     inc main.temp.data__character_sprite_frame
-    dec main.temp.data__frame_count
+    dec common.sprite.init_animation_frame
     bne !loop-
     // Display piece name.
     jsr board.clear_text_area
@@ -247,7 +247,7 @@ interrupt_handler:
     jsr board.play_character_sound
     // Update sprite frame and position.
     lda #$FF
-    sta main.temp.data__curr_sprite_count
+    sta main.temp.data__curr_count
     // Only update sprite position on every second interrupt.
     lda main.temp.flag__alternating_state
     eor #$FF
@@ -266,12 +266,12 @@ update_sprite:
     eor #$FF
     sta main.temp.flag__alternating_state_1
     bmi check_sprite // Only update animation frame on every second position update
-    inc intro.sprite.animation_counter
+    inc common.sprite.curr_animation_frame
 check_sprite:
     lda common.sprite.curr_x_pos,x
     cmp main.temp.data__sprite_final_x_pos
     bne update_sprite_pos
-    inc main.temp.data__curr_sprite_count
+    inc main.temp.data__curr_count
     jmp next_sprite
 update_sprite_pos:
     clc
@@ -280,17 +280,17 @@ update_sprite_pos:
     txa
     asl
     tay
-    lda intro.sprite.animation_counter
+    lda common.sprite.curr_animation_frame
     and #$03 // Set animation frame (0 to 3)
     clc
     adc main.sprite.offset_00
     sta SPTMEM,x
-    jsr board.render_sprite
+    jsr board.render_sprite_preconf
 next_sprite:
     dex
     bpl check_sprite // Set additional sprites
     ldx main.temp.data__sprite_count
-    cpx main.temp.data__curr_sprite_count
+    cpx main.temp.data__curr_count
     bne !next+
     //
     lda #FLAG_ENABLE

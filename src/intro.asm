@@ -68,13 +68,13 @@ import_sprites:
 import_sprite_character:
     ldy sprite.piece_id,x
     sty board.piece.type
-    lda board.piece.initial_matrix,y
+    lda board.piece.init_matrix,y
     sta board.piece.offset,x
     jsr board.sprite_initialize
     lda sprite.flag__is_piece_mirrored,x
     sta main.temp.data__character_sprite_frame // Always copy frame 0 of characterset but invert where required
     lda #$04 // Copy 4 frames for each character
-    sta main.temp.data__frame_count
+    sta common.sprite.init_animation_frame
 import_sprite_frame:
     jsr board.add_sprite_to_graphics
     lda main.temp.data__temp_store_1
@@ -86,7 +86,7 @@ import_sprite_frame:
     inc FREEZP+3
 !next:
     inc main.temp.data__character_sprite_frame
-    dec main.temp.data__frame_count
+    dec common.sprite.init_animation_frame
     bne import_sprite_frame
     dex
     bpl import_sprite_character
@@ -138,10 +138,10 @@ import_sprite_frame:
     bpl !loop-
     // Final y-pos of Archon title sprites afters animate from bottom of screen.
     lda #$45
-    sta sprite.final_y_pos
+    sta common.sprite.final_y_pos
     // Final y-pos of Freefall logo sprites afters animate from top of screen.
     lda #$DA
-    sta sprite.final_y_pos+1
+    sta common.sprite.final_y_pos+1
     rts
 
 // AA42
@@ -160,7 +160,7 @@ state__scroll_title:
     ldx #$01 // process two sprites groups ("avatar" comprises 3 sprites and "freefall" comprises 2)
 !loop:
     lda common.sprite.curr_y_pos+3,X
-    cmp sprite.final_y_pos,x
+    cmp common.sprite.final_y_pos,x
     beq !next+ // stop moving if at final position
     bcs scroll_up
     //-- scroll down
@@ -356,8 +356,8 @@ state__show_authors:
     sta main.state.curr_fn_ptr+1
     // Initialize sprite registers used to bounce the logo in the next state.
     lda #$0E
-    sta sprite.x_move_counter
-    sta sprite.y_move_counter
+    sta common.sprite.x_move_counter
+    sta common.sprite.y_move_counter
     lda #$FF
     sta sprite.x_direction_addend
     jmp common.complete_interrupt
@@ -399,18 +399,18 @@ state__avatar_bounce:
     dex
     bpl !loop-
     // Reset the x and y position and reverse direction.
-    dec sprite.y_move_counter
+    dec common.sprite.y_move_counter
     bne !next+
     lda #$07
-    sta sprite.y_move_counter
+    sta common.sprite.y_move_counter
     lda sprite.y_direction_addend
     eor #$FF
     sta sprite.y_direction_addend
 !next:
-    dec sprite.x_move_counter
+    dec common.sprite.x_move_counter
     bne state__avatar_color_scroll
     lda #$1C
-    sta sprite.x_move_counter
+    sta common.sprite.x_move_counter
     lda sprite.x_direction_addend
     eor #$FF
     sta sprite.x_direction_addend
@@ -421,12 +421,12 @@ state__avatar_bounce:
 // even rows of alternating colors (col1, col2, col1, col2 etc). Here we set the first color (anded so it is between
 // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
 state__avatar_color_scroll:
-    inc sprite.animation_delay
-    lda sprite.animation_delay
+    inc common.sprite.animation_delay
+    lda common.sprite.animation_delay
     and #$07
     bne !return+
-    inc sprite.animation_counter
-    lda sprite.animation_counter
+    inc common.sprite.curr_animation_frame
+    lda common.sprite.curr_animation_frame
     and #$0F
     sta SPMC0
     clc
@@ -472,12 +472,12 @@ animate_characters:
     ldx #$03
     // Animate on every other frame.
     // The code below just toggles a flag back and forth between the minus state.
-    lda sprite.animation_delay
+    lda common.sprite.animation_delay
     eor #$FF
-    sta sprite.animation_delay
+    sta common.sprite.animation_delay
     bmi !return+
     //
-    inc sprite.animation_counter // Counter is used to set the animation frame
+    inc common.sprite.curr_animation_frame // Counter is used to set the animation frame
     //Move character sprites.
 !loop:
     txa
@@ -506,7 +506,7 @@ clear_sprite_x_pos_msb:
     // Set the sprite pointer to point to one of four sprites used for each piece. A different frame is shown on
     // each movement.
 set_character_frame:
-    lda sprite.animation_counter
+    lda common.sprite.curr_animation_frame
     and #$03 // 1-4 animation frames
     clc
     adc sprite.piece_sprite_offsets,x
@@ -550,7 +550,7 @@ state__end_intro:
     // ADAA:
     piece_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Piece IDs of peices used in chase scene
 
-    // ADAE: 
+    // ADAE:
     flag__is_piece_mirrored: // Direction flags of intro sprites ($80=invert direction)
         .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
 
@@ -649,21 +649,6 @@ state__end_intro:
 
 // interrupt handler pointers
 .namespace sprite {
-    // BCE7
-    animation_counter: .byte $00 // Color of avatar sprite used for color scrolling
-
-    // BCE8
-    animation_delay: .byte $00 // Delay between color changes when color scrolling avatar sprites
-
-    // BCE9
-    y_move_counter: .byte $00 // Number of moves left in y plane in current direction (will reverse direction on 0)
-
-    // BCEA
-    x_move_counter: .byte $00 // Number of moves left in x plane in current direction (will reverse direction on 0)
-
-    // BD15
-    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
-
     // BD58
     x_direction_addend: .byte $00 // Is positive number for right direction, negative for left direction
 

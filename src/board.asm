@@ -100,7 +100,7 @@ intialize_enable_sprite:
     beq !next+
     lda #$11
 !next:
-    sta main.temp.flag__is_piece_mirrored,x
+    sta common.sprite.init_animation_frame,x
     rts
 
 // 6509
@@ -268,6 +268,23 @@ invert_bytes:
     ror main.temp.data__temp_store+5
     rts
 
+
+// 8D6E
+// Places a sprite at a given location and enables the sprite.
+// The following prerequisites are required:
+// - X register is loaded with the sprite number to be enabled.
+// - The sprite frame ofsfetis set
+// - The sprite location is set in `main_sprite_curr_x_pos` and ``main_sprite_curr_y_pos`.
+render_sprite:
+    txa
+    asl
+    tay
+    lda common.sprite.number,x
+    and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
+    clc
+    adc common.sprite.init_animation_frame,x
+    adc main.sprite.offset_00,x
+    sta SPTMEM,x
 // 8D80
 // Places a sprite at a given location and enables the sprite.
 // The following prerequisites are required:
@@ -275,7 +292,7 @@ invert_bytes:
 // - X register is loaded with the sprite number to be enabled.
 // - Y register is loaded with 2 * the sprite number to be enabled.
 // The Y position is offset by 50 and X position is doubled and then offset by 24.
-render_sprite:
+render_sprite_preconf:
     lda common.sprite.curr_y_pos,x
     clc
     adc #$32
@@ -384,7 +401,7 @@ render_piece:
     lda (FREEZP),y
     bmi !next+ // if $80 (blank)
     tax
-    lda piece.initial_matrix,x  // Get character dot data offset
+    lda piece.init_matrix,x  // Get character dot data offset
 !next:
     sta render_sqaure_piece_offset
     bmi draw_empty_square
@@ -441,10 +458,7 @@ render_square:
     jmp draw_row
 !return:
     rts
-
-// 9139
-// Draws 3 characters of the current row.
-draw_sqaure_part:
+draw_sqaure_part: // Draws 3 characters of the current row.
     lda #$03
     sta main.temp.data__counter
 !loop:
@@ -589,7 +603,7 @@ copy_character_to_sprite:
     sta FREEZP+2
     sta main.temp.data__temp_store
     bne !next+
-    inc FREEZP+3           
+    inc FREEZP+3
 !next:
     inx
     cpx #$06 // Logo has 6 letters (ARCHON)
@@ -651,7 +665,7 @@ draw_magic_square:
     lda main.sprite.offset_48
     sta SPTMEM+SPRITE_NUMBER
     ldy #(SPRITE_NUMBER*2)
-    jmp render_sprite
+    jmp render_sprite_preconf
 
 
 // 92EB
@@ -697,12 +711,22 @@ clear_text_area:
     ldx #(CHARS_PER_SCREEN_ROW*2-1) // Two rows of text
 !loop:
     lda #$00
-    sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x // Start at 23rd text row
-    lda (COLRAM+23*CHARS_PER_SCREEN_ROW),x
+    sta SCNMEM+23*CHARS_PER_SCREEN_ROW,x // Start at 23rd text row
+    lda COLRAM+23*CHARS_PER_SCREEN_ROW,x
     and #$F0
     ora #$01
-    sta (COLRAM+23*CHARS_PER_SCREEN_ROW),x
+    sta COLRAM+23*CHARS_PER_SCREEN_ROW,x
     dex
+    bpl !loop-
+    rts
+
+// 8948
+clear_text_row:
+    ldy #(CHARS_PER_SCREEN_ROW - 1)
+    lda #$00
+!loop:
+    sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
+    dey
     bpl !loop-
     rts
 
@@ -815,6 +839,12 @@ stop_sound:
         .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
         .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
 
+    // 6323
+    magic_square_col: .byte $4A, $1A, $4A, $4A, $7A // Column of each magic square (used with magic_square_row)
+
+    // 6328
+    magic_square_row: .byte $17, $57, $57, $97, $57 // Row of each magic square (used with magic_square_col)
+
     // 8BD2
     color_phase: // Colors used for each board game phase
         .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
@@ -903,7 +933,7 @@ stop_sound:
     // 8AB3
     // Initial strength of each character piece. Uses character offset as index. Eg Knight has an offset of 7 and
     // therefore the initial strength of a knight is $05.
-    inital_strength:
+    init_strength:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
 
@@ -917,7 +947,7 @@ stop_sound:
     // set.
     // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial piece setup
     // with 2 bytes represeting two columns of each row. The setup starts with all the light peices, then dark.
-    initial_matrix:
+    init_matrix:
         .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
         .byte DJINNI_OFFSET, KNIGHT_OFFSET, WIZARD_OFFSET, KNIGHT_OFFSET, PHOENIX_OFFSET, KNIGHT_OFFSET
         .byte UNICORN_OFFSET, KNIGHT_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, VALKYRIE_OFFSET, ARCHER_OFFSET
@@ -956,7 +986,7 @@ stop_sound:
         .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
 
     // 8BBE
-    // Sound phrase used for each piece type. The data is an index to the character sound pointer array. Uses piece 
+    // Sound phrase used for each piece type. The data is an index to the character sound pointer array. Uses piece
     // offset as index.
     character_phrase:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
@@ -1022,7 +1052,7 @@ stop_sound:
         .word string_64, string_65, string_66, string_67, string_68, string_69, string_70
 
     // A2AC
-    string_1: 
+    string_1:
         .text "ALAS, MASTER, THIS ICON CANNOT MOVE"
         .byte STRING_CMD_END
 
@@ -1037,7 +1067,7 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A305
-    string_4: 
+    string_4:
         .text "THE SQUARE AHEAD IS OCCUPIED"
         .byte STRING_CMD_END
 
@@ -1057,7 +1087,7 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A355
-    string_9: 
+    string_9:
         .text "THE FLOW OF TIME IS REVERSED"
         .byte STRING_CMD_END
 
@@ -1072,12 +1102,12 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A397
-    string_11: 
+    string_11:
         .text "WHICH ICON WILL YOU TELEPORT?"
         .byte STRING_CMD_END
 
     // A3B5
-    string_12: 
+    string_12:
         .text "WHERE WILL YOU TELEPORT IT?"
         .byte STRING_CMD_END
 
@@ -1092,22 +1122,22 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A40A
-    string_15: 
+    string_15:
         .text "WHAT ICON WILL YOU REVIVE?"
         .byte STRING_CMD_END
 
     // A425
-    string_16: 
+    string_16:
         .text "PLACE IT WITHIN THE CHARMED SQUARE"
         .byte STRING_CMD_END
 
     // A448
-    string_17: 
+    string_17:
         .text "WHICH FOE WILL YOU IMPRISON?"
         .byte STRING_CMD_END
 
     // A465
-    string_18: 
+    string_18:
         .text "ALAS, MASTER, THERE IS NO OPENING IN THECHARMED SQUARE. CONJURE ANOTHER SPELL"
         .byte STRING_CMD_END
 
@@ -1122,12 +1152,12 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A4F0
-    string_54: 
+    string_54:
         .text "SELECT A SPELL"
         .byte STRING_CMD_END
 
     // A500
-    string_19: 
+    string_19:
         .text "HAPPILY, MASTER, ALL YOUR ICONS LIVE.   PLEASE CONJURE A DIFFERENT SPELL"
         .byte STRING_CMD_END
 
@@ -1142,37 +1172,37 @@ stop_sound:
         .byte STRING_CMD_END
 
     // A56E
-    string_22: 
+    string_22:
         .text "A FIRE"
         .byte STRING_CMD_END
 
     // A575
-    string_24: 
+    string_24:
         .text "A WATER"
         .byte STRING_CMD_END
 
     // A57D
-    string_23: 
+    string_23:
         .text "AN EARTH"
         .byte STRING_CMD_END
 
     // A586
-    string_26: 
+    string_26:
         .text "THE WIZARD"
         .byte STRING_CMD_END
 
     // A591
-    string_27: 
+    string_27:
         .text "THE SORCERESS"
         .byte STRING_CMD_END
 
     // A59F
-    string_0: 
+    string_0:
         .text "OH, WOE! YOUR SPELLS ARE GONE!"
         .byte STRING_CMD_END
 
     //A5BE
-    string_28: 
+    string_28:
         .text "UNICORN (GROUND 4)"
         .byte STRING_CMD_END
 

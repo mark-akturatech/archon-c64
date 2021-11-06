@@ -3,9 +3,9 @@
 Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
 
 The code is intended to be a byte by byte replication of the source logic with the exception of original memory
-locations. 
+locations.
 
-The code does not reside in the original memory locations. The code was replicated to be fully relocatable and 
+The code does not reside in the original memory locations. The code was replicated to be fully relocatable and
 therefore is loaded in to contiguous memory for ultimate readability.
 
 Extensive comments have been provided to help understand the code.
