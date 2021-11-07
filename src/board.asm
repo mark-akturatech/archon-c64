@@ -817,6 +817,17 @@ stop_sound:
     sta common.sound.new_note_delay,x
     rts
 
+// AE12
+interrupt_handler:
+    jsr draw_magic_square
+    lda main.interrupt.flag__enable
+    bmi !return+
+    jmp (main.state.curr_fn_ptr)
+interrupt_handler__play_music:
+    jsr common.play_music
+!return:
+    jmp common.complete_interrupt
+
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
@@ -1411,6 +1422,9 @@ stop_sound:
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment DynamicData
+
+// BCCB
+countdown_timer: .byte // Countdown timer (~4s tick) used to automate actions after timer expires (eg start game)
 
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering characters and $01-$79 to render a specified

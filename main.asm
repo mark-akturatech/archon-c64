@@ -104,8 +104,8 @@ entry:
     lda #FLAG_ENABLE
     sta flag__enable_intro // Non zero to play intro, $00 to skip
     sta curr_pre_game_progress // Flag used by keycheck routine to test for run/stop or Q (if set)
-    // lda #$03
-    // sta WBCCB
+    lda #$03 // Set default number of large jiffies (~12s as each tick is ~4s)
+    sta board.countdown_timer
     lda flag__is_initialized
     bmi skip_prep
     jsr prep
@@ -247,7 +247,7 @@ board_setup_player_2_loop:
     //
     lda game.state.flag__is_first_player_light
     eor #$FF
-    // sta WBCCA // NFI << oh is this phase direction? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta state.counter+3 // Phase state and direction
     sta game.state.flag__is_curr_player_light // Set current player
     // Set starting board color.
     lda #$06
@@ -256,7 +256,7 @@ board_setup_player_2_loop:
     clc
     adc #$02
 !next:
-    // sta WBF40 // NFI is 06 for player 1 and 8 for player 2??? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta main.state.curr_cycle+3 // Board color phase cycle
     lsr // 6 becomes 0011 (3), 8 becomes 0100 (4)
     tay
     lda board.data.color_phase,y
@@ -503,7 +503,7 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
     curr_game_fn_ptr: .word $0000, $0000, $0000 // Pointers used to jump to various game states (intro, board, play)
 
     // BCC7
-    counter: .byte $00 // State counter (increments after each state change)
+    counter: .byte $00, $00, $00, $00 // State counters
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -525,6 +525,9 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
 
     // BD30
     curr_fn_ptr: .word $0000 // Pointer to code that will run in the current state
+
+    // BF3D
+    curr_cycle: .byte $00, $00, $00, $00 // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C)
 }
 
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
