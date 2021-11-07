@@ -152,8 +152,8 @@ restart_game_loop:
     sta game.curr_square_occupancy,x
     dex
     bpl !loop-
-    // 6227  8D 24 BD sta WBD24  // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // 622A 8D 25 BD sta WBD25   // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta game.imprisoned_piece_id
+    sta game.imprisoned_piece_id+1
     lda game.state.flag__is_first_player_light
     sta game.state.flag__is_curr_player_light
     // Set default board phase color.
@@ -614,7 +614,7 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
         .byte $00
 
     // BF33
-    data__last_dark_piece_id: // Piece ID of last dark piece
+    data__remaining_dark_piece_id: // Piece ID of last dark piece
         .byte $00
 
     // BF36
@@ -622,7 +622,7 @@ curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board 
         .byte $00
 
     // BF37
-    data__last_light_piece_id: // Piece ID of last light piece
+    data__remaining_light_piece_id: // Piece ID of last light piece
         .byte $00
 
     // BD3A

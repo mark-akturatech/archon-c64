@@ -35,7 +35,7 @@ process_key:
     // Start game.
     jsr advance_intro_state
     lda #FLAG_DISABLE
-    // sta WBCCB // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta board.countdown_timer
     sta main.curr_pre_game_progress
     // lda WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -54,7 +54,7 @@ process_key:
     beq set_num_players
     rts
 set_num_players:
-    // Togglke between two players, player light, player dark
+    // Toggle between two players, player light, player dark
     lda game.state.ai_player_control
     clc
     adc #$01
@@ -83,8 +83,8 @@ advance_intro_state:
     cmp #$40
     bne advance_intro_state
     // Advance game state.
-    // lda #$07
-    // sta WBCCB  // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    lda #$07 // Load ~30 seconds in to countdown timer
+    sta board.countdown_timer
     lda #FLAG_ENABLE
     sta main.interrupt.flag__enable
     // Remove intro interrupt handler.

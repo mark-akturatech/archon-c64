@@ -132,12 +132,12 @@ entry:
     cpx #$12
     bcc !next+
     inc main.temp.data__dark_piece_count
-    stx main.temp.data__last_dark_piece_id
+    stx main.temp.data__remaining_dark_piece_id
     ldy #$80
     bmi !next++
 !next:
     inc main.temp.data__light_piece_count
-    stx main.temp.data__last_light_piece_id
+    stx main.temp.data__remaining_light_piece_id
 !next:
     tya
     ora main.temp.data__curr_count
@@ -157,7 +157,7 @@ entry:
     eor #$FF
     sta flag__round_complete
     bmi round_complete
-    jmp play_turn
+    jmp !check_win_next+
 round_complete:
     // Counter is loaded with $FC when both sides first have 3 players or less left. The counter is decremented
     // after each side has moved. The coutner is reset though when a fight occurs. If the counter reaches ($F0)
@@ -176,9 +176,89 @@ change_phase_color:
     ldy #$03 // Board phase state
     jsr cycle_phase_counters
     jsr board.draw_board
-
-
-play_turn:
+    lda main.state.curr_cycle+3 // Board color
+    bne check_light_pieces
+    // Board is black
+    lda #$FF
+    sta imprisoned_piece_id+1 // Remove imprisoned dark piece
+    ldx #$23 // Dark player piece offset
+    jsr regenerate_hitpoints
+    jmp !next+
+check_light_pieces:
+    cmp #$0E
+    bne !next+
+    // Board is white
+    lda #$FF
+    sta imprisoned_piece_id // Remove imprisoned light piece
+    ldx #$11 // Light player piece offset
+    jsr regenerate_hitpoints
+!next:
+    // Increase strength of all pieces on magic squares.
+    ldx #$04 // 5 magic sqaures (0 offset)
+!loop:
+    ldy board.data.magic_square_col,x
+    lda data.row_occupancy_lo_ptr,y
+    sta FREEZP
+    lda data.row_occupancy_hi_ptr,y
+    sta FREEZP+1
+    ldy board.data.magic_square_col,x
+    txa
+    pha
+    lda (FREEZP),y
+    bmi !next+ // Unoccupied
+    tax
+    lda curr_piece_strength,x
+    ldy board.piece.init_matrix,x
+    cmp board.piece.init_strength,y
+    bcs !next+
+    inc curr_piece_strength,x
+!next:
+    pla
+    tax
+    dex
+    bpl !loop-
+!check_win_next:
+    // End the game if player has only one piece and that piece is imprisoned.
+    lda game.state.flag__is_curr_player_light
+    bpl !next+
+    // Check if dark piece is imprisoned.
+    ldy main.temp.data__dark_piece_count
+    cpy #$02
+    bcs check_game_state
+    ldy main.temp.data__remaining_dark_piece_id
+    cpy imprisoned_piece_id+1
+    bne check_game_state
+    jmp game_over__imprisoned
+!next:
+    // Check if light piece is imprisoned.
+    ldy main.temp.data__light_piece_count
+    cpy #$02
+    bcs check_game_state
+    ldy main.temp.data__remaining_light_piece_id
+    cpy imprisoned_piece_id
+    bne check_game_state
+    jmp game_over__imprisoned
+    //
+check_game_state:
+    lda main.curr_pre_game_progress 
+    beq play_turn // In game?
+    // Play game with 0 players if option timer expires.
+    lda TIME+1
+    cmp main.state.last_stored_time
+    beq !next+
+    sta main.state.last_stored_time
+    dec board.countdown_timer
+    bpl !next+
+    // Start game.
+    lda #$00
+    sta main.curr_pre_game_progress
+    jmp main.restart_game_loop
+!next:
+    jsr display_options
+    jmp check_game_state
+    //
+play_turn:    
+    // 81F2 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // ...
     jmp * // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -204,6 +284,11 @@ regenerate_hitpoints:
     dex
     cpx main.temp.data__temp_store 
     bne !loop-
+    rts
+
+// 6529
+display_options:
+    // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     rts
 
 // 6578
@@ -292,6 +377,17 @@ decrease_cycle_count_again:
     sta main.state.counter,y // Reverse phase
     jmp set_phase_color
 
+// 66E9
+// Display game over message if last piece is imprisoned.
+// NOTE do not relocate this without jumping to `game_over` method.
+game_over__imprisoned:
+    lda #STRING_ICON_IMPRISONED
+    ldx #$00
+    jsr board.write_text
+    // Set winner (opposite to current player as current player has the imprisoned piece).
+    lda state.flag__is_curr_player_light
+    eor #$FF
+    sta main.temp.data__curr_count
 // 66F8
 // Print game over message, play outro music and reset game.
 // `main.temp.data__curr_count` contains the winning side:
@@ -423,6 +519,9 @@ flag__round_complete: .byte $00 // Toggles after each play so is high after both
 
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
+
+// BD24
+imprisoned_piece_id: .byte $00, $00 // Imprisoned piece ID for each player (offset 0 for light, 1 for dark)
 
 // BD70
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
