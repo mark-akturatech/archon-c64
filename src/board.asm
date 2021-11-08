@@ -130,6 +130,46 @@ write_text:
     iny
     jmp !loop-
 
+// 6529
+// Displays the game options at the bottom of the board.
+display_options:
+    ldx #$01
+    lda #STRING_F3
+    jsr write_text
+    lda common.options.flag__ai_player_ctl
+    beq display_two_player
+    lda #STRING_COMPUTER
+    jsr write_text
+    lda #STRING_LIGHT
+    ldy common.options.flag__ai_player_ctl
+    bpl !next+
+    lda #STRING_DARK
+    bpl !next+
+display_two_player:
+    lda #STRING_TWO_PLAYER
+!next:
+    jsr write_text
+    ldx #$1C
+    lda #STRING_PRESS
+    jsr write_text
+    lda #STRING_F7
+    jsr write_text
+    ldx #$29
+    lda #STRING_F5
+    jsr write_text
+    lda #STRING_LIGHT
+    ldy game.state.flag__is_first_player_light
+    bpl !next+
+    lda #STRING_DARK
+!next:
+    jsr write_text
+    lda #STRING_FIRST
+    jsr write_text
+    ldx #$45
+    lda #STRING_READY
+    jsr write_text
+    jmp common.check_option_keypress
+
 // 8965
 // Adds a piece to the board matrix.
 // Requires the board row and column to be set in the temp data.
@@ -1421,10 +1461,19 @@ interrupt_handler__play_music:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment DynamicData
+//---------------------------------------------------------------------------------------------------------------------
+// Data in this area are not cleared on state change.
+//
+.segment Data
 
 // BCCB
-countdown_timer: .byte // Countdown timer (~4s tick) used to automate actions after timer expires (eg start game)
+countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate actions after timer expires (eg start game)
+
+//---------------------------------------------------------------------------------------------------------------------
+// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
+// of the data area.
+//
+.segment DynamicData
 
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering characters and $01-$79 to render a specified

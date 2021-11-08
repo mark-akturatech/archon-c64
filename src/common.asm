@@ -37,8 +37,8 @@ process_key:
     lda #FLAG_DISABLE
     sta board.countdown_timer
     sta main.curr_pre_game_progress
-    // lda WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    lda common.options.flag__ai_player_ctl
+    sta game.state.flag__ai_player_ctl
     jmp main.restart_game_loop
 !next:
     cmp #KEY_F5
@@ -55,23 +55,25 @@ process_key:
     rts
 set_num_players:
     // Toggle between two players, player light, player dark
-    lda game.state.ai_player_control
+    lda options.ai_player_control
     clc
     adc #$01
     cmp #$03
     bcc !next+
     lda #$00
 !next:
-    sta game.state.ai_player_control
+    sta options.ai_player_control
     cmp #$00
     beq !next+
+    // This just gets a flag that is 55 or AA that is used to set AI player. It doesn't really matter what the state
+    // is - it just gives us a starting position. It really has nothing to do with who is first player.
     lda game.state.flag__is_first_player_light
-    // cmp WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    cmp common.options.flag__ai_player_ctl
     bne !next+
     eor #$FF
 !next:
-    // sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // sta WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta game.state.flag__ai_player_ctl
+    sta common.options.flag__ai_player_ctl
     jsr advance_intro_state
     jmp main.restart_game_loop
 
@@ -658,6 +660,22 @@ intro_music:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
+// Data in this area are not cleared on state change.
+//
+.segment Data
+
+.namespace options {
+    // BCC1
+    ai_player_control: .byte $00 // Is 0 for none, 1 for computer plays light, 2 for computer plays dark
+
+    // BCC5
+    flag__ai_player_ctl: .byte $00 // Is positive (55) for light, negative (AA) for dark or ($00) for neither
+}
+
+//---------------------------------------------------------------------------------------------------------------------
+// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
+// of the data area.
+//
 .segment DynamicData
 
 .namespace sprite {

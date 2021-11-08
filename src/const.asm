@@ -165,4 +165,3 @@
 .const BOARD_NUM_COLS = 9
 .const BOARD_NUM_ROWS = 9
 .const BOARD_NUM_PIECES = BOARD_NUM_ROWS * 2 * 2 // Each side has 2 columns full of pieces
-

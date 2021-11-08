@@ -22,7 +22,7 @@ entry:
     sta state.flag__is_curr_player_light
     ldy board.countdown_timer
     bpl !next+
-//     sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta state.flag__ai_player_ctl // AI set to both players on options timeout (demo mode)
 !next:
     // Get player and convert to 0 for light, 1 for dark.
     lda state.flag__is_curr_player_light
@@ -240,7 +240,7 @@ check_light_pieces:
     jmp game_over__imprisoned
     //
 check_game_state:
-    lda main.curr_pre_game_progress 
+    lda main.curr_pre_game_progress
     beq play_turn // In game?
     // Play game with 0 players if option timer expires.
     lda TIME+1
@@ -254,10 +254,10 @@ check_game_state:
     sta main.curr_pre_game_progress
     jmp main.restart_game_loop
 !next:
-    jsr display_options
+    jsr board.display_options
     jmp check_game_state
     //
-play_turn:    
+play_turn:
     // 81F2 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // ...
     jmp * // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -271,7 +271,7 @@ play_turn:
 regenerate_hitpoints:
     txa
     sec
-    sbc #$12 
+    sbc #$12
     sta main.temp.data__temp_store // First player piece (offset by 1)
 !loop:
     lda curr_piece_strength,x
@@ -279,16 +279,11 @@ regenerate_hitpoints:
     ldy board.piece.init_matrix,x
     cmp board.piece.init_strength,y
     bcs !next+ // Piece is fully healed
-    inc curr_piece_strength,x 
+    inc curr_piece_strength,x
 !next:
     dex
-    cpx main.temp.data__temp_store 
+    cpx main.temp.data__temp_store
     bne !loop-
-    rts
-
-// 6529
-display_options:
-    // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     rts
 
 // 6578
@@ -472,7 +467,7 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -498,11 +493,12 @@ interrupt_handler:
 .segment Data
 
 .namespace state {
-    // BCC1
-    ai_player_control: .byte $00 // Is 0 for none, 1 for computer plays light, 2 for computer plays dark
+    // BCC0
+    // Is positive (55) for AI light, negative (AA) for AI dark, (00) for neither, (FF) or both.
+    flag__ai_player_ctl: .byte $00
 
     // BCC2
-    flag__is_first_player_light: .byte $00 // Is positive for light, negative for dark
+    flag__is_first_player_light: .byte $00 // Is positive (55) for light, negative (AA) for dark
 
     // BCC6
     flag__is_curr_player_light: .byte $00 // Is positive for light, negative for dark

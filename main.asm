@@ -94,9 +94,9 @@ BasicUpstart2(entry)
 // 6100
 entry:
     lda #$00
-    // 6102  8D C0 BC sta WBCC0 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    sta game.state.ai_player_control // AI disabled (two players)
-    // 6108  8D C5 BC sta WBCC5 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    sta game.state.flag__ai_player_ctl
+    sta common.options.ai_player_control
+    sta common.options.flag__ai_player_ctl
     lda #$55 // Set light as first player
     sta game.state.flag__is_first_player_light
     tsx
@@ -478,14 +478,14 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 // Data in this area are not cleared on state change.
 .segment Data
 
+// BCC3
+curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board walk, $ff = options)
+
 // BCC4
 stack_ptr_store: .byte $00 // Stored stack pointer so that stack is reset on each state update
 
 // BCD1
 flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
-
-// BCC3
-curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board walk, $ff = options)
 
 .namespace interrupt {
     // BCCC
