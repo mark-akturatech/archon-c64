@@ -591,13 +591,13 @@ state__end_intro:
         .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE, DARK_GRAY, GRAY, LIGHT_GRAY, WHITE, WHITE, ORANGE
 
     // A87F
-    string_4: // Top half of "free Fall" logo
+    string_4: // Top half of "Free Fall" logo
         .byte $0b
         .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70, $71
         .byte STRING_CMD_END
 
     // A892
-    string_5: // Bottom half of "free Fall" logo
+    string_5: // Bottom half of "Free Fall" logo
         .byte $0b
         .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
         .byte STRING_CMD_END
