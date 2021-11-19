@@ -258,9 +258,32 @@ check_game_state:
     jmp check_game_state
     //
 play_turn:
-    // 81F2 // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 81F2  A9 01      lda  #$01 // TODO 
+    // 81F4  8D 26 BD   sta  temp_data__sprite_count // idk yet
+    lda #$00
+    // 81F9  8D 09 BD   sta  WBD09 ??? // NFI! - seems to never get set
+    sta game.state.flag__is_player_turn_started
+    // 81FF  8D FF BC   sta  WBCFF ??? // TODO  NFI
+    // 8202  8D FD BC   sta  WBCFD ??? // seems to flag set to redraw board? maybe after fight??
+    // 8205  8D 0E BD   sta  WBD0E ??? // seems to get set if select spell is enabled???
+    // 8208  8D 0F BD   sta  WBD0F ??? // maybe set if spell requires a peice select???
+    ldx #$05 // Short delay before start of turn
+    // Check AI turn.
+    lda game.state.flag__ai_player_ctl
+    cmp game.state.flag__is_curr_player_light
+    bne !next+
+    jsr ai.board_calculate_move
+    ldx #$60 // Normal AI start delay
+    lda board.countdown_timer // Will be FF is option timer expired
+    bmi !next+
+    ldx  #$40 // Short AI start delay if AI vs AI
+!next:
+    stx delay_before_turn
+    jsr wait_for_state_change
+
+    // 8227... TODO
     // ...
-    jmp * // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    jmp play_turn // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // 64EB
 // Regenerate hitpoints for all pieces of the current player.
@@ -460,6 +483,17 @@ game_over__show_winner:
 !next:
     jmp !loop-
 
+// 8367
+// wait for interrupt or 'Q' kepress
+wait_for_state_change:
+    lda #$00
+    sta main.interrupt.flag__enable
+!loop:
+    jsr common.check_stop_keypess
+    lda main.interrupt.flag__enable
+    beq !loop-
+    jmp common.stop_sound
+
 // 8377
 interrupt_handler:
     jsr board.draw_magic_square
@@ -467,13 +501,86 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    jmp common.complete_interrupt
+    lda game.state.flag__is_player_turn_started
+    bmi new_player_sound
+    // Initialize turn.
+    lda #$80
+    sta game.state.flag__is_player_turn_started
+    lda #$00
+    sta main.temp.data__dark_piece_count
+    sta main.temp.data__light_piece_count
+    // sta  WBCFC // TODO unknown !!!!!
+    // sta  WBCF2 // TODO unknown !!!!!
+    // Configure new player turn sound.
+    tax
+    ldy state.flag__is_curr_player_light
+    bpl !next+
+    inx
+!next:
+    lda #$81
+    sta common.sound.flag__enable_voice
+    lda #$00
+    sta common.sound.new_note_delay
+    txa
+    asl
+    tay
+    lda sound.phrase_ptr+4,y
+    sta OLDTXT
+    lda sound.phrase_ptr+5,y
+    sta OLDTXT+1
+new_player_sound:
+    jsr board.play_character_sound
+    // Wait before turn can begin.
+    lda delay_before_turn
+    beq !next+
+    dec delay_before_turn 
+    jmp common.complete_interrupt 
+!next:
+    // 83C6  AD 09 BD   lda WBD09 // TODO
+    beq !next+
+    eor #$FF
+    // 83CD  8D 09 BD   sta WBD09 // TODO
+    bmi !next+                
+    jmp common.complete_interrupt 
+!next:
+    lda #$00
+    // 83D7  8D 3D BD   sta WBD3D // TODO
+    // 83DA  8D 0D BD   sta temp_data__sprite_x_direction_offset_1
+    // Set player offset.
+    tay
+    lda state.flag__is_curr_player_light
+    bpl !next+
+    iny
+!next:
+    sty curr_player_offset
+    tya
+    eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
+    tax
+    lda state.flag__is_curr_player_light
+    cmp state.flag__ai_player_ctl
+    bne !next+
+    jmp ai.board_cursor_to_piece
+!next:
+    // Get joystick command. x=0 for joystick 2 and 1 for joystick 1.
+    lda CIAPRA,x
+    and #%0001_0000 // Fire button
+
+
+    jmp common.complete_interrupt // TODO - remove!
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
+
+.namespace sound {
+    // 95f4
+    phrase_ptr:
+        .word board.sound.phrase_hit_player_light   // 00
+        .word board.sound.phrase_hit_player_dark    // 02
+        .word board.sound.phrase_player_light_turn  // 04
+        .word board.sound.phrase_player_dark_turn   // 06
+}
 
 .namespace data {
     // BEC0
@@ -502,6 +609,9 @@ interrupt_handler:
 
     // BCC6
     flag__is_curr_player_light: .byte $00 // Is positive for light, negative for dark
+
+    // BCD2
+    flag__is_player_turn_started: .byte $00 // Is positive if player turn has just started
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -512,6 +622,12 @@ interrupt_handler:
 
 // BCED
 flag__round_complete: .byte $00 // Toggles after each play so is high after both players had completed thier turn
+
+// BCDE
+curr_player_offset: .byte $00 // Is 0 for player 1 and 1 for player 2. Used mostly as a memory offset index.
+
+// BCF3
+delay_before_turn: .byte $00 // Delay before start of each turn can commence
 
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)

@@ -91,6 +91,9 @@
 .const SP3COL   = $D02A // Sprite 3 Color Register
 .const COLRAM   = $D800 // Start of Color RAM
 
+// Joystick
+.const CIAPRA   = $DC00 // CIA Port A register
+
 // SID
 .const FRELO1   = $D400 // Voice 1 Frequency Control (low byte)
 .const FREHI1   = $D401 // Voice 1 Frequency Control (high byte)

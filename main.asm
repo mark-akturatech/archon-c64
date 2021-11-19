@@ -57,13 +57,14 @@
 // Source Files
 //---------------------------------------------------------------------------------------------------------------------
 // The source code is split in to the following files:
-// - Main: Main game loop
-// - Common: Library of subroutines and assets used by various game states
-// - board: Subroutines and assets used to render the game board
-// - intro: Subroutines and assets used by the intro page (eg the dancing logo page)
-// - board_walk: Subroutines and assets used during the introduction to walk pieces on to the board
-// - game: Subroutines and assets used during main game play
-// - fight: Subroutines and assets used during fighting game play
+// - Main: Main game loop.
+// - Common: Library of subroutines and assets used by various game states.
+// - board: Subroutines and assets used to render the game board.
+// - intro: Subroutines and assets used by the intro page (eg the dancing logo page).
+// - board_walk: Subroutines and assets used during the introduction to walk pieces on to the board.
+// - game: Subroutines and assets used during main game play.
+// - ai: Subroutinues used for AI in board and fight game play. I split these out as they may be interesting.
+// - fight: Subroutines and assets used during fighting game play.
 // Additionally, two constant files are used:
 // - io: contains standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names
 // - const: contains game specific constants
@@ -78,6 +79,7 @@
 #endif
 #import "src/game.asm"
 #import "src/fight.asm"
+#import "src/ai.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
 // Basic Upstart

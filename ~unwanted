@@ -1,0 +1,178 @@
+
+    beq joystick_piece_select
+    // 83FD  AD F2 BC   lda WBCF2
+    // 8400  F0 06      beq !next+
+    // 8402  CE F2 BC   dec WBCF2
+    // 8405  4C 52 84   jmp W8452           
+!next:
+8408  8D FC BC   sta  WBCFC                 
+840B  F0 45      beq  W8452                 
+joystick_piece_select:
+
+// all this block of code lock piece when press fire; keeps square in original place when moving piece; moves piece
+// to end location when destination sqaure pressed
+840D  AD 0E BD   lda  WBD0E                 
+8410  C9 87      cmp  #$87                  
+8412  F0 09      beq  W841D                 
+8414  AD 28 BF   lda  temp_data__current_board_col 
+8417  30 39      bmi  W8452                 
+8419  C9 09      cmp  #$09                  
+841B  B0 35      bcs  W8452           
+W841D:
+841D  AD FC BC   lda  WBCFC                 
+8420  30 30      bmi  W8452                 
+8422  AD 36 BF   lda  temp_data__light_piece_count 
+8425  0D 32 BF   ora  temp_data__dark_piece_count 
+8428  29 7F      and  #$7F                  
+842A  D0 26      bne  W8452                 
+842C  A9 80      lda  #$80                  
+842E  8D FC BC   sta  WBCFC                 
+8431  A9 10      lda  #$10                  
+8433  8D F2 BC   sta  WBCF2                 
+8436  20 0D 87   jsr  W870D                 
+8439  AD FE BC   lda  temp_data__curr_count 
+843C  30 0B      bmi  W8449                 
+843E  AD 3D BD   lda  WBD3D   // message id (but can be +80 for flag as well as is anded with 7F)
+8441  10 0F      bpl  W8452                 
+8443  20 53 89   jsr  W8953   // show message and preserve X (but not a)              
+8446  4C 8E 63   jmp  common_complete_interrupt
+W8449:
+8449  8D D0 BC   sta  main_state_flag_update_state 
+844C  8D 55 BD   sta  WBD55                 
+844F  4C 8E 63   jmp  common_complete_interrupt 
+
+W8452:
+8452  AD DE BC   lda  curr_player_offset                 
+8455  49 01      eor  #$01                  
+8457  AA         tax                        
+8458  AD FD BC   lda  WBCFD                 
+845B  F0 0F      beq  W846C                 
+845D  30 0D      bmi  W846C                 
+845F  AD 36 BF   lda  temp_data__light_piece_count 
+8462  0D 32 BF   ora  temp_data__dark_piece_count 
+8465  29 7F      and  #$7F                  
+8467  F0 03      beq  W846C                 
+8469  4C C7 84   jmp  W84C7                 
+
+W846C:
+846C  BD 00 DC   lda  IO_CIAPRA,x           
+846F  48         pha // put port status on stack                       
+8470  AD 0E BD   lda  WBD0E                 
+8473  C9 87      cmp  #$87                  
+8475  F0 2E      beq  W84A5                 
+8477  AD 36 BF   lda  temp_data__light_piece_count 
+847A  29 7F      and  #$7F                  
+847C  D0 15      bne  W8493                 
+847E  68         pla                     
+847F  48         pha                        
+8480  29 08      and  #$08  // right                 
+8482  D0 06      bne  W848A                 
+8484  20 1E 86   jsr  W861E   // move right
+8487  4C 93 84   jmp  W8493    
+W848A:
+848A  68         pla                        
+848B  48         pha                        
+848C  29 04      and  #$04  // left                
+848E  D0 03      bne  W8493                 
+8490  20 46 86   jsr  W8646 // move left                 
+W8493:
+8493  AD FD BC   lda  WBCFD                 
+8496  F0 0D      beq  W84A5                 
+8498  30 0B      bmi  W84A5                 
+849A  AD 3D BD   lda  WBD3D                 
+849D  F0 06      beq  W84A5                 
+849F  30 04      bmi  W84A5                 
+84A1  68         pla                        
+84A2  4C C7 84   jmp  W84C7                 
+
+W84A5:
+84A5  AD 32 BF   lda  temp_data__dark_piece_count 
+84A8  29 7F      and  #$7F                  
+84AA  F0 04      beq  W84B0                 
+84AC  68         pla                        
+84AD  4C C7 84   jmp  W84C7                 
+
+W84B0:
+84B0  68         pla                        
+84B1  4A         lsr  // bit 1 set
+84B2  48         pha                        
+84B3  B0 03      bcs  W84B8                 
+84B5  20 6C 86   jsr  W866C  // move up
+W84B8:
+84B8  68         pla                        
+84B9  4A         lsr // bit 2 set
+84BA  B0 03      bcs  W84BF                 
+84BC  20 99 86   jsr  W8699    // move down             
+W84BF:
+84BF  AD 3D BD   lda  WBD3D                 
+84C2  10 03      bpl  W84C7                 
+84C4  20 53 89   jsr  W8953   // ?? display message again - why
+W84C7:
+84C7  AE 26 BD   ldx  temp_data__sprite_count 
+84CA  AD 36 BF   lda  temp_data__light_piece_count 
+84CD  F0 1A      beq  W84E9                 
+84CF  30 0B      bmi  W84DC                 
+84D1  FE 3E BD   inc  main_sprite_curr_x_pos,x 
+84D4  CE 36 BF   dec  temp_data__light_piece_count 
+84D7  EE 0D BD   inc  temp_data__sprite_x_direction_offset_1 // i think this is just a flag to say - hey we moved the sprite
+84DA  10 0D      bpl  W84E9                 
+W84DC:
+84DC  29 7F      and  #$7F                  
+84DE  F0 09      beq  W84E9                 
+84E0  DE 3E BD   dec  main_sprite_curr_x_pos,x 
+84E3  CE 36 BF   dec  temp_data__light_piece_count 
+84E6  EE 0D BD   inc  temp_data__sprite_x_direction_offset_1 
+W84E9:
+84E9  AD 32 BF   lda  temp_data__dark_piece_count 
+84EC  F0 1A      beq  W8508                 
+84EE  30 0B      bmi  W84FB                 
+84F0  FE 46 BD   inc  main_sprite_curr_y_pos,x 
+84F3  CE 32 BF   dec  temp_data__dark_piece_count 
+84F6  EE 0D BD   inc  temp_data__sprite_x_direction_offset_1 
+84F9  10 0D      bpl  W8508                 
+W84FB:
+84FB  29 7F      and  #$7F                  
+84FD  F0 09      beq  W8508                 
+84FF  DE 46 BD   dec  main_sprite_curr_y_pos,x 
+8502  CE 32 BF   dec  temp_data__dark_piece_count 
+8505  EE 0D BD   inc  temp_data__sprite_x_direction_offset_1 
+W8508:
+8508  AD 0D BD   lda  temp_data__sprite_x_direction_offset_1 
+850B  D0 13      bne  W8520                 
+850D  9D E7 BC   sta  intro_sprite_animation_counter,x 
+8510  E0 01      cpx  #$01                  
+8512  F0 46      beq  W855A                 
+8514  8D 08 BF   sta  common_sound_flag__enable_voice 
+8517  8D 04 D4   sta  io_VCREG1             
+851A  8D 0B BF   sta  common_sound_new_note_delay 
+851D  4C 5A 85   jmp  W855A                 
+
+W8520:
+8520  AD 0E BD   lda  WBD0E                 
+8523  30 03      bmi  W8528                 
+8525  20 48 89   jsr  board_clear_text_row  
+W8528:
+8528  E0 01      cpx  #$01                  
+852A  F0 2E      beq  W855A     
+// so this animates the sprites frames and sets moving sound           
+852C  AD EB BC   lda  WBCEB                 
+852F  9D E3 BC   sta  temp_data__frame_count,x 
+8532  EE EE BC   inc  temp_flag__alternating_state 
+8535  AD EE BC   lda  temp_flag__alternating_state 
+8538  29 03      and  #$03                  
+853A  C9 03      cmp  #$03                  
+853C  D0 1C      bne  W855A                 
+853E  FE E7 BC   inc  intro_sprite_animation_counter,x 
+8541  A9 80      lda  #$80                  
+8543  CD 08 BF   cmp  common_sound_flag__enable_voice 
+8546  F0 12      beq  W855A                 
+8548  8D 08 BF   sta  common_sound_flag__enable_voice 
+854B  A9 00      lda  #$00                  
+854D  8D 0B BF   sta  common_sound_new_note_delay 
+8550  AD 12 BF   lda  board_sound_phrase_lo_ptr 
+8553  85 3D      sta  io_OLDTXT             
+8555  AD 14 BF   lda  board_sound_phrase_hi_ptr 
+8558  85 3E      sta  io_OLDTXT+1           
+W855A:
+855A  20 6E 8D   jsr  board_render_sprite   
+855D  4C 8E 63   jmp  common_complete_interrupt 

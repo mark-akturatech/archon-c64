@@ -1,7 +1,5 @@
 .vscode/
 .source.txt
 buildlog.txt
-unwanted.asm
 bin/
-~*
 *.log

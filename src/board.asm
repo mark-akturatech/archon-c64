@@ -772,6 +772,7 @@ clear_text_row:
 
 // A0B1
 // Plays a character movement or shoot sound.
+// Requires pointer to sound phrase in OLDTXT.
 play_character_sound:
     ldx #$01
     // Character sounds can be played on voices 1 and 2 sepparately. this allows two character movement sounds to be
@@ -1073,7 +1074,9 @@ interrupt_handler__play_music:
         .byte SOUND_CMD_NEXT_PHRASE
     phrase_fire_03:
         .byte SOUND_CMD_NO_NOTE, $32, $A9, SOUND_CMD_NO_NOTE, $EF, $31, $81, SOUND_CMD_END
+    phrase_hit_player_dark:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $C4, $07, $41, SOUND_CMD_END
+    phrase_hit_player_light:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $D0, $3B, $43, SOUND_CMD_END
     phrase_fire_04:
         .byte SOUND_CMD_NO_NOTE, $28, $99, SOUND_CMD_NO_NOTE, $6A, $6A, $21, SOUND_CMD_END
@@ -1084,8 +1087,11 @@ interrupt_handler__play_music:
         .byte SOUND_CMD_NO_NOTE, $80, $4B, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $21, $81, SOUND_CMD_END
     phrase_fire_02:
         .byte SOUND_CMD_NO_NOTE, $10, $86, SOUND_CMD_NO_NOTE, $F0, $F0, $81, SOUND_CMD_END
+    phrase_player_light_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $3E, $2A, $11, SOUND_CMD_END
+    phrase_player_dark_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $1F, $16, $11, SOUND_CMD_END
+    phrase_unknown03:
         .byte SOUND_CMD_NO_NOTE, $80, $03, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $23, $11, SOUND_CMD_END
 }
 
