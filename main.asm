@@ -61,7 +61,7 @@
 // - Common: Library of subroutines and assets used by various game states.
 // - board: Subroutines and assets used to render the game board.
 // - intro: Subroutines and assets used by the intro page (eg the dancing logo page).
-// - board_walk: Subroutines and assets used during the introduction to walk pieces on to the board.
+// - board_walk: Subroutines and assets used during the introduction to walk icons on to the board.
 // - game: Subroutines and assets used during main game play.
 // - ai: Subroutinues used for AI in board and fight game play. I split these out as they may be interesting.
 // - fight: Subroutines and assets used during fighting game play.
@@ -97,7 +97,7 @@ BasicUpstart2(entry)
 entry:
     lda #$00
     sta game.state.flag__ai_player_ctl
-    sta common.options.ai_player_control
+    sta common.options.temp__ai_player_ctl
     sta common.options.flag__ai_player_ctl
     lda #$55 // Set light as first player
     sta game.state.flag__is_first_player_light
@@ -135,12 +135,12 @@ restart_game_loop:
     //
     jsr common.clear_screen
     jsr common.clear_sprites
-    // Set the initial strength of each piece.
-    ldx #(BOARD_NUM_PIECES - 1) // Total number of pieces (0 offset)
+    // Set the initial strength of each icon.
+    ldx #(BOARD_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
-    ldy board.piece.init_matrix,x
-    lda board.piece.init_strength,y
-    sta game.curr_piece_strength,x
+    ldy board.icon.init_matrix,x
+    lda board.icon.init_strength,y
+    sta game.curr_icon_strength,x
     dex
     bpl !loop-
     // skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
@@ -154,10 +154,10 @@ restart_game_loop:
     sta game.curr_square_occupancy,x
     dex
     bpl !loop-
-    sta game.imprisoned_piece_id
-    sta game.imprisoned_piece_id+1
+    sta game.imprisoned_icon_id
+    sta game.imprisoned_icon_id+1
     lda game.state.flag__is_first_player_light
-    sta game.state.flag__is_curr_player_light
+    sta game.state.flag__is_light_turn
     // Set default board phase color.
     ldy #$03
     lda board.data.color_phase,y
@@ -212,13 +212,13 @@ skip_board_walk:
     // 628A  CA         dex
     // 628B  10 FA      bpl !loop-
     //
-    // Set the board - This is done by setting each square to an index into the initial matrix which stores the piece in
-    // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two pieces in the
-    // row, clears the next 5 and then sets the last 2 pieces and repeats for each row.
+    // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
+    // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
+    // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
     lda #$12
-    sta temp.data__temp_store // Player 2 piece matrix offset
+    sta temp.data__temp_store // Player 2 icon matrix offset
     lda #$00
-    sta temp.data__temp_store+1 // Player 1 piece matrix offset
+    sta temp.data__temp_store+1 // Player 1 icon matrix offset
     tax
 board_setup_row_loop:
     ldy #$02
@@ -250,10 +250,10 @@ board_setup_player_2_loop:
     lda game.state.flag__is_first_player_light
     eor #$FF
     sta state.counter+3 // Phase state and direction
-    sta game.state.flag__is_curr_player_light // Set current player
+    sta game.state.flag__is_light_turn // Set current player
     // Set starting board color.
     lda #$06
-    ldy game.state.flag__is_curr_player_light
+    ldy game.state.flag__is_light_turn
     bpl !next+
     clc
     adc #$02
@@ -560,12 +560,12 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BD38
-    data__num_pieces: // Number of baord pieces to render
+    data__num_icons: // Number of baord icons to render
         .byte $00
 
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
-    data__board_piece_char_offset: // Index to character dot data for current board piece part
+    data__board_icon_char_offset: // Index to character dot data for current board icon part (icons are 6 caharcters)
     data__math_store: // Temporary storage used for math operations
     data__x_pixels_per_move: // Pixels to move intro sprite for each frame
     data__temp_store: // Temporary data storage area
@@ -587,7 +587,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BF22
-    flag__are_sprites_initialized: // Is TRUE if intro character sprites are initialized
+    flag__are_sprites_initialized: // Is TRUE if intro icon sprites are initialized
          .byte $00
 
     // BF25
@@ -595,11 +595,11 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BF26
-    data__curr_board_row: // Board row offset for rendered piece
+    data__curr_board_row: // Board row offset for rendered icon
         .byte $00
 
     // BF28
-    data__curr_board_col: // Board column for rendered piece
+    data__curr_board_col: // Board column for rendered icon
         .byte $00
 
     // BF30
@@ -612,24 +612,24 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BF32
-    data__dark_piece_count: // Dark remaining piece count
+    data__dark_icon_count: // Dark remaining icon count
         .byte $00
 
     // BF33
-    data__remaining_dark_piece_id: // Piece ID of last dark piece
+    data__remaining_dark_icon_id: // Icon ID of last dark icon
         .byte $00
 
     // BF36
-    data__light_piece_count: // Light remaining piece count
+    data__light_icon_count: // Light remaining icon count
         .byte $00
 
     // BF37
-    data__remaining_light_piece_id: // Piece ID of last light piece
+    data__remaining_light_icon_id: // Icon ID of last light icon
         .byte $00
 
     // BD3A
     data__msg_offset: // Offset of current message being rendered in into page
-    data__piece_offset: // Offset of current piece being rendered on to the board
+    data__icon_offset: // Offset of current icon being rendered on to the board
         .byte $00
 
     // BD7B
@@ -641,7 +641,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BF3C
-    flag__string_pos_control: // Used to control string rendering in intro page
+    flag__string_pos_ctl: // Used to control string rendering in intro page
         .byte $00
 
     // BF23
@@ -652,7 +652,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BF24
     data__sprite_x_direction_offset: // Amount added to x plan to move sprite to the left or right (uses rollover)
     data__curr_square_color_code: // Color code used to render
-    data__character_sprite_frame: // Frame offset of sprite character set. Add #$80 to invert the frame on copy.
+    data__icon_set_sprite_frame: // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
         .byte $00
 }
 

@@ -64,4 +64,4 @@ However, we do one important thng here, we store CINV pointer locally for use in
 
 We will use a snapshot of the app with a breakpoint at address $6129 (after 4400 stuff is moved), however we will begin disassembly at $6100 and will just skip any moves that occur with the prep method starting at $4700.
 
-NOTE that since we are no longer implenting block 3, we will need to implement our own code to clear variable space and import the character sets in to graphical memory.
+NOTE that since we are no longer implenting block 3, we will need to implement our own code to clear variable space and import the icon sets in to graphical memory.

@@ -54,7 +54,7 @@ entry:
 // A98F
 // Imports sprites in to graphics area.
 import_sprites:
-    // Copy in character pieces for chase scene
+    // Copy in icon frames for chase scene
     lda #FLAG_ENABLE
     sta board.sprite.flag__copy_animation_group
     lda #$36
@@ -64,16 +64,16 @@ import_sprites:
     sta main.temp.data__temp_store_1
     lda main.sprite.mem_ptr_24+1
     sta FREEZP+3
-    ldx #$03 // Copy 4 characters (0 offset)
-import_sprite_character:
-    ldy sprite.piece_id,x
-    sty board.piece.type
-    lda board.piece.init_matrix,y
-    sta board.piece.offset,x
+    ldx #$03 // Copy 4 frames (0 offset)
+import_sprite_icon_set:
+    ldy sprite.icon_id,x
+    sty board.icon.type
+    lda board.icon.init_matrix,y
+    sta board.icon.offset,x
     jsr board.sprite_initialize
-    lda sprite.flag__is_piece_mirrored,x
-    sta main.temp.data__character_sprite_frame // Always copy frame 0 of characterset but invert where required
-    lda #$04 // Copy 4 frames for each character
+    lda sprite.flag__is_icon_mirrored,x // Invert frames for icons pointing left
+    sta main.temp.data__icon_set_sprite_frame
+    lda #$04 // Copy 4 frames for each icon
     sta common.sprite.init_animation_frame
 import_sprite_frame:
     jsr board.add_sprite_to_graphics
@@ -85,11 +85,11 @@ import_sprite_frame:
     bcc !next+
     inc FREEZP+3
 !next:
-    inc main.temp.data__character_sprite_frame
+    inc main.temp.data__icon_set_sprite_frame
     dec common.sprite.init_animation_frame
     bne import_sprite_frame
     dex
-    bpl import_sprite_character
+    bpl import_sprite_icon_set
     // Add Archon and Avatar logo sprites
     lda main.sprite.mem_ptr_00
     sta FREEZP+2
@@ -197,9 +197,9 @@ scroll_up:
 // AA8B
 state__draw_freefall_logo:
     lda #FLAG_ENABLE
-    sta main.temp.flag__string_pos_control
+    sta main.temp.flag__string_pos_ctl
     // Remove sprites 4 to 7 (Freefall logo).
-    // The sprites are replaces with text characters after the animation has completed.
+    // The sprites are replaced with text character dot data after the animation has completed.
     ldx #$04
     lda #$0F
 !loop:
@@ -227,7 +227,7 @@ state__draw_freefall_logo:
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
     // read the screen rows from the remaining string messages.
     lda #$00
-    sta main.temp.flag__string_pos_control
+    sta main.temp.flag__string_pos_ctl
     jsr screen_draw_text
     //
     dec main.temp.data__msg_offset // Set to pointer next string to display in next state
@@ -276,7 +276,7 @@ get_next_char:
     and #$F0
     ora main.temp.data__curr_color
     sta (FORPNT),y
-    // Next piece.
+    // Next icon.
     inc FORPNT
     inc FREEZP+2
     bne get_next_char
@@ -285,7 +285,7 @@ get_next_char:
     jmp get_next_char
 
 // AB13
-// Derivethe screen starting character offset and color memory offset.
+// Derive the screen starting character offset and color memory offset.
 // Requires the following prerequisites:
 // - FB/FC - Pointer to string data. The string data starts with a column offset and ends with FF.
 // - BF3C: Row control flag:
@@ -296,7 +296,7 @@ get_next_char:
 // The string is terminated with a $ff byte.
 // Spaces are represented as $00.
 screen_calc_start_addr:
-    lda main.temp.flag__string_pos_control
+    lda main.temp.flag__string_pos_ctl
     bmi skip_sceen_row // flag = $80 or $c0
     // Read screen row.
     lda (FREEZP),y
@@ -312,7 +312,7 @@ skip_sceen_row:
     clc
     adc main.screen.color_mem_offset // Derive color memory address
     sta FORPNT+1  // color memory pointer
-    bit main.temp.flag__string_pos_control
+    bit main.temp.flag__string_pos_ctl
     bvc !next+ // flag = $c0
     lda #$06 // Hard coded screen column offset if BF3C flag set
     bne skip_sceen_column
@@ -344,7 +344,7 @@ state__show_authors:
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
-    sta main.temp.flag__string_pos_control
+    sta main.temp.flag__string_pos_ctl
     lda #$09
     sta main.temp.data__msg_offset
     ldx #$18
@@ -448,10 +448,10 @@ state__avatar_color_scroll:
 state__chase_scene:
     lda main.temp.flag__are_sprites_initialized
     bpl chase_set_sprites // Initialise sprites on first run only
-    jmp animate_characters
+    jmp animate_icons
 chase_set_sprites:
     lda #BLACK
-    sta SPMC0 // Set sprite multicolor (character border) to black
+    sta SPMC0 // Set sprite multicolor (icon border) to black
     lda #FLAG_ENABLE
     sta main.temp.flag__are_sprites_initialized // Set sprites intiialised flag
     // Confifure sprite colors and positions
@@ -460,15 +460,15 @@ chase_set_sprites:
     lda common.sprite.curr_x_pos,x
     lsr
     sta common.sprite.curr_x_pos,x
-    lda sprite.piece_color,x
+    lda sprite.icon_color,x
     sta SP0COL,x
     dex
     bpl !loop-
-    jmp animate_characters
+    jmp animate_icons
 
 // ADC2
-// Animate logo characters by moving them across the screen and displaying animation frames.
-animate_characters:
+// Animate icons by moving them across the screen and displaying animation frames.
+animate_icons:
     ldx #$03
     // Animate on every other frame.
     // The code below just toggles a flag back and forth between the minus state.
@@ -476,18 +476,17 @@ animate_characters:
     eor #$FF
     sta common.sprite.animation_delay
     bmi !return+
-    //
     inc common.sprite.curr_animation_frame // Counter is used to set the animation frame
-    //Move character sprites.
+    //Move icon sprites.
 !loop:
     txa
     asl
     tay
     lda common.sprite.curr_x_pos,x
-    cmp sprite.piece_end_x_pos,x
+    cmp sprite.icon_end_x_pos,x
     beq !next+
     clc
-    adc sprite.piece_x_direction_addend,x
+    adc sprite.icon_x_direction_addend,x
     sta common.sprite.curr_x_pos,x
     asl // Move by two pixels at a time
     sta SP0X,y
@@ -497,19 +496,19 @@ animate_characters:
     lda MSIGX
     ora main.math.pow2,x
     sta MSIGX
-    jmp set_character_frame
+    jmp set_icon_frame
 clear_sprite_x_pos_msb:
     lda main.math.pow2,x
     eor #$FF
     and MSIGX
     sta MSIGX
-    // Set the sprite pointer to point to one of four sprites used for each piece. A different frame is shown on
+    // Set the sprite pointer to point to one of four sprites used for each icon. A different frame is shown on
     // each movement.
-set_character_frame:
+set_icon_frame:
     lda common.sprite.curr_animation_frame
     and #$03 // 1-4 animation frames
     clc
-    adc sprite.piece_sprite_offsets,x
+    adc sprite.icon_sprite_offsets,x
     sta SPTMEM,x
 !next:
     dex
@@ -548,27 +547,27 @@ state__end_intro:
     logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
 
     // ADAA:
-    piece_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Piece IDs of peices used in chase scene
+    icon_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Icon IDs of peices used in chase scene
 
     // ADAE:
-    flag__is_piece_mirrored: // Direction flags of intro sprites ($80=invert direction)
+    flag__is_icon_mirrored: // Direction flags of intro sprites ($80=invert direction)
         .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
 
     // ADB2
-    piece_x_direction_addend: .byte $FF, $FF, $01, $01 // Direction of each character sprite (FF=left, 01=right)
+    icon_x_direction_addend: .byte $FF, $FF, $01, $01 // Direction of each icon sprite (FF=left, 01=right)
 
     // ADB6
-    piece_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro character sprite
+    icon_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro icon sprite
 
     // ADBA
-    piece_sprite_offsets: // Screen pointer sprite offsets for each character
+    icon_sprite_offsets: // Screen pointer sprite offsets for each icon
         .byte (VICGOFF / BYTES_PER_SPRITE) + 24
         .byte (VICGOFF / BYTES_PER_SPRITE) + 28
         .byte (VICGOFF / BYTES_PER_SPRITE) + 32
         .byte (VICGOFF / BYTES_PER_SPRITE) + 36
 
     // ADBE
-    piece_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase character sprites
+    icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites
 
     // BACB
     logo_source_ptr: .word source // Pointer to intro page logo sprites

@@ -13,6 +13,6 @@ board_calculate_move:
     rts
 
 // 8560
-board_cursor_to_piece:
+board_cursor_to_icon:
     // TODO
     jmp common.complete_interrupt

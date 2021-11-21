@@ -10,16 +10,16 @@
 .segment Common
 
 // 62EB
-// Gets sound for the current piece.
-// X may be 0 or 1, allowing sound to be retrieved for both characters in a battle.
-get_sound_for_piece:
-    ldy piece.offset,x
-    lda sound.character_phrase,y
+// Gets sound for the current icon.
+// X may be 0 or 1, allowing sound to be retrieved for both icons in a battle.
+get_sound_for_icon:
+    ldy icon.offset,x
+    lda sound.icon_pattern,y
     tay
-    lda sound.phrase_ptr,y
-    sta sound.phrase_lo_ptr,x
-    lda sound.phrase_ptr+1,y
-    sta sound.phrase_hi_ptr,x
+    lda sound.pattern_ptr,y
+    sta sound.pattern_lo_ptr,x
+    lda sound.pattern_ptr+1,y
+    sta sound.pattern_hi_ptr,x
     rts
 
 // 6422
@@ -69,14 +69,14 @@ convert_coord_sprite_pos:
 // 644D
 // Determine sprite source data address for a given peice, set the sprite color and direction and enable.
 sprite_initialize:
-    lda piece.offset,x
+    lda icon.offset,x
     asl
     tay
-    lda sprite.piece_offset,y
+    lda sprite.icon_offset,y
     sta sprite.copy_source_lo_ptr,x
-    lda sprite.piece_offset+1,y
+    lda sprite.icon_offset+1,y
     sta sprite.copy_source_hi_ptr,x
-    lda piece.type,x
+    lda icon.type,x
     cmp #AIR_ELEMENTAL // Is sprite an elemental?
     bcc !next+
     and  #$03
@@ -84,19 +84,19 @@ sprite_initialize:
     lda sprite.elemental_color,y
     bpl intialize_enable_sprite
 !next:
-    ldy #$00 // Set Y to 0 for light piece, 1 for dark piece
-    cmp #MANTICORE // Dark piece
+    ldy #$00 // Set Y to 0 for light icon, 1 for dark icon
+    cmp #MANTICORE // Dark icon
     bcc !next+
     iny
 !next:
-    lda sprite.piece_color,y
+    lda sprite.icon_color,y
 intialize_enable_sprite:
     sta SP0COL,x
     lda main.math.pow2,x
     ora SPENA
     sta SPENA
-    lda piece.offset,x
-    and #$08 // Pieces with bit 8 set are dark pieces
+    lda icon.offset,x
+    and #$08 // Icons with bit 8 set are dark icons
     beq !next+
     lda #$11
 !next:
@@ -104,7 +104,7 @@ intialize_enable_sprite:
     rts
 
 // 6509
-// Writes a predefined text message to the board text area.
+// Writes a text message to the board text area.
 // Requires:
 // - A regsiter set with the text message offset.
 // - X register with column offset.
@@ -121,7 +121,7 @@ write_text:
     bpl !next+
     rts
 !next:
-    // Convert petscii to correct game character map offset.
+    // Convert petscii to correct character map dot data offset.
     and #$3F
     clc
     adc #$C0
@@ -171,9 +171,9 @@ display_two_player:
     jmp common.check_option_keypress
 
 // 8965
-// Adds a piece to the board matrix.
+// Adds a icon to the board matrix.
 // Requires the board row and column to be set in the temp data.
-add_piece_to_matrix:
+add_icon_to_matrix:
     ldy main.temp.data__curr_board_row
     lda game.data.row_occupancy_lo_ptr,y
     sta OLDLIN
@@ -181,7 +181,7 @@ add_piece_to_matrix:
     sta OLDLIN+1
     //
     ldy main.temp.data__curr_board_col
-    lda piece.type
+    lda icon.type
     sta (OLDLIN),y
     rts
 
@@ -189,10 +189,10 @@ add_piece_to_matrix:
 // Copies a sprite frame in to graphical memory.
 // Also includes additional functionality to add a mirrored sprite to graphics memory.
 add_sprite_to_graphics:
-    lda main.temp.data__character_sprite_frame
+    lda main.temp.data__icon_set_sprite_frame
     and #$7F // The offset has #$80 if the sprite frame should be inverted on copy
     // Get frame source memory address.
-    // This is done by first reading the sprite source offset of the character set and then adding the frame offset.
+    // This is done by first reading the sprite source offset of the icon set and then adding the frame offset.
     asl
     tay
     lda sprite.frame_offset,y
@@ -202,14 +202,14 @@ add_sprite_to_graphics:
     lda sprite.copy_source_hi_ptr,x
     adc sprite.frame_offset+1,y
     sta FREEZP+1
-//     lda  board_sprite_flag__copy_animation_group // TODO!!!!!!!!!!!!! - I think the copy below copies and entire sprite character set
+//     lda  board_sprite_flag__copy_animation_group // TODO!!!!!!!!!!!!! - I think the copy below copies and entire sprite icon set
 //     bmi  board_move_sprite
 //     cpx  #$02
 //     bcc  board_move_sprite
 //     txa
 //     and  #$01
 //     tay
-//     lda  board_character_piece_offset,y
+//     lda  board_character_icon_offset,y
 //     and  #$07
 //     cmp  #$06
 //     bne  W8CA3
@@ -244,7 +244,7 @@ add_sprite_to_graphics:
 //     rts
 move_sprite:
     ldy #$00
-    lda main.temp.data__character_sprite_frame
+    lda main.temp.data__icon_set_sprite_frame
     bmi move_sprite_and_invert
 !loop:
     lda (FREEZP),y
@@ -319,7 +319,7 @@ render_sprite:
     txa
     asl
     tay
-    lda common.sprite.number,x
+    lda common.sprite.curr_animation_frame,x
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
     adc common.sprite.init_animation_frame,x
@@ -375,7 +375,7 @@ set_player_color:
     lda #>(CHRMEM2 + player_dot_data_offset)
     sta FREEZP+3
     ldy #$07
-    lda game.state.flag__is_curr_player_light
+    lda game.state.flag__is_light_turn
 !loop:
     sta (FREEZP+2),y
     dey
@@ -389,11 +389,11 @@ set_player_color:
 draw_board:
     ldx #$02
 !loop:
-    lda data.square_colors__piece,x
+    lda data.square_colors__icon,x
     sta BGCOL0,x
     dex
     bpl !loop-
-    lda data.square_colors__piece
+    lda data.square_colors__icon
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS - 1) // Number of rows (0 based, so 9)
@@ -425,44 +425,44 @@ draw_row:
     //
 draw_square:
     ldy main.temp.data__curr_column
-    bit flag__render_square_control
-    bvs render_square // Disable piece render
-    bpl render_piece
-    // Only render piece for a given row and coloumn.
-    lda #FLAG_ENABLE // disable square render (set to piece offset to render a piece)
-    sta render_sqaure_piece_offset
+    bit flag__render_square_ctl
+    bvs render_square // Disable icon render
+    bpl render_icon
+    // Only render icon for a given row and coloumn.
+    lda #FLAG_ENABLE // disable square render (set to icon offset to render a icon)
+    sta render_sqaure_icon_offset
     lda main.temp.data__curr_board_col
     cmp main.temp.data__curr_column
     bne draw_empty_square
     lda main.temp.data__curr_board_row
     cmp main.temp.data__curr_line
     bne draw_empty_square
-render_piece:
+render_icon:
     lda (FREEZP),y
     bmi !next+ // if $80 (blank)
     tax
-    lda piece.init_matrix,x  // Get character dot data offset
+    lda icon.init_matrix,x  // Get icon dot data offset
 !next:
-    sta render_sqaure_piece_offset
+    sta render_sqaure_icon_offset
     bmi draw_empty_square
-    // Here we calculate the piece starting piece. We do this as follows:
-    // - Set $60 if the piece has a light or variable color background
-    // - Multiply the piece offset by 6 to allow for 6 characters per piece type
-    // - Add both together to get the actual character starting offset
-    ldx #$06 // Each piece compriss a block 6 characters (3 x 2)
+    // Here we calculate the icon starting icon. We do this as follows:
+    // - Set $60 if the icon has a light or variable color background
+    // - Multiply the icon offset by 6 to allow for 6 characters per icon type
+    // - Add both together to get the actual icon starting offset
+    ldx #$06 // Each icon compriss a block 6 characters (3 x 2)
     lda (CURLIN),y  // Get sqaure background color (will be 0 for dark, 60 for light and variable)
     and #$7F
 !loop:
     clc
-    adc render_sqaure_piece_offset
+    adc render_sqaure_icon_offset
     dex
     bne !loop-
-    sta main.temp.data__board_piece_char_offset
+    sta main.temp.data__board_icon_char_offset
     jmp render_square
 draw_empty_square:
     lda (CURLIN),y
     and #$7F
-    sta main.temp.data__board_piece_char_offset
+    sta main.temp.data__board_icon_char_offset
 render_square:
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
     // - offset = row offset + (current column * 2) + current column
@@ -502,17 +502,16 @@ draw_sqaure_part: // Draws 3 characters of the current row.
     lda #$03
     sta main.temp.data__counter
 !loop:
-    lda main.temp.data__board_piece_char_offset
+    lda main.temp.data__board_icon_char_offset
     sta (FREEZP+2),y
     lda (VARPNT),y
     and #$F0
     ora main.temp.data__curr_square_color_code
     sta (VARPNT),y
     iny
-    lda render_sqaure_piece_offset
+    lda render_sqaure_icon_offset
     bmi !next+
-    // Draw the board piece. The piece comprises 4 contiguous characters.
-    inc main.temp.data__board_piece_char_offset
+    inc main.temp.data__board_icon_char_offset
 !next:
     dec main.temp.data__counter
     bne !loop-
@@ -771,13 +770,13 @@ clear_text_row:
     rts
 
 // A0B1
-// Plays a character movement or shoot sound.
-// Requires pointer to sound phrase in OLDTXT.
-play_character_sound:
+// Plays a icon movement or fire sound.
+// Requires pointer to sound pattern in OLDTXT.
+play_icon_sound:
     ldx #$01
-    // Character sounds can be played on voices 1 and 2 sepparately. this allows two character movement sounds to be
-    // played at the same time.
-    // If 00, then means don't play sound for that piece.
+    // Icon sounds can be played on voices 1 and 2 sepparately. This allows two icon movement sounds to be played at
+    // the same time.
+    // If 00, then means don't play sound for that icon.
 !loop:
     lda common.sound.flag__enable_voice,x
     beq !next+
@@ -805,8 +804,8 @@ configure_voice:
     sta FREEZP+3
 get_next_note:
     jsr common.get_note
-    cmp #SOUND_CMD_NEXT_PHRASE // Repeat phrase
-    beq repeat_phrase
+    cmp #SOUND_CMD_NEXT_PATTERN // Repeat pattern
+    beq repeat_pattern
     cmp #SOUND_CMD_END // Finished - turn off sound
     beq stop_sound
     cmp #SOUND_CMD_NO_NOTE // Stop note
@@ -815,7 +814,7 @@ get_next_note:
     sta (FREEZP+2),y
     jmp get_next_note
 get_note_data:
-    // If the phrase data is not a command (ie FE, FF or 00), then the data represents a note. A note comprises several
+    // If the pattern data is not a command (ie FE, FF or 00), then the data represents a note. A note comprises several
     // bytes as follows:
     // - 00: Delay/note hold
     // - 01: Attack/decay
@@ -841,13 +840,13 @@ get_note_data:
     sta (FREEZP+2),y
 !return:
     rts
-repeat_phrase:
+repeat_pattern:
     txa
     asl
     tay
-    lda board.sound.phrase_lo_ptr,x
+    lda board.sound.pattern_lo_ptr,x
     sta OLDTXT,y
-    lda board.sound.phrase_hi_ptr,x
+    lda board.sound.pattern_hi_ptr,x
     sta OLDTXT+1,y
     jmp get_next_note
 stop_sound:
@@ -906,7 +905,7 @@ interrupt_handler__play_music:
         .byte BLACK, WHITE
 
     // 9073
-    square_colors__piece: // Board background colors used when rendering the player board
+    square_colors__icon: // Board background colors used when rendering the player board
         .byte BLACK, YELLOW, LIGHT_BLUE
 
     // BEAE
@@ -928,12 +927,11 @@ interrupt_handler__play_music:
 
 .namespace sprite {
     // 8B27
-    // Source offset of the first frame of each character piece sprite. A character comprises of multiple sprites
-    // (nominally 15) to provide animations for each direction and action. One character, the Shape Shifter, comprises
-    // only 10 sprites though as it doesn't need a shooting sprite set as it shape shifts in to the opposing piece
-    // when fighting.
+    // Source offset of the first frame of each icon sprite. An icon set comprises of multiple sprites (nominally 15)
+    // to provide animations for each direction and action. One icon, the Shape Shifter, comprises only 10 sprites
+    // though as it doesn't need a shooting sprite set as it shape shifts in to the opposing icon when fighting.
     .const BYTES_PER_CHAR_SPRITE = 54;
-    piece_offset:
+    icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
         .fillword 13, source+i*BYTES_PER_CHAR_SPRITE*15
         // DG
@@ -952,7 +950,7 @@ interrupt_handler__play_music:
         .word $02F4, $0008, $0000, $0010, $0018
 
     // 906F
-    piece_color: // Color of character based on side (light, dark)
+    icon_color: // Color of icon based on side (light, dark)
         .byte YELLOW, LIGHT_BLUE
 
     // 9274
@@ -970,34 +968,33 @@ interrupt_handler__play_music:
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
 
     // BAE-3D3F and AE23-BACA
-    // Character icon sprites. Note that sprites are not 64 bytes in length like normal sprites. Archon sprites are
-    // smaller so that they can fit on a board sqare and therefore do not need to take up 64 bytes. Instead, sprites
-    // consume 54 bytes only. The positive of this is that we use less memory for each sprite. The negative is that
-    // we can't just load the raw sprite binary file in to a sprite editor.
-    // Anyway, there are LOTS of sprites. Generally 15 sprites for each piece. This includes fram animations in each
+    // Icon sprites. Note that sprites are not 64 bytes in length like normal sprites. Archon sprites are smaller so
+    // that they can fit on a board sqare and therefore do not need to take up 64 bytes. Instead, sprites consume 54
+    // bytes only. The positive of this is that we use less memory for each sprite. The negative is that we can't just
+    // load the raw sprite binary file in to a sprite editor.
+    // Anyway, there are LOTS of sprites. Generally 15 sprites for each icon. This includes fram animations in each
     // direction, shoot animations and projectiles. NOTE that spearate frames for left moving and right moving
     // animations. Instead, the routine used to load sprites in to graphical memory has a function that allows
     // sprites to be mirrored when copied.
     source: .import binary "/assets/sprites-game.bin"
 }
 
-.namespace piece {
+.namespace icon {
     // 8AB3
-    // Initial strength of each character piece. Uses character offset as index. Eg Knight has an offset of 7 and
-    // therefore the initial strength of a knight is $05.
+    // Initial strength of each icon type. Uses icon offset as index. Eg Knight has an offset of 7 and therefore the
+    // initial strength of a knight is $05.
     init_strength:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
 
     // 8AFF
-    // Matrix used to determine offset of each piece type AND determine which peices occupy which sqaures on initial
+    // Matrix used to determine offset of each icon type AND determine which peices occupy which sqaures on initial
     // setup.
     // This is a little bit odd - the numbers below are indexes used to retrieve an address from
-    // `sprite.piece_offset` to determine the source sprite memory address. The `Character Piece Type` are actually
-    // an offset in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling
-    // us to read the 6th word of the sprite character offset to determine the first frame of the Phoenix character
-    // set.
-    // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial piece setup
+    // `sprite.icon_offset` to determine the source sprite memory address. The `Icon Type` are actually an offset
+    // in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling us to
+    // read the 6th word of the sprite icon offset to determine the first frame of the Phoenix icon set.
+    // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial icon setup
     // with 2 bytes represeting two columns of each row. The setup starts with all the light peices, then dark.
     init_matrix:
         .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
@@ -1009,7 +1006,7 @@ interrupt_handler__play_music:
         .byte AIR_ELEMENTAL_OFFSET, FIRE_ELEMENTAL_OFFSET, EARTH_ELEMENTAL_OFFSET, WATER_ELEMENTAL_OFFSET
 
     // 8B7C
-    // The ID of the string used to represent each piece type using piece offset as index.
+    // The ID of the string used to represent each icon type using icon offset as index.
     // eg UNICORN has 00 offset and it's text representation is STRING_28.
     string_id:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
@@ -1018,80 +1015,80 @@ interrupt_handler__play_music:
 
 .namespace sound {
     // 8B94
-    phrase_ptr:
-        .word phrase_walk_large   // 00
-        .word phrase_fly_01       // 02
-        .word phrase_fly_02       // 04
-        .word phrase_walk_quad    // 06
-        .word phrase_fly_03       // 08
-        .word phrase_fly_large    // 10
-        .word phrase_fire_01      // 12
-        .word phrase_fire_02      // 14
-        .word phrase_fire_03      // 16
-        .word phrase_fire_04      // 18
-        .word phrase_walk_slither // 20
+    pattern_ptr:
+        .word pattern_walk_large   // 00
+        .word pattern_fly_01       // 02
+        .word pattern_fly_02       // 04
+        .word pattern_walk_quad    // 06
+        .word pattern_fly_03       // 08
+        .word pattern_fly_large    // 10
+        .word pattern_fire_01      // 12
+        .word pattern_fire_02      // 14
+        .word pattern_fire_03      // 16
+        .word pattern_fire_04      // 18
+        .word pattern_walk_slither // 20
 
     // 8BAA
-    fire_phrase:
-    // Sound phrase used for shot sound of each piece type. The data is an index to the character sound pointer array.
+    fire_pattern:
+    // Sound pattern used for shot sound of each icon type. The data is an index to the icon sound pointer array.
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
 
     // 8BBE
-    // Sound phrase used for each piece type. The data is an index to the character sound pointer array. Uses piece
+    // Sound pattern used for each icon type. The data is an index to the icon sound pointer array. Uses icon
     // offset as index.
-    character_phrase:
+    icon_pattern:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
 
     // A15E
-    phrase_walk_large:
+    pattern_walk_large:
         .byte SOUND_CMD_NO_NOTE, $08, $34, SOUND_CMD_NO_NOTE, $20, $03, $81, SOUND_CMD_NO_NOTE, $08, $34
         .byte SOUND_CMD_NO_NOTE, $20, $01, $81
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_fly_01:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_fly_01:
         .byte SOUND_CMD_NO_NOTE, $04, SOUND_CMD_NO_NOTE, $40, $60, $08, $81, $04, SOUND_CMD_NO_NOTE, $40, $60
         .byte $0A, $81
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_fly_02:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_fly_02:
         .byte SOUND_CMD_NO_NOTE, $08, $70, SOUND_CMD_NO_NOTE, $E2, $04, $21, $08, SOUND_CMD_NO_NOTE
         .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_walk_slither:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_walk_slither:
         .byte SOUND_CMD_NO_NOTE, $08, $70, SOUND_CMD_NO_NOTE, $C0, $07, $21, $08, $70, SOUND_CMD_NO_NOTE, $C0, $07
         .byte SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_walk_quad:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_walk_quad:
         .byte $04, $01, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $02, $81, SOUND_CMD_NO_NOTE, $04, $01
         .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $03, $81, SOUND_CMD_NO_NOTE, $04, $01, SOUND_CMD_NO_NOTE
         .byte SOUND_CMD_NO_NOTE, $04, $81, SOUND_CMD_NO_NOTE, $04, $01, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
         .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_fly_03:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_fly_03:
         .byte SOUND_CMD_NO_NOTE, $04, $12, SOUND_CMD_NO_NOTE, $20, $03, $81, $04, $12, SOUND_CMD_NO_NOTE, $20, $03
         .byte SOUND_CMD_NO_NOTE, $04, $12, SOUND_CMD_NO_NOTE, $20, $02, $81, $04, $12, SOUND_CMD_NO_NOTE, $20, $02
         .byte SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_fire_03:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_fire_03:
         .byte SOUND_CMD_NO_NOTE, $32, $A9, SOUND_CMD_NO_NOTE, $EF, $31, $81, SOUND_CMD_END
-    phrase_hit_player_dark:
+    pattern_hit_player_dark:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $C4, $07, $41, SOUND_CMD_END
-    phrase_hit_player_light:
+    pattern_hit_player_light:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $D0, $3B, $43, SOUND_CMD_END
-    phrase_fire_04:
+    pattern_fire_04:
         .byte SOUND_CMD_NO_NOTE, $28, $99, SOUND_CMD_NO_NOTE, $6A, $6A, $21, SOUND_CMD_END
-    phrase_fly_large:
+    pattern_fly_large:
         .byte SOUND_CMD_NO_NOTE, $10, $84, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $06, $81
-        .byte SOUND_CMD_NEXT_PHRASE
-    phrase_fire_01:
+        .byte SOUND_CMD_NEXT_PATTERN
+    pattern_fire_01:
         .byte SOUND_CMD_NO_NOTE, $80, $4B, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $21, $81, SOUND_CMD_END
-    phrase_fire_02:
+    pattern_fire_02:
         .byte SOUND_CMD_NO_NOTE, $10, $86, SOUND_CMD_NO_NOTE, $F0, $F0, $81, SOUND_CMD_END
-    phrase_player_light_turn:
+    pattern_player_light_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $3E, $2A, $11, SOUND_CMD_END
-    phrase_player_dark_turn:
+    pattern_player_dark_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $1F, $16, $11, SOUND_CMD_END
-    phrase_unknown03:
+    pattern_unknown03:
         .byte SOUND_CMD_NO_NOTE, $80, $03, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $23, $11, SOUND_CMD_END
 }
 
@@ -1482,22 +1479,22 @@ countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate action
 .segment DynamicData
 
 // BD14
-// Set to 0 to render all occupied squares, $80 to disable rendering characters and $01-$79 to render a specified
+// Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
 // cell only.
-flag__render_square_control: .byte $00
+flag__render_square_ctl: .byte $00
 
 // BD4E
-render_sqaure_piece_offset: .byte $00 // Set flag to #$80+ to inhibit piece draw or piece offset to draw the piece
+render_sqaure_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
 
 // BF44
 magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
 
-.namespace piece {
+.namespace icon {
     // BF29
-    offset: .byte $00, $00, $00, $00 // Character piece offset used to determine which sprite to copy
+    offset: .byte $00, $00, $00, $00 // Icon sprite group offset used to determine which sprite to copy
 
     // BF2D
-    type: .byte $00, $00, $00, $00 // Type of board piece (See `Character piece types` constants)
+    type: .byte $00, $00, $00, $00 // Type of icon (See `icon types` constants)
 }
 
 .namespace sprite {
@@ -1511,13 +1508,13 @@ magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
     copy_length: .byte $00 // Number of bytes to copy for the given sprite
 
     // BF49
-    flag__copy_animation_group: .byte $00 // Set #$80 to copy individual character frame in to graphical memory
+    flag__copy_animation_group: .byte $00 // Set #$80 to copy individual icon frame in to graphical memory
 }
 
 .namespace sound {
     // BF12
-    phrase_lo_ptr: .byte $00, $00 // Lo byte pointer to sound phrase for current piece
+    pattern_lo_ptr: .byte $00, $00 // Lo byte pointer to sound pattern for current icon
 
     // BF14
-    phrase_hi_ptr: .byte $00, $00 // Hi byte pointer to sound phrase for current piece
+    pattern_hi_ptr: .byte $00, $00 // Hi byte pointer to sound pattern for current icon
 }

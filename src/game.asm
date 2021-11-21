@@ -14,22 +14,22 @@ entry:
     jsr board.clear_text_area
     jsr common.stop_sound
     lda #FLAG_DISABLE
-    sta board.flag__render_square_control
+    sta board.flag__render_square_ctl
     jsr board.draw_board
     // Swap player because the main game as alternates the player, so it will swaps it back to the correct player.
-    lda state.flag__is_curr_player_light
+    lda state.flag__is_light_turn
     eor #$FF
-    sta state.flag__is_curr_player_light
+    sta state.flag__is_light_turn
     ldy board.countdown_timer
     bpl !next+
     sta state.flag__ai_player_ctl // AI set to both players on options timeout (demo mode)
 !next:
     // Get player and convert to 0 for light, 1 for dark.
-    lda state.flag__is_curr_player_light
+    lda state.flag__is_light_turn
     and #$01
     eor #$01
     tay
-    lda board.sprite.piece_color,y
+    lda board.sprite.icon_color,y
     sta SP1COL // Set logo color
     sta SP2COL
     sta SP3COL // Set selection square color
@@ -46,10 +46,10 @@ entry:
     sta XXPAND
     lda #%0000_0000
     sta YXPAND
-    // Set position of piece selection sprite.
+    // Set position of icon selection sprite.
     ldx #$04 // Sprite 4
     lda #$FE // Column - FE is 2 columns left of 1st column (column 0)
-    bit state.flag__is_curr_player_light
+    bit state.flag__is_light_turn
     bpl !next+
     lda #$0A // 2 columns after last column
 !next:
@@ -71,7 +71,7 @@ entry:
     lda #$00
 !loop:
     sta common.sprite.init_animation_frame,y
-    sta common.sprite.number,y
+    sta common.sprite.curr_animation_frame,y
     dey
     bne !loop-
     //
@@ -97,14 +97,14 @@ entry:
     lda data.row_occupancy_hi_ptr,y
     sta FREEZP+1
     ldy board.data.magic_square_col,x
-    lda (FREEZP),y // Get ID of piece on magic square
+    lda (FREEZP),y // Get ID of icon on magic square
     bmi !check_win_next+ // Square unoccupied
     // This is clever - continually OR $40 for light or $80 for dark. If all squares are occupied by the same player
     // then the result should be $40 or $80. If sqaures are occupied by multiple players, the result will be $C0
     // (ie $80 OR $40) and therefore no winner.
     ldy #$40
     cmp #$12
-    bcc !next+ // Player 1 piece?
+    bcc !next+ // Player 1 icon?
     ldy #$80
 !next:
     tya
@@ -113,31 +113,31 @@ entry:
     dex
     bpl !loop-
     lda main.temp.data__curr_count
-    cmp #$C0 // All pieces the same?
+    cmp #$C0 // All icons the same?
     beq !check_win_next+
     jmp game_over
-    // Checks if any of the players have no pieces left. This is done similar to the magic square occupancy above.
-    // If any pieces has strength left, a $40 (player 1) or $80 (player 2) is ORed with a total. If both players
-    // have pieces, the result will be $C0. Otherwise player 1 ($40) or player 2 ($80) is the winner.
+    // Checks if any of the players have no icons left. This is done similar to the magic square occupancy above.
+    // If any icons has strength left, a $40 (player 1) or $80 (player 2) is ORed with a total. If both players
+    // have icons, the result will be $C0. Otherwise player 1 ($40) or player 2 ($80) is the winner.
 !check_win_next:
     lda #$00
-    sta main.temp.data__dark_piece_count
-    sta main.temp.data__light_piece_count
+    sta main.temp.data__dark_icon_count
+    sta main.temp.data__light_icon_count
     sta main.temp.data__curr_count
-    ldx #(BOARD_NUM_PIECES - 1)
+    ldx #(BOARD_NUM_ICONS - 1)
 !loop:
-    lda curr_piece_strength,x
+    lda curr_icon_strength,x
     beq !check_next+
     ldy #$40
     cpx #$12
     bcc !next+
-    inc main.temp.data__dark_piece_count
-    stx main.temp.data__remaining_dark_piece_id
+    inc main.temp.data__dark_icon_count
+    stx main.temp.data__remaining_dark_icon_id
     ldy #$80
     bmi !next++
 !next:
-    inc main.temp.data__light_piece_count
-    stx main.temp.data__remaining_light_piece_id
+    inc main.temp.data__light_icon_count
+    stx main.temp.data__remaining_light_icon_id
 !next:
     tya
     ora main.temp.data__curr_count
@@ -147,7 +147,7 @@ entry:
     bpl !loop-
     lda main.temp.data__curr_count
     bne !next+
-    jmp game_over // No pieces left on any side. Not sure how this is possible.
+    jmp game_over // No icons left on any side. Not sure how this is possible.
 !next:
     cmp #$C0
     beq !check_win_next+
@@ -177,23 +177,23 @@ change_phase_color:
     jsr cycle_phase_counters
     jsr board.draw_board
     lda main.state.curr_cycle+3 // Board color
-    bne check_light_pieces
+    bne check_light_icons
     // Board is black
     lda #$FF
-    sta imprisoned_piece_id+1 // Remove imprisoned dark piece
-    ldx #$23 // Dark player piece offset
+    sta imprisoned_icon_id+1 // Remove imprisoned dark icon
+    ldx #$23 // Dark player icon offset
     jsr regenerate_hitpoints
     jmp !next+
-check_light_pieces:
+check_light_icons:
     cmp #$0E
     bne !next+
     // Board is white
     lda #$FF
-    sta imprisoned_piece_id // Remove imprisoned light piece
-    ldx #$11 // Light player piece offset
+    sta imprisoned_icon_id // Remove imprisoned light icon
+    ldx #$11 // Light player icon offset
     jsr regenerate_hitpoints
 !next:
-    // Increase strength of all pieces on magic squares.
+    // Increase strength of all icons on magic squares.
     ldx #$04 // 5 magic sqaures (0 offset)
 !loop:
     ldy board.data.magic_square_col,x
@@ -207,35 +207,35 @@ check_light_pieces:
     lda (FREEZP),y
     bmi !next+ // Unoccupied
     tax
-    lda curr_piece_strength,x
-    ldy board.piece.init_matrix,x
-    cmp board.piece.init_strength,y
+    lda curr_icon_strength,x
+    ldy board.icon.init_matrix,x
+    cmp board.icon.init_strength,y
     bcs !next+
-    inc curr_piece_strength,x
+    inc curr_icon_strength,x
 !next:
     pla
     tax
     dex
     bpl !loop-
 !check_win_next:
-    // End the game if player has only one piece and that piece is imprisoned.
-    lda game.state.flag__is_curr_player_light
+    // End the game if player has only one icon and that icon is imprisoned.
+    lda game.state.flag__is_light_turn
     bpl !next+
-    // Check if dark piece is imprisoned.
-    ldy main.temp.data__dark_piece_count
+    // Check if dark icon is imprisoned.
+    ldy main.temp.data__dark_icon_count
     cpy #$02
     bcs check_game_state
-    ldy main.temp.data__remaining_dark_piece_id
-    cpy imprisoned_piece_id+1
+    ldy main.temp.data__remaining_dark_icon_id
+    cpy imprisoned_icon_id+1
     bne check_game_state
     jmp game_over__imprisoned
 !next:
-    // Check if light piece is imprisoned.
-    ldy main.temp.data__light_piece_count
+    // Check if light icon is imprisoned.
+    ldy main.temp.data__light_icon_count
     cpy #$02
     bcs check_game_state
-    ldy main.temp.data__remaining_light_piece_id
-    cpy imprisoned_piece_id
+    ldy main.temp.data__remaining_light_icon_id
+    cpy imprisoned_icon_id
     bne check_game_state
     jmp game_over__imprisoned
     //
@@ -258,11 +258,11 @@ check_game_state:
     jmp check_game_state
     //
 play_turn:
-    // 81F2  A9 01      lda  #$01 // TODO 
+    // 81F2  A9 01      lda  #$01 // TODO
     // 81F4  8D 26 BD   sta  temp_data__sprite_count // idk yet
     lda #$00
     // 81F9  8D 09 BD   sta  WBD09 ??? // NFI! - seems to never get set
-    sta game.state.flag__is_player_turn_started
+    sta game.state.flag__is_turn_started
     // 81FF  8D FF BC   sta  WBCFF ??? // TODO  NFI
     // 8202  8D FD BC   sta  WBCFD ??? // seems to flag set to redraw board? maybe after fight??
     // 8205  8D 0E BD   sta  WBD0E ??? // seems to get set if select spell is enabled???
@@ -270,7 +270,7 @@ play_turn:
     ldx #$05 // Short delay before start of turn
     // Check AI turn.
     lda game.state.flag__ai_player_ctl
-    cmp game.state.flag__is_curr_player_light
+    cmp game.state.flag__is_light_turn
     bne !next+
     jsr ai.board_calculate_move
     ldx #$60 // Normal AI start delay
@@ -286,23 +286,23 @@ play_turn:
     jmp play_turn // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // 64EB
-// Regenerate hitpoints for all pieces of the current player.
+// Regenerate hitpoints for all icons of the current player.
 // - X register is $23 (dark) or $11 (light)
-// Loops through all players pieces (backwards) and increases all piece's hitpoints up to the initial hitpoints.
+// Loops through all players icons (backwards) and increases all icon's hitpoints up to the initial hitpoints.
 // This operation is performed when the board color is strongest for the player (ie white for light and black for
 // dark).
 regenerate_hitpoints:
     txa
     sec
     sbc #$12
-    sta main.temp.data__temp_store // First player piece (offset by 1)
+    sta main.temp.data__temp_store // First player icon (offset by 1)
 !loop:
-    lda curr_piece_strength,x
-    beq !next+ // Piece is dead
-    ldy board.piece.init_matrix,x
-    cmp board.piece.init_strength,y
-    bcs !next+ // Piece is fully healed
-    inc curr_piece_strength,x
+    lda curr_icon_strength,x
+    beq !next+ // Icon is dead
+    ldy board.icon.init_matrix,x
+    cmp board.icon.init_strength,y
+    bcs !next+ // Icon is fully healed
+    inc curr_icon_strength,x
 !next:
     dex
     cpx main.temp.data__temp_store
@@ -396,14 +396,14 @@ decrease_cycle_count_again:
     jmp set_phase_color
 
 // 66E9
-// Display game over message if last piece is imprisoned.
+// Display game over message if last icon is imprisoned.
 // NOTE do not relocate this without jumping to `game_over` method.
 game_over__imprisoned:
     lda #STRING_ICON_IMPRISONED
     ldx #$00
     jsr board.write_text
-    // Set winner (opposite to current player as current player has the imprisoned piece).
-    lda state.flag__is_curr_player_light
+    // Set winner (opposite to current player as current player has the imprisoned icon).
+    lda state.flag__is_light_turn
     eor #$FF
     sta main.temp.data__curr_count
 // 66F8
@@ -501,19 +501,19 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda game.state.flag__is_player_turn_started
+    lda game.state.flag__is_turn_started
     bmi new_player_sound
     // Initialize turn.
     lda #$80
-    sta game.state.flag__is_player_turn_started
+    sta game.state.flag__is_turn_started
     lda #$00
-    sta main.temp.data__dark_piece_count
-    sta main.temp.data__light_piece_count
+    sta main.temp.data__dark_icon_count
+    sta main.temp.data__light_icon_count
     // sta  WBCFC // TODO unknown !!!!!
     // sta  WBCF2 // TODO unknown !!!!!
     // Configure new player turn sound.
     tax
-    ldy state.flag__is_curr_player_light
+    ldy state.flag__is_light_turn
     bpl !next+
     inx
 !next:
@@ -524,31 +524,31 @@ interrupt_handler:
     txa
     asl
     tay
-    lda sound.phrase_ptr+4,y
+    lda sound.pattern_ptr+4,y
     sta OLDTXT
-    lda sound.phrase_ptr+5,y
+    lda sound.pattern_ptr+5,y
     sta OLDTXT+1
 new_player_sound:
-    jsr board.play_character_sound
+    jsr board.play_icon_sound
     // Wait before turn can begin.
     lda delay_before_turn
     beq !next+
-    dec delay_before_turn 
-    jmp common.complete_interrupt 
+    dec delay_before_turn
+    jmp common.complete_interrupt
 !next:
     // 83C6  AD 09 BD   lda WBD09 // TODO
     beq !next+
     eor #$FF
     // 83CD  8D 09 BD   sta WBD09 // TODO
-    bmi !next+                
-    jmp common.complete_interrupt 
+    bmi !next+
+    jmp common.complete_interrupt
 !next:
     lda #$00
     // 83D7  8D 3D BD   sta WBD3D // TODO
     // 83DA  8D 0D BD   sta temp_data__sprite_x_direction_offset_1
     // Set player offset.
     tay
-    lda state.flag__is_curr_player_light
+    lda state.flag__is_light_turn
     bpl !next+
     iny
 !next:
@@ -556,15 +556,15 @@ new_player_sound:
     tya
     eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
     tax
-    lda state.flag__is_curr_player_light
+    lda state.flag__is_light_turn
     cmp state.flag__ai_player_ctl
     bne !next+
-    jmp ai.board_cursor_to_piece
+    jmp ai.board_cursor_to_icon
 !next:
     // Get joystick command. x=0 for joystick 2 and 1 for joystick 1.
     lda CIAPRA,x
     and #%0001_0000 // Fire button
-
+    // ... 83FD ... TODO
 
     jmp common.complete_interrupt // TODO - remove!
 
@@ -575,11 +575,11 @@ new_player_sound:
 
 .namespace sound {
     // 95f4
-    phrase_ptr:
-        .word board.sound.phrase_hit_player_light   // 00
-        .word board.sound.phrase_hit_player_dark    // 02
-        .word board.sound.phrase_player_light_turn  // 04
-        .word board.sound.phrase_player_dark_turn   // 06
+    pattern_ptr:
+        .word board.sound.pattern_hit_player_light   // 00
+        .word board.sound.pattern_hit_player_dark    // 02
+        .word board.sound.pattern_player_light_turn  // 04
+        .word board.sound.pattern_player_dark_turn   // 06
 }
 
 .namespace data {
@@ -608,10 +608,10 @@ new_player_sound:
     flag__is_first_player_light: .byte $00 // Is positive (55) for light, negative (AA) for dark
 
     // BCC6
-    flag__is_curr_player_light: .byte $00 // Is positive for light, negative for dark
+    flag__is_light_turn: .byte $00 // Is positive for light, negative for dark
 
     // BCD2
-    flag__is_player_turn_started: .byte $00 // Is positive if player turn has just started
+    flag__is_turn_started: .byte $00 // Is positive if player turn has just started
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -633,7 +633,7 @@ delay_before_turn: .byte $00 // Delay before start of each turn can commence
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
 
 // BD24
-imprisoned_piece_id: .byte $00, $00 // Imprisoned piece ID for each player (offset 0 for light, 1 for dark)
+imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark)
 
 // BD70
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
@@ -642,4 +642,4 @@ curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occur
 curr_square_occupancy: .fill BOARD_NUM_ROWS*BOARD_NUM_COLS, $00 // Board square occupant data (#$80 for no occupant)
 
 // BDFD
-curr_piece_strength: .fill BOARD_NUM_PIECES, $00 // Current strength of each board piece
+curr_icon_strength: .fill BOARD_NUM_ICONS, $00 // Current strength of each board icon
