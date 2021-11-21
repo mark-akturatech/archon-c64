@@ -33,6 +33,12 @@
   09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
   ```
   The addresses can be modifed without any issues.
+- The number of moves of each icon is shown below (address `$8AC7`):
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
+  04, c3, 03, 03, 83, 84, 85, 03, 03, c3, 03, 03, 85, 84, 83, 03
+  ```
+  +$80 is added if icon can fly; +$40 is added if icon can cast spells (if $c0 means can fly and cast).
 - Icons regenerate 1 lost hit point when on strogest board color (eg light on white and dark on black).
 - Icons on magic squares regenerate 1 lost hitpoint after each round.
 - It looks like the game was initially designed to have two additional colors in the board phases, but logic was

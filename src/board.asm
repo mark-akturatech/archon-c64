@@ -987,6 +987,15 @@ interrupt_handler__play_music:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
 
+    // 8AC7
+    // Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
+    // icon can fly.
+    number_moves:
+        //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
+        .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
+        //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
+        .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
+
     // 8AFF
     // Matrix used to determine offset of each icon type AND determine which peices occupy which sqaures on initial
     // setup.

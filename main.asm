@@ -615,7 +615,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF32
     data__dark_icon_count: // Dark remaining icon count
-    data__board_sprite_final_y_pos: // Final Y position of sprite when moving pieces or selection sprite on the board
+    data__board_sprite_move_y_cnt: // Sprite Y position movement counter
         .byte $00
 
     // BF33
@@ -624,7 +624,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF36
     data__light_icon_count: // Light remaining icon count
-    data__board_sprite_final_x_pos: // Final X position of sprite when moving pieces or selection sprite on the board
+    data__board_sprite_move_x_cnt: // Sprite X position movement counter
         .byte $00
 
     // BF37

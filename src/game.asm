@@ -261,12 +261,12 @@ play_turn:
     lda #$01 // Each turn can have up to 2 icons enabled - 00=icon sprite, and 01=square selection sprite
     sta main.temp.data__curr_sprite_ptr
     lda #$00
-    // 81F9  8D 09 BD   sta  WBD09 ??? // NFI! - seems to never get set
+    // 81F9  8D 09 BD   sta  WBD09 ??? // speed
     sta game.state.flag__is_turn_started
-    // 81FF  8D FF BC   sta  WBCFF ??? // TODO  NFI
-    // 8202  8D FD BC   sta  WBCFD ??? // seems to flag set to redraw board? maybe after fight??
+    // 81FF  8D FF BC   sta  WBCFF ??? // fight for sqaure flag?
+    sta curr_icon_num_moves
     // 8205  8D 0E BD   sta  WBD0E ??? // seems to get set if select spell is enabled???
-    // 8208  8D 0F BD   sta  WBD0F ??? // maybe set if spell requires a peice select???
+    // 8208  8D 0F BD   sta  WBD0F ??? // seems to be set if player turn resulted in no move (eg a spell was cast)
     ldx #$05 // Short delay before start of turn
     // Check AI turn.
     lda game.state.flag__ai_player_ctl
@@ -544,7 +544,7 @@ new_player_sound:
     jmp common.complete_interrupt
 !next:
     lda #$00
-    // 83D7  8D 3D BD   sta WBD3D // TODO
+    sta flag__new_square_selected
     sta main.temp.flag__board_sprite_moved
     // Set player offset.
     tay
@@ -579,16 +579,17 @@ joystick_icon_select:
     // 840D  AD 0E BD   lda  WBD0E         // TODO I think??? this gets sets to various values by ai routines??
     // 8410  C9 87      cmp  #$87
     // 8412  F0 09      beq !next+
-    // 8414  AD 28 BF   lda  temp_data__current_board_col // ?? again AI?
-    // 8417  30 39      bmi  move_sprite_to_square
-    // 8419  C9 09      cmp  #$09
-    // 841B  B0 35      bcs  move_sprite_to_square
+    // Ensure selected column is within bounds.
+    lda main.temp.data__curr_board_col
+    bmi move_sprite_to_square
+    cmp #$09
+    bcs move_sprite_to_square
 !next:
     lda flag__icon_selected
     bmi move_sprite_to_square
     // Don't select icon if selection square is still moving (ie not directly over an icon).
-    lda main.temp.data__board_sprite_final_x_pos
-    ora main.temp.data__board_sprite_final_y_pos
+    lda main.temp.data__board_sprite_move_x_cnt
+    ora main.temp.data__board_sprite_move_y_cnt
     and #$7F
     bne move_sprite_to_square
     // Select icon.
@@ -604,7 +605,7 @@ joystick_icon_select:
     // 8443  20 53 89   jsr  W8953   // show message and preserve X (but not a)
     jmp common.complete_interrupt
 !next:
-    // 8449  8D D0 BC   sta  main_state_flag_update_state
+    sta main.interrupt.flag__enable
     // 844C  8D 55 BD   sta  WBD55
     jmp  common.complete_interrupt
     //
@@ -612,14 +613,16 @@ move_sprite_to_square:
     lda curr_player_offset
     eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
     tax
-    // 8458  AD FD BC   lda  WBCFD // TODO
-    // 845B  F0 0F      beq  game_check_joystick_left_right
-    // 845D  30 0D      bmi  game_check_joystick_left_right
-    // 845F  AD 36 BF   lda  temp_data__light_piece_count
-    // 8462  0D 32 BF   ora  temp_data__dark_piece_count
-    // 8465  29 7F      and  #$7F
-    // 8467  F0 03      beq  game_check_joystick_left_right
-    // 8469  4C C7 84   jmp  game_set_sprite_square_position
+    // The icon select cursor can move diagonally. Icons cannot.
+    lda curr_icon_num_moves
+    beq check_joystick_left_right
+    bmi check_joystick_left_right
+    // Don't bother checking joystick position until we reach the previously selected square.
+    lda main.temp.data__board_sprite_move_x_cnt
+    ora main.temp.data__board_sprite_move_y_cnt
+    and #$7F
+    beq check_joystick_left_right
+    jmp set_sprite_square_position
 check_joystick_left_right:
     lda  CIAPRA,x
     pha // Put joystick status on stack
@@ -627,7 +630,7 @@ check_joystick_left_right:
     // 8473  C9 87      cmp  #$87
     // 8475  F0 2E      beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
-    lda main.temp.data__board_sprite_final_x_pos
+    lda main.temp.data__board_sprite_move_x_cnt
     and #$7F
     bne move_up_down
     pla
@@ -643,17 +646,17 @@ check_joystick_left_right:
     bne move_up_down
     jsr set_square_left
 move_up_down:
-    // 8493  AD FD BC   lda WBCFD  // TODO
-    // 8496  F0 0D      beq check_joystick_up_down
-    // 8498  30 0B      bmi check_joystick_up_down
-    // 849A  AD 3D BD   lda  WBD3D
-    // 849D  F0 06      beq check_joystick_up_down
-    // 849F  30 04      bmi check_joystick_up_down
-    // pla
-    // jmp  set_sprite_square_position
+    lda curr_icon_num_moves
+    beq check_joystick_up_down
+    bmi check_joystick_up_down
+    lda flag__new_square_selected
+    beq check_joystick_up_down
+    bmi check_joystick_up_down
+    pla
+    jmp set_sprite_square_position
     // Disable joystick up/down movement if sprite has not reached Y direction final position.
 check_joystick_up_down:
-    lda main.temp.data__board_sprite_final_y_pos
+    lda main.temp.data__board_sprite_move_y_cnt
     and #$7F
     beq !next+
     pla
@@ -671,17 +674,17 @@ check_joystick_up_down:
     jsr set_square_down
 //
 !next:
-    // 84BF  AD 3D BD   lda  WBD3D  // TODO
-    // 84C2  10 03      bpl  set_sprite_square_position
+    lda flag__new_square_selected
+    bpl set_sprite_square_position
     // 84C4  20 53 89   jsr  W8953   // ?? display message again - why
 set_sprite_square_position:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection sqaure, 00 if moving icon
-    lda main.temp.data__board_sprite_final_x_pos // Number of pixels to move in x direction ($00-$7f for right, $ff-80 for left)
+    lda main.temp.data__board_sprite_move_x_cnt // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
     bmi check_move_sprite_left
     // Move sprite right.
     inc common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_final_x_pos
+    dec main.temp.data__board_sprite_move_x_cnt
     inc main.temp.flag__board_sprite_moved
     bpl !next+
 check_move_sprite_left:
@@ -689,15 +692,15 @@ check_move_sprite_left:
     beq !next+
     // Move sprite left.
     dec common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_final_x_pos
+    dec main.temp.data__board_sprite_move_x_cnt
     inc main.temp.flag__board_sprite_moved
 !next:
-    lda main.temp.data__board_sprite_final_y_pos // Number of pixels to move in y direction ($00-$7f for down, $ff-80 for up)
+    lda main.temp.data__board_sprite_move_y_cnt // Number of pixels to move in y direction ($00-$7f for down, $80-ff for up)
     beq !next+
     bmi check_move_sprite_up
     // Move sprite down.
     inc common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_final_y_pos
+    dec main.temp.data__board_sprite_move_y_cnt
     inc main.temp.flag__board_sprite_moved
     bpl !next+
 check_move_sprite_up:
@@ -705,7 +708,7 @@ check_move_sprite_up:
     beq !next+
     // Move sprite up.
     dec common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_final_y_pos
+    dec main.temp.data__board_sprite_move_y_cnt
     inc main.temp.flag__board_sprite_moved
 !next:
     lda main.temp.flag__board_sprite_moved
@@ -752,19 +755,107 @@ render_selected_sprite:
 
 // 861E
 set_square_right:
-    rts // TODO!!!!!!!!!
+    lda main.temp.data__curr_board_col
+    bmi !next+
+    cmp #$08 // Already on last column?
+    bcs !return+
+    tay
+    iny
+    sty main.temp.data__curr_column
+    lda main.temp.data__curr_board_row
+    sta main.temp.data__curr_line
+    lda #$00 // Stating animation frame 0
+    sta icon_dir_frame_offset
+    jsr verify_valid_move
+!next:
+    lda #$0C // Move 12 pixels to the right
+    sta main.temp.data__board_sprite_move_x_cnt
+    inc main.temp.data__curr_board_col
+    inc flag__new_square_selected
+!return:
+    rts
 
 // 8646
 set_square_left:
-    rts // TODO!!!!!!!!!
+    lda main.temp.data__curr_board_col
+    bmi !return+
+    beq !return+ // Already on first column?
+    tay
+    dey
+    sty main.temp.data__curr_column
+    lda main.temp.data__curr_board_row
+    sta main.temp.data__curr_line
+    lda #$11 // Stating animation frame 17
+    sta icon_dir_frame_offset
+    jsr verify_valid_move
+    lda #$8C // Move 12 pixels to the left
+    sta main.temp.data__board_sprite_move_x_cnt
+    dec main.temp.data__curr_board_col
+    inc flag__new_square_selected
+!return:
+    rts
 
 // 866C
 set_square_up:
-    rts // TODO!!!!!!!!!
+    lda main.temp.data__curr_board_row
+    beq !return+ // Already on first row?
+    tay
+    dey
+    sty main.temp.data__curr_line
+    lda main.temp.data__curr_board_col
+    sta main.temp.data__curr_column
+    lda flag__new_square_selected
+    cmp #$01
+    beq !next+ // Pefer left/right facing when moving diagonally
+    lda #$08  // Stating animation frame 8
+    sta icon_dir_frame_offset
+!next:
+    jsr verify_valid_move
+    lda #$90 // Move 16 pixels up
+    sta main.temp.data__board_sprite_move_y_cnt
+    dec main.temp.data__curr_board_row
+    lda #$01
+    sta flag__new_square_selected
+!return:
+    rts
 
 // 8699
 set_square_down:
-    rts // TODO!!!!!!!!!
+    lda main.temp.data__curr_board_row
+    cmp #$08 // Already on last row?
+    bcs !return+
+    tay
+    iny
+    sty main.temp.data__curr_line
+    lda main.temp.data__curr_board_col
+    sta main.temp.data__curr_column
+    lda flag__new_square_selected
+    cmp #$01
+    beq !next+ // Pefer left/right facing when moving diagonally
+    lda #$04 // Start animation frame 4
+    sta icon_dir_frame_offset
+!next:
+    jsr verify_valid_move
+    lda #$10 // Move down 16 pixels
+    sta main.temp.data__board_sprite_move_y_cnt
+    inc main.temp.data__curr_board_row
+    lda #$01
+    sta  flag__new_square_selected
+!return:
+    rts
+
+// 86C8
+// This method keeps track of movement and ensures an icon can only move a certain number of squares and also stops
+// the icon from moving in to an occupied sqaure.
+// Little bit naughty here - many of the subroutines include 4 PLAs before the RTS if the square cannot be selected.
+// The effect of this is to pull the return address for the subroutine and this subroutine from the stack and therefore
+// the RTS will return from the calling subroutine. The calling subroutine calls this sub just before adding to the
+// X or Y movement counters, so this stops the icon or sqaure from moving.
+// Prerequisites:
+// - Selected square column must be stored in `main.temp.data__curr_column`
+// - Selected square row must be stored in `main.temp.data__curr_line`
+verify_valid_move:
+    rts // TODO!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -834,13 +925,19 @@ curr_debounce_count: .byte $00 // Current debounce counter (used when debouncing
 delay_before_turn: .byte $00 // Delay before start of each turn can commence
 
 // BCFC
-flag__icon_selected: // An icon is currently selected for movemement
+flag__icon_selected: .byte $00 // An icon is currently selected for movemement
+
+// BCFD
+curr_icon_num_moves: .byte $00 // Selected icon number moves (+$40 if can cast spells, +$80 if can fly)
 
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
 
 // BD24
 imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark)
+
+// BD3D
+flag__new_square_selected: .byte $00 // Is set to non-zero if a new board square was selected
 
 // BD70
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
