@@ -666,9 +666,9 @@ intro_music:
 
 .namespace options {
     // BCC1
-    // Temporary AI setting flag. Is overridden if option timer expires. 
+    // Temporary AI setting flag. Is overridden if option timer expires.
     // Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
-    temp__ai_player_ctl: .byte $00 
+    temp__ai_player_ctl: .byte $00
 
     // BCC5
     // Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both

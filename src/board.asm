@@ -171,7 +171,7 @@ display_two_player:
     jmp common.check_option_keypress
 
 // 8965
-// Adds a icon to the board matrix.
+// Adds an icon to the board matrix.
 // Requires the board row and column to be set in the temp data.
 add_icon_to_matrix:
     ldy main.temp.data__curr_board_row
@@ -314,7 +314,7 @@ invert_bytes:
 // The following prerequisites are required:
 // - X register is loaded with the sprite number to be enabled.
 // - The sprite frame ofsfetis set
-// - The sprite location is set in `main_sprite_curr_x_pos` and ``main_sprite_curr_y_pos`.
+// - The sprite location is set in `common.sprite.curr_x_pos` and ``common.sprite.curr_y_pos`.
 render_sprite:
     txa
     asl
@@ -328,7 +328,7 @@ render_sprite:
 // 8D80
 // Places a sprite at a given location and enables the sprite.
 // The following prerequisites are required:
-// - The sprite location is set in `main_sprite_curr_x_pos` and `main_sprite_curr_y_pos`.
+// - The sprite location is set in `common.sprite.curr_x_pos` and `common.sprite.curr_y_pos`.
 // - X register is loaded with the sprite number to be enabled.
 // - Y register is loaded with 2 * the sprite number to be enabled.
 // The Y position is offset by 50 and X position is doubled and then offset by 24.
@@ -429,7 +429,7 @@ draw_square:
     bvs render_square // Disable icon render
     bpl render_icon
     // Only render icon for a given row and coloumn.
-    lda #FLAG_ENABLE // disable square render (set to icon offset to render a icon)
+    lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
     sta render_sqaure_icon_offset
     lda main.temp.data__curr_board_col
     cmp main.temp.data__curr_column
@@ -770,7 +770,7 @@ clear_text_row:
     rts
 
 // A0B1
-// Plays a icon movement or fire sound.
+// Plays an icon movement or fire sound.
 // Requires pointer to sound pattern in OLDTXT.
 play_icon_sound:
     ldx #$01

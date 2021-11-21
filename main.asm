@@ -537,6 +537,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 .namespace temp {
     // BCEE
     flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
+    data__curr_frame_adv_count: // Counter used to advance animation frame (every 4 pixels)
         .byte $00
 
     // BCFE
@@ -549,6 +550,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BD0D
     data__sprite_x_direction_offset_1: // Amount added to x plan to move sprite to the left or right (uses rollover)
+    flag__board_sprite_moved: // Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
         .byte $00
 
     // BD17
@@ -556,7 +558,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BD26
-    data__sprite_count: // Current sprite counter
+    data__curr_sprite_ptr: // Current sprite counter
         .byte $00
 
     // BD38
@@ -613,6 +615,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF32
     data__dark_icon_count: // Dark remaining icon count
+    data__board_sprite_final_y_pos: // Final Y position of sprite when moving pieces or selection sprite on the board
         .byte $00
 
     // BF33
@@ -621,6 +624,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF36
     data__light_icon_count: // Light remaining icon count
+    data__board_sprite_final_x_pos: // Final X position of sprite when moving pieces or selection sprite on the board
         .byte $00
 
     // BF37

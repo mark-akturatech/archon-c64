@@ -84,7 +84,7 @@ add_icon:
     jmp add_icon
 
 // 8EB0
-// Adds a icon to the board.
+// Adds an icon to the board.
 animate_icon:
     ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
     lda main.temp.data__curr_board_col
@@ -144,7 +144,7 @@ add_icon_to_board:
     sta main.temp.data__curr_x_pos
     ldx main.temp.data__num_icons
     dex
-    stx main.temp.data__sprite_count
+    stx main.temp.data__curr_sprite_ptr
 !loop:
     lda main.temp.data__curr_x_pos
     sta common.sprite.curr_x_pos,x
@@ -180,7 +180,7 @@ add_icon_to_board:
     lda #BLACK // Set multicolor background color to black
     sta SPMC0
     // Calculate starting Y position and color of each sprite.
-    ldx main.temp.data__sprite_count
+    ldx main.temp.data__curr_sprite_ptr
 !loop:
     lda SP0COL
     sta SP0COL,x
@@ -261,7 +261,7 @@ update_sprite:
     ldy #$FF
 !next:
     sty main.temp.data__sprite_x_direction_offset_1 // Set direction
-    ldx main.temp.data__sprite_count
+    ldx main.temp.data__curr_sprite_ptr
     lda main.temp.flag__alternating_state_1
     eor #$FF
     sta main.temp.flag__alternating_state_1
@@ -289,7 +289,7 @@ update_sprite_pos:
 next_sprite:
     dex
     bpl check_sprite // Set additional sprites
-    ldx main.temp.data__sprite_count
+    ldx main.temp.data__curr_sprite_ptr
     cpx main.temp.data__curr_count
     bne !next+
     //

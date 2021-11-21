@@ -258,8 +258,8 @@ check_game_state:
     jmp check_game_state
     //
 play_turn:
-    // 81F2  A9 01      lda  #$01 // TODO
-    // 81F4  8D 26 BD   sta  temp_data__sprite_count // idk yet
+    lda #$01 // Each turn can have up to 2 icons enabled - 00=icon sprite, and 01=square selection sprite
+    sta main.temp.data__curr_sprite_ptr
     lda #$00
     // 81F9  8D 09 BD   sta  WBD09 ??? // NFI! - seems to never get set
     sta game.state.flag__is_turn_started
@@ -509,8 +509,8 @@ interrupt_handler:
     lda #$00
     sta main.temp.data__dark_icon_count
     sta main.temp.data__light_icon_count
-    // sta  WBCFC // TODO unknown !!!!!
-    // sta  WBCF2 // TODO unknown !!!!!
+    sta flag__icon_selected
+    sta curr_debounce_count
     // Configure new player turn sound.
     tax
     ldy state.flag__is_light_turn
@@ -545,7 +545,7 @@ new_player_sound:
 !next:
     lda #$00
     // 83D7  8D 3D BD   sta WBD3D // TODO
-    // 83DA  8D 0D BD   sta temp_data__sprite_x_direction_offset_1
+    sta main.temp.flag__board_sprite_moved
     // Set player offset.
     tay
     lda state.flag__is_light_turn
@@ -560,13 +560,211 @@ new_player_sound:
     cmp state.flag__ai_player_ctl
     bne !next+
     jmp ai.board_cursor_to_icon
+    //
 !next:
     // Get joystick command. x=0 for joystick 2 and 1 for joystick 1.
     lda CIAPRA,x
     and #%0001_0000 // Fire button
-    // ... 83FD ... TODO
+    beq joystick_icon_select
+    // Fire button debounce delay countdown to stop accidental selection of piece while moving directly after selecting
+    // a piece.
+    lda curr_debounce_count
+    beq !next+
+    dec curr_debounce_count
+    jmp move_sprite_to_square
+!next:
+    sta flag__icon_selected
+    beq move_sprite_to_square
+joystick_icon_select:
+    // 840D  AD 0E BD   lda  WBD0E         // TODO I think??? this gets sets to various values by ai routines??
+    // 8410  C9 87      cmp  #$87
+    // 8412  F0 09      beq !next+
+    // 8414  AD 28 BF   lda  temp_data__current_board_col // ?? again AI?
+    // 8417  30 39      bmi  move_sprite_to_square
+    // 8419  C9 09      cmp  #$09
+    // 841B  B0 35      bcs  move_sprite_to_square
+!next:
+    lda flag__icon_selected
+    bmi move_sprite_to_square
+    // Don't select icon if selection square is still moving (ie not directly over an icon).
+    lda main.temp.data__board_sprite_final_x_pos
+    ora main.temp.data__board_sprite_final_y_pos
+    and #$7F
+    bne move_sprite_to_square
+    // Select icon.
+    lda #$80
+    sta flag__icon_selected
+    lda #$10 // Wait 10 interrupts before allowing icon destination sqaure selection
+    sta curr_debounce_count
+    // 8436  20 0D 87   jsr  W870D // TODO
+    // 8439  AD FE BC   lda  temp_data__curr_count
+    // 843C  30 0B      bmi !next+
+    // 843E  AD 3D BD   lda  WBD3D   // message id (but can be +80 for flag as well as is anded with 7F)
+    // 8441  10 0F      bpl  move_sprite_to_square
+    // 8443  20 53 89   jsr  W8953   // show message and preserve X (but not a)
+    jmp common.complete_interrupt
+!next:
+    // 8449  8D D0 BC   sta  main_state_flag_update_state
+    // 844C  8D 55 BD   sta  WBD55
+    jmp  common.complete_interrupt
+    //
+move_sprite_to_square:
+    lda curr_player_offset
+    eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
+    tax
+    // 8458  AD FD BC   lda  WBCFD // TODO
+    // 845B  F0 0F      beq  game_check_joystick_left_right
+    // 845D  30 0D      bmi  game_check_joystick_left_right
+    // 845F  AD 36 BF   lda  temp_data__light_piece_count
+    // 8462  0D 32 BF   ora  temp_data__dark_piece_count
+    // 8465  29 7F      and  #$7F
+    // 8467  F0 03      beq  game_check_joystick_left_right
+    // 8469  4C C7 84   jmp  game_set_sprite_square_position
+check_joystick_left_right:
+    lda  CIAPRA,x
+    pha // Put joystick status on stack
+    // 8470  AD 0E BD   lda  WBD0E // TODO
+    // 8473  C9 87      cmp  #$87
+    // 8475  F0 2E      beq check_joystick_up_down
+    // Disable joystick left/right movement if sprite has not reached X direction final position.
+    lda main.temp.data__board_sprite_final_x_pos
+    and #$7F
+    bne move_up_down
+    pla
+    pha
+    and  #$08 // Joystick right
+    bne !next+
+    jsr set_square_right
+    jmp move_up_down
+!next:
+    pla
+    pha
+    and #$04 // Joystick left
+    bne move_up_down
+    jsr set_square_left
+move_up_down:
+    // 8493  AD FD BC   lda WBCFD  // TODO
+    // 8496  F0 0D      beq check_joystick_up_down
+    // 8498  30 0B      bmi check_joystick_up_down
+    // 849A  AD 3D BD   lda  WBD3D
+    // 849D  F0 06      beq check_joystick_up_down
+    // 849F  30 04      bmi check_joystick_up_down
+    // pla
+    // jmp  set_sprite_square_position
+    // Disable joystick up/down movement if sprite has not reached Y direction final position.
+check_joystick_up_down:
+    lda main.temp.data__board_sprite_final_y_pos
+    and #$7F
+    beq !next+
+    pla
+    jmp set_sprite_square_position
+!next:
+    pla
+    lsr // Joystick up (bit 1 set)
+    pha
+    bcs !next+
+    jsr set_square_up
+!next:
+    pla
+    lsr // Joystick down (bit 2 set)
+    bcs !next+
+    jsr set_square_down
+//
+!next:
+    // 84BF  AD 3D BD   lda  WBD3D  // TODO
+    // 84C2  10 03      bpl  set_sprite_square_position
+    // 84C4  20 53 89   jsr  W8953   // ?? display message again - why
+set_sprite_square_position:
+    ldx main.temp.data__curr_sprite_ptr // 01 if moving selection sqaure, 00 if moving icon
+    lda main.temp.data__board_sprite_final_x_pos // Number of pixels to move in x direction ($00-$7f for right, $ff-80 for left)
+    beq !next+
+    bmi check_move_sprite_left
+    // Move sprite right.
+    inc common.sprite.curr_x_pos,x
+    dec main.temp.data__board_sprite_final_x_pos
+    inc main.temp.flag__board_sprite_moved
+    bpl !next+
+check_move_sprite_left:
+    and #$7F
+    beq !next+
+    // Move sprite left.
+    dec common.sprite.curr_x_pos,x
+    dec main.temp.data__board_sprite_final_x_pos
+    inc main.temp.flag__board_sprite_moved
+!next:
+    lda main.temp.data__board_sprite_final_y_pos // Number of pixels to move in y direction ($00-$7f for down, $ff-80 for up)
+    beq !next+
+    bmi check_move_sprite_up
+    // Move sprite down.
+    inc common.sprite.curr_y_pos,x
+    dec main.temp.data__board_sprite_final_y_pos
+    inc main.temp.flag__board_sprite_moved
+    bpl !next+
+check_move_sprite_up:
+    and #$7F
+    beq !next+
+    // Move sprite up.
+    dec common.sprite.curr_y_pos,x
+    dec main.temp.data__board_sprite_final_y_pos
+    inc main.temp.flag__board_sprite_moved
+!next:
+    lda main.temp.flag__board_sprite_moved
+    bne !next+
+    // Stop sound and reset current animation frame when movemement stopped.
+    sta common.sprite.curr_animation_frame,x // A = 00
+    cpx #$01 // X is 01 if moving sqaure, 00 for moving icon
+    beq render_selected_sprite
+    sta common.sound.flag__enable_voice
+    sta VCREG1
+    sta common.sound.new_note_delay
+    jmp render_selected_sprite
+!next:
+    // 8520  AD 0E BD   lda  WBD0E // AI moving?  TODO
+    // 8523  30 03      bmi !next+
+    // 8525  20 48 89   jsr board.clear_text_row
+!next:
+    cpx #$01 // X is 01 if moving sqaure, 00 for moving icon
+    beq render_selected_sprite
+    // Set animation frame for selected icon and increment frame after 4 pixels of movement.
+    // The selected initial frame is dependent on the direction of movement.
+    lda icon_dir_frame_offset
+    sta common.sprite.init_animation_frame,x
+    inc main.temp.data__curr_frame_adv_count
+    lda main.temp.data__curr_frame_adv_count
+    and #$03
+    cmp #$03
+    bne render_selected_sprite
+    inc common.sprite.curr_animation_frame,x
+    // Configure movement sound effect for selected piece.
+    lda #$80
+    cmp common.sound.flag__enable_voice
+    beq render_selected_sprite
+    sta common.sound.flag__enable_voice
+    lda #$00
+    sta common.sound.new_note_delay
+    lda board.sound.pattern_lo_ptr
+    sta OLDTXT
+    lda board.sound.pattern_hi_ptr
+    sta OLDTXT+1
+render_selected_sprite:
+    jsr board.render_sprite
+    jmp common.complete_interrupt
 
-    jmp common.complete_interrupt // TODO - remove!
+// 861E
+set_square_right:
+    rts // TODO!!!!!!!!!
+
+// 8646
+set_square_left:
+    rts // TODO!!!!!!!!!
+
+// 866C
+set_square_up:
+    rts // TODO!!!!!!!!!
+
+// 8699
+set_square_down:
+    rts // TODO!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -620,14 +818,23 @@ new_player_sound:
 //
 .segment DynamicData
 
+// BCEB
+icon_dir_frame_offset: .byte $00 // Icon direction initial sprite frame offset
+
 // BCED
 flag__round_complete: .byte $00 // Toggles after each play so is high after both players had completed thier turn
 
 // BCDE
 curr_player_offset: .byte $00 // Is 0 for player 1 and 1 for player 2. Used mostly as a memory offset index.
 
+// BCF2
+curr_debounce_count: .byte $00 // Current debounce counter (used when debouncing fire button presses)
+
 // BCF3
 delay_before_turn: .byte $00 // Delay before start of each turn can commence
+
+// BCFC
+flag__icon_selected: // An icon is currently selected for movemement
 
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
