@@ -1,7 +1,7 @@
 .filenamespace ai
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for board and fight gameplay AI.
+// Contains routines for board and challenge gameplay AI.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"

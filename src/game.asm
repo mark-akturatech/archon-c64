@@ -100,7 +100,7 @@ entry:
     lda (FREEZP),y // Get ID of icon on magic square
     bmi !check_win_next+ // Square unoccupied
     // This is clever - continually OR $40 for light or $80 for dark. If all squares are occupied by the same player
-    // then the result should be $40 or $80. If sqaures are occupied by multiple players, the result will be $C0
+    // then the result should be $40 or $80. If squares are occupied by multiple players, the result will be $C0
     // (ie $80 OR $40) and therefore no winner.
     ldy #$40
     cmp #$12
@@ -160,7 +160,7 @@ entry:
     jmp !check_win_next+
 round_complete:
     // Counter is loaded with $FC when both sides first have 3 players or less left. The counter is decremented
-    // after each side has moved. The coutner is reset though when a fight occurs. If the counter reaches ($F0)
+    // after each side has moved. The coutner is reset though when a challenge occurs. If the counter reaches ($F0)
     // then the game is a stalemate. It is loaded with $FC instead of $12 so we can differentiate beteew a 0 (ie
     // not set) and $F0 (ie stalemate).
     lda curr_stalemate_count
@@ -194,7 +194,7 @@ check_light_icons:
     jsr regenerate_hitpoints
 !next:
     // Increase strength of all icons on magic squares.
-    ldx #$04 // 5 magic sqaures (0 offset)
+    ldx #$04 // 5 magic squares (0 offset)
 !loop:
     ldy board.data.magic_square_col,x
     lda data.row_occupancy_lo_ptr,y
@@ -263,8 +263,8 @@ play_turn:
     lda #$00
     sta curr_icon_move_speed
     sta game.state.flag__is_turn_started
-    sta flag__is_battle_required
-    sta curr_icon_num_moves
+    sta flag__is_challenge_required
+    sta curr_icon_total_moves
     sta curr_spell_cast_selection
     sta flag__icon_can_cast
     ldx #$05 // Short delay before start of turn
@@ -295,7 +295,7 @@ play_turn:
     sta main.temp.data__curr_icon_col
     sta icon_move_col_buffer
     ldy main.temp.data__curr_board_row
-    sty main.temp.data__curr_icon_col
+    sty main.temp.data__curr_icon_row
     sty icon_move_row_buffer
     // Copy sprite animation set for selected icon in to graphical memory.
     ldx #$00
@@ -303,11 +303,141 @@ play_turn:
     jsr board.sprite_initialize
     lda #$36
     sta board.sprite.copy_length
-
-    // 8258... TODO
-    // ...
-    jmp wait_for_state_change // TODO: delete this
-    jmp play_turn // TODO: delete this
+    // 8258  20 DE 8B   jsr  W8BDE // TODO move sprite set to graphics area
+    // detect if piece can move?
+    ldx board.icon.offset
+    lda board.icon.number_moves,x
+    sta curr_icon_total_moves
+    bmi select_icon // Selected icon can fly - don't need to check surrounding squares
+    // Check if piece is surrounded by the same player icons and cannot move.
+    jsr board.surrounding_squares_coords
+    ldx #$07 // Starting at 7 and reducing by 2 means we do not check the diagonal our selected icon sqaures
+!loop:
+    // Check if adjacent square is occupied by an icon of the same color or is off board.
+    lda board.surrounding_square_row,x
+    bmi !next+
+    cmp #$09
+    bcs !next+
+    tay
+    lda board.surrounding_square_column,x
+    bmi !next+
+    cmp #$09
+    bcs !next+
+    jsr get_square_occupancy
+    bmi select_icon // Empty adjacent square found
+    tay
+    lda board.icon.init_matrix,y
+    eor state.flag__is_light_turn
+    and #$08
+    bne select_icon // Adjacent enemy piece found
+!next:
+    dex
+    dex
+    bpl !loop-
+    // Show cannot move warning.
+    ldx #CHARS_PER_SCREEN_ROW
+    lda #STRING_CANNOT_MOVE
+    jsr board.write_text
+    jsr board.add_icon_to_matrix
+    ldx #$60 // Wait for approximately 1 second
+    jsr common.wait_for_jiffy
+    jsr board.clear_text_area
+    jmp play_turn
+select_icon:
+    bit curr_icon_total_moves
+    bvs set_icon_speed // Don't remove piece from board if selected icon can teleport
+    jsr board.draw_board
+    lda #$00 // 00 for moving select icon (01 for moving selection square)
+    sta main.temp.data__curr_sprite_ptr
+    // Configure and enable selected icon sprite.
+    lda SPMC
+    ora #%0000_0001
+    sta SPMC
+    lda XXPAND
+    and #%11111_1110
+    sta XXPAND
+    lda SPENA
+    ora #%0000_0001
+    sta SPENA
+set_icon_speed:
+    lda #$00
+    sta curr_icon_move_speed
+    lda board.icon.offset
+    and #$07
+    cmp #$03 // Golem or Troll?
+    bne !next+
+    inc curr_icon_move_speed // Slow down movement of golem and troll
+!next:
+    // W82DD: // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 82DD  AD C0 BC   lda  state.flag__ai_player_ctl
+    // 82E0  CD C6 BC   cmp  state.flag__is_light_turn
+    // 82E3  D0 53      bne  configure_selected_icon
+    // AI piece selection.
+    // 82E5  AD FD BC   lda  curr_icon_total_moves
+    // 82E8  30 20      bmi  W830A
+    // 82EA  AC 38 BD   ldy  temp_data__num_icons
+    // 82ED  B9 32 BD   lda  WBD32,y
+    // 82F0  A0 00      ldy  #$00
+    // W82F2:
+    // 82F2  38         sec
+    // 82F3  E9 09      sbc  #$09
+    // 82F5  90 03      bcc  W82FA
+    // 82F7  C8         iny
+    // 82F8  B0 F8      bcs  W82F2
+    // W82FA:
+    // 82FA  69 09      adc  #$09
+    // 82FC  A2 04      ldx  #$04
+    // 82FE  20 22 64   jsr board.convert_coord_sprite_pos
+    // 8301  8D 17 BD   sta  main_temp_data__sprite_final_x_pos
+    // 8304  8C 15 BD   sty  intro_sprite_final_y_pos
+    // 8307  CE 38 BD   dec  temp_data__num_icons
+    // W830A:
+    // 830A  AE 22 BF   ldx  flag__sprites_initialized
+    // 830D  BD 5B BE   lda  WBE5B,x
+    // 8310  8D 28 BD   sta  WBD28
+    // 8313  BC 6D BE   ldy  WBE6D,x
+    // 8316  8C 29 BD   sty  WBD29
+    // 8319  AE FD BC   ldx  curr_icon_total_moves
+    // 831C  10 1A      bpl  configure_selected_icon
+    // 831E  A2 04      ldx  #$04
+    // 8320  20 22 64   jsr board.convert_coord_sprite_pos
+    // 8323  2C FD BC   bit  curr_icon_total_moves
+    // 8326  50 0A      bvc  W8332
+    // 8328  38         sec
+    // 8329  E9 02      sbc  #$02
+    // 832B  48         pha
+    // 832C  98         tya
+    // 832D  38         sec
+    // 832E  E9 01      sbc  #$01
+    // 8330  A8         tay
+    // 8331  68         pla
+    // W8332:
+    // 8332  8D 17 BD   sta  main_temp_data__sprite_final_x_pos
+    // 8335  8C 15 BD   sty  intro_sprite_final_y_pos
+    //
+configure_selected_icon:
+    ldx #$00
+    stx curr_icon_move_count
+    jsr board.get_sound_for_icon
+    jsr wait_for_state_change
+    //
+    // Icon destination selected.
+    lda curr_spell_cast_selection
+    beq !next+
+    // 8348  20 B4 67   jsr  W67B4 // TODO: Cast spell
+!next:
+    lda flag__icon_can_cast
+    bpl end_turn
+    ldx board.icon.type
+    lda board.icon.init_matrix,x
+    sta board.icon.offset
+    // 8359  20 7B 89   jsr  W897B // TODO: transport spell caster
+end_turn:
+    lda flag__is_challenge_required
+    bmi !next+
+    jmp entry
+!next:
+    jmp challenge.entry
 
 // 64EB
 // Regenerate hitpoints for all icons of the current player.
@@ -619,7 +749,7 @@ joystick_icon_select:
     // Select icon.
     lda #$80
     sta flag__icon_selected
-    lda #$10 // Wait 10 interrupts before allowing icon destination sqaure selection
+    lda #$10 // Wait 10 interrupts before allowing icon destination square selection
     sta curr_debounce_count
     jsr select_or_move_icon
     lda main.temp.flag__icon_destination_valid
@@ -638,7 +768,7 @@ move_sprite_to_square:
     eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
     tax
     // The icon select cursor can move diagonally. Icons cannot.
-    lda curr_icon_num_moves
+    lda curr_icon_total_moves
     beq check_joystick_left_right
     bmi check_joystick_left_right
     // Don't bother checking joystick position until we reach the previously selected square.
@@ -670,7 +800,7 @@ check_joystick_left_right:
     bne move_up_down
     jsr set_square_left
 move_up_down:
-    lda curr_icon_num_moves
+    lda curr_icon_total_moves
     beq check_joystick_up_down
     bmi check_joystick_up_down
     lda flag__new_square_selected
@@ -702,7 +832,7 @@ check_joystick_up_down:
     bpl set_sprite_square_position
     jsr show_selection_error_message
 set_sprite_square_position:
-    ldx main.temp.data__curr_sprite_ptr // 01 if moving selection sqaure, 00 if moving icon
+    ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
     lda main.temp.data__board_sprite_move_x_cnt // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
     bmi check_move_sprite_left
@@ -739,7 +869,7 @@ check_move_sprite_up:
     bne !next+
     // Stop sound and reset current animation frame when movemement stopped.
     sta common.sprite.curr_animation_frame,x // A = 00
-    cpx #$01 // X is 01 if moving sqaure, 00 for moving icon
+    cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
     sta common.sound.flag__enable_voice
     sta VCREG1
@@ -750,7 +880,7 @@ check_move_sprite_up:
     bmi !next+
     jsr board.clear_text_row
 !next:
-    cpx #$01 // X is 01 if moving sqaure, 00 for moving icon
+    cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
     // Set animation frame for selected icon and increment frame after 4 pixels of movement.
     // The selected initial frame is dependent on the direction of movement.
@@ -869,17 +999,52 @@ set_square_down:
     rts
 
 // 86C8
-// This method keeps track of movement and ensures an icon can only move a certain number of squares and also stops
-// the icon from moving in to an occupied sqaure.
+// This method keeps track of movement and ensures an icon can only move a certain number of squares and reports
+// errors if the icon cannot move, the square is occupied or the square requires a challenge.
 // Little bit naughty here - many of the subroutines include 4 PLAs before the RTS if the square cannot be selected.
 // The effect of this is to pull the return address for the subroutine and this subroutine from the stack and therefore
 // the RTS will return from the calling subroutine. The calling subroutine calls this sub just before adding to the
-// X or Y movement counters, so this stops the icon or sqaure from moving.
+// X or Y movement counters, so this stops the icon or square from moving.
 // Prerequisites:
 // - Selected square column must be stored in `main.temp.data__curr_column`
-// - Selected square row must be stored in `main.temp.data__curr_line`
+// - Selected square row must be stored in `main.temp.data__curr_row`
+// - Current number of moves held in `curr_icon_move_count`
+// - Total number of moves held in `curr_icon_total_moves`
+// - Path of previous moves stored in `icon_move_col_buffer` and `icon_move_row_buffer`
 verify_valid_move:
-    rts // TODO!!!!!!!!!!!
+    lda curr_icon_total_moves
+    beq !return+
+    bmi check_move_limit // Can fly? Skip occupied square check on move.
+    // Reduce move counter if piece moved back to same square as last move.
+    ldy curr_icon_move_count
+    beq check_occupied_on_move
+    dey
+    lda icon_move_col_buffer,y
+    cmp main.temp.data__curr_column
+    bne check_occupied_on_move
+    lda icon_move_row_buffer,y
+    cmp main.temp.data__curr_row
+    bne check_occupied_on_move
+    dec curr_icon_move_count
+    rts
+check_occupied_on_move:
+    jsr warn_on_challenge
+    jsr warn_on_move_limit_reached
+    jsr warn_on_occupied_square
+    // Store the move so that we can check the move path to calculate the total number of moves.
+    inc curr_icon_move_count
+    ldy curr_icon_move_count
+    lda main.temp.data__curr_row
+    sta icon_move_row_buffer,y
+    lda main.temp.data__curr_column
+    sta icon_move_col_buffer,y
+    rts
+check_move_limit:
+    cmp #$8F // Skip move limit check (eg when a piece is transported)
+    beq !return+
+    jsr warn_on_diagonal_move_exceeded
+!return:
+    rts
 
 // 870D
 // Selects an icon on joystick fire button or moves a selected icon to the selected destination on joystick fire.
@@ -892,15 +1057,15 @@ select_or_move_icon:
     jsr get_square_occupancy
     ldx curr_spell_cast_selection // Magic caster selected
     beq !next+
-    // 8720  4C BC 87   jmp  W87BC   // TODO cast spell TODO
+    // 8720  4C BC 87   jmp  W87BC   // TODO select spell TODO
 !next:
-    ldx curr_icon_num_moves // is 0 when char is first selected
+    ldx curr_icon_total_moves // is 0 when char is first selected
     beq select_icon_to_move
 check_icon_destination:
     cmp #BOARD_EMPTY_SQUARE
     // Note that square will be empty if drop of selected piece source square. We'll check for that later.
     beq select_icon_destination
-    sta curr_battle_icon_type
+    sta curr_challenge_icon_type
     tay
     lda board.icon.init_matrix,y
     eor state.flag__is_light_turn
@@ -908,10 +1073,10 @@ check_icon_destination:
     beq !return+ // Do nothing if click on occupied square of same color
     lda #FLAG_ENABLE // Valid action
     sta main.temp.flag__icon_destination_valid
-    sta flag__is_battle_required
-    // Set flag if icon transports instead of moves. Used to determine if should show icon moving between sqaures or
-    // keep the current sqaure selection icon.
-    lda curr_icon_num_moves
+    sta flag__is_challenge_required
+    // Set flag if icon transports instead of moves. Used to determine if should show icon moving between squares or
+    // keep the current square selection icon.
+    lda curr_icon_total_moves
     and #ICON_CAN_CAST
     asl
     sta flag__icon_can_cast
@@ -925,14 +1090,14 @@ select_icon_destination:
     lda main.temp.data__curr_board_row
     cmp main.temp.data__curr_icon_row
     bne set_icon_destination
-    bit curr_icon_num_moves
+    bit curr_icon_total_moves
     bvc !return+ // Don't allow drop on selected piece source square if not a spell caster
     // If spell caster is selected, set spell cast mode if source square selected as destination
     lda #FLAG_ENABLE
     sta curr_spell_cast_selection
     bmi add_icon_to_destination
 set_icon_destination:
-    lda curr_icon_num_moves
+    lda curr_icon_total_moves
     and #ICON_CAN_CAST
     asl
     sta flag__icon_can_cast
@@ -947,7 +1112,7 @@ add_icon_to_destination:
     rts
     //
 select_icon_to_move:
-    // Ignore if no icon in selected source sqaure
+    // Ignore if no icon in selected source square
     cmp #BOARD_EMPTY_SQUARE
     beq !return-
     sta board.icon.type
@@ -987,6 +1152,97 @@ get_square_occupancy:
     lda (FREEZP),y
     rts
 
+// 88Bf
+// Challenge warning is only shown if try to move off a square occupied by the other player. The player must either
+// challenge or move to the previous square they were in to continue moving.
+warn_on_challenge:
+    ldy main.temp.data__curr_board_row
+    lda main.temp.data__curr_board_col
+    jsr get_square_occupancy
+    cmp #BOARD_EMPTY_SQUARE
+    beq !return+
+    tay
+    lda board.icon.init_matrix,y
+    eor state.flag__is_light_turn
+    and #$08
+    beq !return+
+    lda #(FLAG_ENABLE + STRING_CHALLENGE_FOE)
+    sta flag__new_square_selected
+    pla // Abort move
+    pla
+    pla
+    pla
+!return:
+    rts
+
+// 88E1
+// Detect if the destination square is already occupied by an icon for the same player. Abort the move it is is.
+warn_on_occupied_square:
+    ldy main.temp.data__curr_row
+    lda main.temp.data__curr_column
+    jsr get_square_occupancy
+    cmp #BOARD_EMPTY_SQUARE
+    beq !return+
+    tay
+    lda board.icon.init_matrix,y
+    eor state.flag__is_light_turn
+    and #$08
+    bne !return+
+    lda #(FLAG_ENABLE + STRING_SQUARE_OCCUPIED)
+    sta flag__new_square_selected
+    pla // Abort move
+    pla
+    pla
+    pla
+!return:
+    rts
+
+// 8903
+// Calculate if diagonal move limit exceeded.
+warn_on_diagonal_move_exceeded:
+    lda main.temp.data__curr_column
+    sec
+    sbc main.temp.data__curr_icon_col
+    bcs !next+
+    eor #$FF
+    adc #$01
+!next:
+    sta main.temp.data__math_store_1
+    lda main.temp.data__curr_row
+    sec
+    sbc main.temp.data__curr_icon_row
+    bcs !next+
+    eor #$FF
+    adc #$01
+!next:
+    sta main.temp.data__math_store_2
+    //
+    lda curr_icon_total_moves
+    and #$3F
+    cmp main.temp.data__math_store_1
+    bcc show_limit_reached_message
+    cmp main.temp.data__math_store_2
+    bcs !return+
+show_limit_reached_message:
+    lda #(FLAG_ENABLE + STRING_LIMIT_MOVED)
+    sta flag__new_square_selected
+    pla // Abort move
+    pla
+    pla
+    pla
+!return:
+    rts
+
+// 893C
+// Incremenet the move counter and display the limit reached warning if the player has no more moves left.
+warn_on_move_limit_reached:
+    ldy curr_icon_move_count
+    iny
+    cpy curr_icon_total_moves
+    bcc !return-
+    bne show_limit_reached_message
+    rts
+
 // 8953
 // Displays an error message on piece selection. The message has $80 added to it and is stored in
 // `flag__new_square_selected`. This method specifically preserves the X register.
@@ -997,7 +1253,7 @@ show_selection_error_message:
     ldx #CHARS_PER_SCREEN_ROW
     lda flag__new_square_selected
     and #$7F
-    jsr board.write_text      
+    jsr board.write_text
     pla
     tax
     rts
@@ -1073,13 +1329,13 @@ delay_before_turn: .byte $00 // Delay before start of each turn can commence
 flag__icon_selected: .byte $00 // An icon is currently selected for movemement
 
 // BCFD
-curr_icon_num_moves: .byte $00 // Selected icon number moves (+$40 if can cast spells, +$80 if can fly)
+curr_icon_total_moves: .byte $00 // Selected icon total number moves (+$40 if can cast spells, +$80 if can fly)
 
 // BCFF
-flag__is_battle_required: .byte $00 // Is enabled if the icon must battle for the destination square
+flag__is_challenge_required: .byte $00 // Is enabled if the icon must challenge for the destination square
 
 // BD00
-curr_battle_icon_type: .byte $00 // Type of selected icon to battle for the destination square
+curr_challenge_icon_type: .byte $00 // Type of selected icon to challenge for the destination square
 
 // BD09
 curr_icon_move_speed: .byte $00 // Delay between movement for selected icon. Is only delayed for Golem and Troll.
@@ -1108,6 +1364,9 @@ curr_square_occupancy: .fill BOARD_NUM_ROWS*BOARD_NUM_COLS, $00 // Board square 
 
 // BDFD
 curr_icon_strength: .fill BOARD_NUM_ICONS, $00 // Current strength of each board icon
+
+// BEA1
+curr_icon_move_count: .byte $00 // Selected icon number of moves made in current turn
 
 // BEA2
 // Stores each column the icon enters as it is being moved. Used to calculate number of moves.

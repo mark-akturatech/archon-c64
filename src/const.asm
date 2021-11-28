@@ -107,10 +107,10 @@
 .const STRING_CMD_NEWLINE = $80     // New line (row and column offset follow)
 
 // .const STRING_NO_SPELLS = 00
-// .const STRING_CANNOT_MOVE = 01
-// .const STRING_CHALLENGE_FOE = 02
-// .const STRING_LIMIT_MOVED = 03
-// .const STRING_SQUARE_OCCUPIED = 04
+.const STRING_CANNOT_MOVE = 01
+.const STRING_CHALLENGE_FOE = 02
+.const STRING_LIMIT_MOVED = 03
+.const STRING_SQUARE_OCCUPIED = 04
 // .const STRING_SPELL_DONE = 05
 // .const STRING_LIGHT_WINS = 06
 // .const STRING_DARK_WINS = 07

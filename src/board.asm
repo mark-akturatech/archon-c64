@@ -11,7 +11,7 @@
 
 // 62EB
 // Gets sound for the current icon.
-// X may be 0 or 1, allowing sound to be retrieved for both icons in a battle.
+// X may be 0 or 1, allowing sound to be retrieved for both icons in a challenge battle.
 get_sound_for_icon:
     ldy icon.offset,x
     lda sound.icon_pattern,y
@@ -170,6 +170,36 @@ display_two_player:
     jsr write_text
     jmp common.check_option_keypress
 
+// 6C7C
+// Fills an array of rows and columns with the coordinates of the squares surrounding the current square. Requires:
+// - `main.temp.data__curr_icon_row` set with row of source square
+// - `main.temp.data__curr_icon_col` set with column of source square
+// Note that the array also includes the source square.
+surrounding_squares_coords:
+    ldx #$08 // 9 squares (0 offset)
+    ldy main.temp.data__curr_icon_row
+    iny
+    sty main.temp.data__curr_row
+!row_loop:
+    ldy main.temp.data__curr_icon_col
+    iny
+    sty main.temp.data__curr_column
+    ldy #$03
+!column_loop:
+    lda main.temp.data__curr_row
+    sta surrounding_square_row,x
+    lda main.temp.data__curr_column
+    sta surrounding_square_column,x
+    dex
+    bmi !return+
+    dec main.temp.data__curr_column
+    dey
+    bne !column_loop-
+    dec main.temp.data__curr_row
+    jmp !row_loop-
+!return:
+    rts
+
 // 8965
 // Adds an icon to the board matrix.
 // Requires the board row and column to be set in the temp data.
@@ -202,6 +232,7 @@ add_sprite_to_graphics:
     lda sprite.copy_source_hi_ptr,x
     adc sprite.frame_offset+1,y
     sta FREEZP+1
+// 8C85 // TODO
 //     lda  board_sprite_flag__copy_animation_group // TODO!!!!!!!!!!!!! - I think the copy below copies and entire sprite icon set
 //     bmi  board_move_sprite
 //     cpx  #$02
@@ -214,17 +245,17 @@ add_sprite_to_graphics:
 //     cmp  #$06
 //     bne  W8CA3
 //     lda  #$FF
-//     sta  board_sprite_copy_length
+//     sta  board_sprite.copy_length
 //     jmp  board_move_sprite
 
 // W8CA3:
 //     ldy  #$00
 // W8CA5:
-//     lda  main_temp_data__character_sprite_frame
+//     lda  main.temp.data__sprite_x_direction_offset
 //     bpl  W8CBF
 //     lda  #$08
 //     sta  temp_data__curr_color
-//     lda  (io_FREEZP),y
+//     lda  (FREEZP),y
 //     sta  temp_ptr__sprite
 // W8CB4:
 //     ror  temp_ptr__sprite
@@ -233,13 +264,13 @@ add_sprite_to_graphics:
 //     bne  W8CB4
 //     beq  W8CC1
 // W8CBF:
-//     lda  (io_FREEZP),y
+//     lda  (FREEZP),y
 // W8CC1:
-//     sta  (io_FREEZP+2),y
-//     inc  io_FREEZP+2
-//     inc  io_FREEZP+2
+//     sta  (FREEZP+2),y
+//     inc  FREEZP+2
+//     inc  FREEZP+2
 //     iny
-//     cpy  board_sprite_copy_length
+//     cpy  board_sprite.copy_length
 //     bcc  W8CA5
 //     rts
 move_sprite:
@@ -385,7 +416,7 @@ set_player_color:
 // 9076
 // Draws the board squares and renders the occupied characters on the board. The squares are colored according to the
 // color matrix and the game current color phase.
-// Each sqaure is 3 characters wide and 2 characters high.
+// Each square is 3 characters wide and 2 characters high.
 draw_board:
     ldx #$02
 !loop:
@@ -430,7 +461,7 @@ draw_square:
     bpl render_icon
     // Only render icon for a given row and coloumn.
     lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
-    sta render_sqaure_icon_offset
+    sta render_square_icon_offset
     lda main.temp.data__curr_board_col
     cmp main.temp.data__curr_column
     bne draw_empty_square
@@ -443,18 +474,18 @@ render_icon:
     tax
     lda icon.init_matrix,x  // Get icon dot data offset
 !next:
-    sta render_sqaure_icon_offset
+    sta render_square_icon_offset
     bmi draw_empty_square
     // Here we calculate the icon starting icon. We do this as follows:
     // - Set $60 if the icon has a light or variable color background
     // - Multiply the icon offset by 6 to allow for 6 characters per icon type
     // - Add both together to get the actual icon starting offset
     ldx #$06 // Each icon compriss a block 6 characters (3 x 2)
-    lda (CURLIN),y  // Get sqaure background color (will be 0 for dark, 60 for light and variable)
+    lda (CURLIN),y  // Get square background color (will be 0 for dark, 60 for light and variable)
     and #$7F
 !loop:
     clc
-    adc render_sqaure_icon_offset
+    adc render_square_icon_offset
     dex
     bne !loop-
     sta main.temp.data__board_icon_char_offset
@@ -466,8 +497,8 @@ draw_empty_square:
 render_square:
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
     // - offset = row offset + (current column * 2) + current column
-    // We call `render_sqaure_row` which draws 2 characters. We then increase the offset by 40 (moves to next line)
-    // and call `render_sqaure_row` again to draw the next two characters.
+    // We call `render_square_row` which draws 2 characters. We then increase the offset by 40 (moves to next line)
+    // and call `render_square_row` again to draw the next two characters.
     lda (CURLIN),y
     bmi !next+
     lda data.square_colors__square+1
@@ -482,14 +513,14 @@ render_square:
     clc
     adc main.temp.data__curr_column
     tay
-    jsr draw_sqaure_part
+    jsr draw_square_part
     lda main.temp.data__curr_column
     asl
     clc
     adc main.temp.data__curr_column
     adc #CHARS_PER_SCREEN_ROW
     tay
-    jsr draw_sqaure_part
+    jsr draw_square_part
     //
     dec main.temp.data__curr_column
     bpl draw_square
@@ -498,7 +529,7 @@ render_square:
     jmp draw_row
 !return:
     rts
-draw_sqaure_part: // Draws 3 characters of the current row.
+draw_square_part: // Draws 3 characters of the current row.
     lda #$03
     sta main.temp.data__counter
 !loop:
@@ -509,7 +540,7 @@ draw_sqaure_part: // Draws 3 characters of the current row.
     ora main.temp.data__curr_square_color_code
     sta (VARPNT),y
     iny
-    lda render_sqaure_icon_offset
+    lda render_square_icon_offset
     bmi !next+
     inc main.temp.data__board_icon_char_offset
 !next:
@@ -689,7 +720,7 @@ create_magic_square_sprite:
 draw_magic_square:
     ldy magic_square_counter
     iny
-    cpy #$05 // Total number of magic sqaures
+    cpy #$05 // Total number of magic squares
     bcc !next+
     ldy #$00
 !next:
@@ -879,7 +910,7 @@ interrupt_handler__play_music:
 
     // 0B5D
     .enum { DARK = $00, LITE = $60, VARY = $E0 }
-    sqaure_color: // Board sqaure colors
+    square_color: // Board square colors
         .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
         .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
         .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
@@ -901,7 +932,7 @@ interrupt_handler__play_music:
         .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
 
     // 9071
-    square_colors__square: // Board sqaure colors
+    square_colors__square: // Board square colors
         .byte BLACK, WHITE
 
     // 9073
@@ -917,19 +948,19 @@ interrupt_handler__play_music:
         .fill BOARD_NUM_COLS, >(SCNMEM + ROW_START_OFFSET + i * ROWS_PER_SQUARE * CHARS_PER_SCREEN_ROW)
 
     // BED2
-    row_color_offset_lo_ptr: // Low byte memory offset of sqaure color data for each board row
-        .fill BOARD_NUM_COLS, <(sqaure_color + i * BOARD_NUM_COLS)
+    row_color_offset_lo_ptr: // Low byte memory offset of square color data for each board row
+        .fill BOARD_NUM_COLS, <(square_color + i * BOARD_NUM_COLS)
 
     // BEDB
-    row_color_offset_hi_ptr: // High byte memory offset of sqaure color data for each board row
-        .fill BOARD_NUM_COLS, >(sqaure_color + i * BOARD_NUM_COLS)
+    row_color_offset_hi_ptr: // High byte memory offset of square color data for each board row
+        .fill BOARD_NUM_COLS, >(square_color + i * BOARD_NUM_COLS)
 }
 
 .namespace sprite {
     // 8B27
     // Source offset of the first frame of each icon sprite. An icon set comprises of multiple sprites (nominally 15)
     // to provide animations for each direction and action. One icon, the Shape Shifter, comprises only 10 sprites
-    // though as it doesn't need a shooting sprite set as it shape shifts in to the opposing icon when fighting.
+    // though as it doesn't need a shooting sprite set as it shape shifts in to the opposing icon when challenging.
     .const BYTES_PER_CHAR_SPRITE = 54;
     icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
@@ -997,7 +1028,7 @@ interrupt_handler__play_music:
         .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
 
     // 8AFF
-    // Matrix used to determine offset of each icon type AND determine which peices occupy which sqaures on initial
+    // Matrix used to determine offset of each icon type AND determine which peices occupy which squares on initial
     // setup.
     // This is a little bit odd - the numbers below are indexes used to retrieve an address from
     // `sprite.icon_offset` to determine the source sprite memory address. The `Icon Type` are actually an offset
@@ -1493,7 +1524,14 @@ countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate action
 flag__render_square_ctl: .byte $00
 
 // BD4E
-render_sqaure_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
+render_square_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
+
+// BE8F
+// Array of squares adjacent to the source square.
+surrounding_square_row: 
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
+surrounding_square_column:
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
 
 // BF44
 magic_square_counter: .byte $00 // Current magic square (1-5) being rendered

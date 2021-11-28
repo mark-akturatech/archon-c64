@@ -109,6 +109,19 @@ advance_intro_state:
     sta main.interrupt.flag__enable_next
     rts
 
+// 6490
+// Wait for a numbe rof jiffies. Requires:
+// - X register loaded with number of jiffies (~0.01667s) to wait.
+wait_for_jiffy:
+    lda TIME+2
+!loop:
+    cmp TIME+2
+    beq !loop-
+    jsr check_stop_keypess
+    dex
+    bne wait_for_jiffy
+    rts
+
 // 677C
 // Detect if break/q key is pressed.
 check_stop_keypess:

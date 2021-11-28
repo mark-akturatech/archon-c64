@@ -20,7 +20,7 @@
   shoot left.
 - Note that there are no sprites for left direction - the sprite copy algoritm takes a parameter that allows the
   sprite to be horizontally mirrored on copy, thus providing left direction sprites.
-- The shapeshifter only uses 10 sprites as it doesnt need any sprites for battle.
+- The shapeshifter only uses 10 sprites as it doesnt need any sprites for a challenge battle.
 - The "ARCHON" sprite at the top of the baord during gameplay is dynamically created using the character set dot data
   for each letter. Change address `$9274` to any 6 letters to display any string you like.
 
@@ -47,8 +47,8 @@
   BLACK, BLUE, (RED), PURPLE, GREEN, (YELLOW), CYAN, WHITE
   ```
   The additional colors can be enabled by writing a `$00` to addresses `$6599` and `$65D0`.
-- You can draw a game if the last two icons battle and both kill each other in battle.
-- You can stalemate a game if both players have 3 or less icons and a battle hasn't occured within 12 rounds.
+- You can draw a game if the last two icons challenge and both kill each other in battle.
+- You can stalemate a game if both players have 3 or less icons and a challenge hasn't occured within 12 rounds.
 - Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light
   row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc. The addresses
   use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of

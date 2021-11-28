@@ -63,8 +63,8 @@
 // - intro: Subroutines and assets used by the intro page (eg the dancing logo page).
 // - board_walk: Subroutines and assets used during the introduction to walk icons on to the board.
 // - game: Subroutines and assets used during main game play.
-// - ai: Subroutinues used for AI in board and fight game play. I split these out as they may be interesting.
-// - fight: Subroutines and assets used during fighting game play.
+// - ai: Subroutinues used for AI in board and challenge game play. I split these out as they may be interesting.
+// - challenge: Subroutines and assets used during challenge battle game play.
 // Additionally, two constant files are used:
 // - io: contains standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names
 // - const: contains game specific constants
@@ -78,7 +78,7 @@
     #import "src/board_walk.asm"
 #endif
 #import "src/game.asm"
-#import "src/fight.asm"
+#import "src/challenge.asm"
 #import "src/ai.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -390,7 +390,7 @@ play_game:
     jmp (state.curr_game_fn_ptr)
 
 // 8013
-play_fight:
+play_challenge:
     jmp (state.curr_game_fn_ptr+2)
 
 // 8016
@@ -415,7 +415,7 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
     // 4760
     game_fn_ptr: // Pointer to each main game function
         .word game.interrupt_handler
-        .word fight.interrupt_handler
+        .word challenge.interrupt_handler
 #if INCLUDE_INTRO
         .word intro.entry
 #else

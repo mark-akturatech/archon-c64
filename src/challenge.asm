@@ -1,7 +1,7 @@
-.filenamespace fight
+.filenamespace challenge
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for playiong the game.
+// Contains routines for challenge battles.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"
@@ -13,5 +13,5 @@ entry:
     rts
 
 // 938d
-interrupt_handler: // Could be wrong here. This could maybe be fight handler??
+interrupt_handler: // Could be wrong here. This could maybe be challenge handler??
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
