@@ -542,6 +542,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BCFE
     data__curr_count: // Current counter value
+    flag__icon_destination_valid: // Action on icon square drop selection
         .byte $00
 
     // BCEF
@@ -594,10 +595,15 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF25
     data__sprite_final_y_pos: // Final Y position of animated sprite
+    data__curr_icon_row: // Intitial board row of selected icon
         .byte $00
 
     // BF26
     data__curr_board_row: // Board row offset for rendered icon
+        .byte $00
+
+    // BF27
+    data__curr_icon_col: // Intitial board column of selected icon
         .byte $00
 
     // BF28

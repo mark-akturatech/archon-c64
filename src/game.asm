@@ -261,12 +261,12 @@ play_turn:
     lda #$01 // Each turn can have up to 2 icons enabled - 00=icon sprite, and 01=square selection sprite
     sta main.temp.data__curr_sprite_ptr
     lda #$00
-    // 81F9  8D 09 BD   sta  WBD09 ??? // speed
+    sta curr_icon_move_speed
     sta game.state.flag__is_turn_started
-    // 81FF  8D FF BC   sta  WBCFF ??? // fight for sqaure flag?
+    sta flag__is_battle_required
     sta curr_icon_num_moves
-    // 8205  8D 0E BD   sta  WBD0E ??? // seems to get set if select spell is enabled???
-    // 8208  8D 0F BD   sta  WBD0F ??? // seems to be set if player turn resulted in no move (eg a spell was cast)
+    sta curr_spell_cast_selection
+    sta flag__icon_can_cast
     ldx #$05 // Short delay before start of turn
     // Check AI turn.
     lda game.state.flag__ai_player_ctl
@@ -280,10 +280,34 @@ play_turn:
 !next:
     stx delay_before_turn
     jsr wait_for_state_change
+    //
+    // Get selected icon. The above method only returns after an icon was selected or moved to a destination.
+    ldy board.icon.type
+    lda board.icon.init_matrix,y
+    sta board.icon.offset
+    // Display icon name and number of moves.
+    tax
+    lda board.icon.string_id,x
+    ldx #$0A
+    jsr board.write_text
+    // Configure icon initial location.
+    lda main.temp.data__curr_board_col
+    sta main.temp.data__curr_icon_col
+    sta icon_move_col_buffer
+    ldy main.temp.data__curr_board_row
+    sty main.temp.data__curr_icon_col
+    sty icon_move_row_buffer
+    // Copy sprite animation set for selected icon in to graphical memory.
+    ldx #$00
+    jsr board.convert_coord_sprite_pos
+    jsr board.sprite_initialize
+    lda #$36
+    sta board.sprite.copy_length
 
-    // 8227... TODO
+    // 8258... TODO
     // ...
-    jmp play_turn // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    jmp wait_for_state_change // TODO: delete this
+    jmp play_turn // TODO: delete this
 
 // 64EB
 // Regenerate hitpoints for all icons of the current player.
@@ -536,10 +560,10 @@ new_player_sound:
     dec delay_before_turn
     jmp common.complete_interrupt
 !next:
-    // 83C6  AD 09 BD   lda WBD09 // TODO
+    lda curr_icon_move_speed
     beq !next+
     eor #$FF
-    // 83CD  8D 09 BD   sta WBD09 // TODO
+    sta curr_icon_move_speed
     bmi !next+
     jmp common.complete_interrupt
 !next:
@@ -576,9 +600,9 @@ new_player_sound:
     sta flag__icon_selected
     beq move_sprite_to_square
 joystick_icon_select:
-    // 840D  AD 0E BD   lda  WBD0E         // TODO I think??? this gets sets to various values by ai routines??
-    // 8410  C9 87      cmp  #$87
-    // 8412  F0 09      beq !next+
+    lda curr_spell_cast_selection
+    cmp #SPELL_END
+    beq !next+
     // Ensure selected column is within bounds.
     lda main.temp.data__curr_board_col
     bmi move_sprite_to_square
@@ -597,16 +621,16 @@ joystick_icon_select:
     sta flag__icon_selected
     lda #$10 // Wait 10 interrupts before allowing icon destination sqaure selection
     sta curr_debounce_count
-    // 8436  20 0D 87   jsr  W870D // TODO
-    // 8439  AD FE BC   lda  temp_data__curr_count
-    // 843C  30 0B      bmi !next+
-    // 843E  AD 3D BD   lda  WBD3D   // message id (but can be +80 for flag as well as is anded with 7F)
-    // 8441  10 0F      bpl  move_sprite_to_square
-    // 8443  20 53 89   jsr  W8953   // show message and preserve X (but not a)
+    jsr select_or_move_icon
+    lda main.temp.flag__icon_destination_valid
+    bmi !next+
+    lda flag__new_square_selected
+    bpl move_sprite_to_square
+    jsr show_selection_error_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
     sta main.interrupt.flag__enable
-    // 844C  8D 55 BD   sta  WBD55
+    // 844C  8D 55 BD   sta  WBD55 // TODO
     jmp  common.complete_interrupt
     //
 move_sprite_to_square:
@@ -626,9 +650,9 @@ move_sprite_to_square:
 check_joystick_left_right:
     lda  CIAPRA,x
     pha // Put joystick status on stack
-    // 8470  AD 0E BD   lda  WBD0E // TODO
-    // 8473  C9 87      cmp  #$87
-    // 8475  F0 2E      beq check_joystick_up_down
+    lda curr_spell_cast_selection
+    cmp #SPELL_END
+    beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
     lda main.temp.data__board_sprite_move_x_cnt
     and #$7F
@@ -676,7 +700,7 @@ check_joystick_up_down:
 !next:
     lda flag__new_square_selected
     bpl set_sprite_square_position
-    // 84C4  20 53 89   jsr  W8953   // ?? display message again - why
+    jsr show_selection_error_message
 set_sprite_square_position:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection sqaure, 00 if moving icon
     lda main.temp.data__board_sprite_move_x_cnt // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
@@ -722,9 +746,9 @@ check_move_sprite_up:
     sta common.sound.new_note_delay
     jmp render_selected_sprite
 !next:
-    // 8520  AD 0E BD   lda  WBD0E // AI moving?  TODO
-    // 8523  30 03      bmi !next+
-    // 8525  20 48 89   jsr board.clear_text_row
+    lda curr_spell_cast_selection
+    bmi !next+
+    jsr board.clear_text_row
 !next:
     cpx #$01 // X is 01 if moving sqaure, 00 for moving icon
     beq render_selected_sprite
@@ -840,7 +864,7 @@ set_square_down:
     sta main.temp.data__board_sprite_move_y_cnt
     inc main.temp.data__curr_board_row
     lda #$01
-    sta  flag__new_square_selected
+    sta flag__new_square_selected
 !return:
     rts
 
@@ -856,6 +880,127 @@ set_square_down:
 // - Selected square row must be stored in `main.temp.data__curr_line`
 verify_valid_move:
     rts // TODO!!!!!!!!!!!
+
+// 870D
+// Selects an icon on joystick fire button or moves a selected icon to the selected destination on joystick fire.
+// This method also detects double fire on a spell caster and activates spell selection.
+select_or_move_icon:
+    lda #$40 // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta main.temp.flag__icon_destination_valid
+    ldy main.temp.data__curr_board_row
+    lda main.temp.data__curr_board_col
+    jsr get_square_occupancy
+    ldx curr_spell_cast_selection // Magic caster selected
+    beq !next+
+    // 8720  4C BC 87   jmp  W87BC   // TODO cast spell TODO
+!next:
+    ldx curr_icon_num_moves // is 0 when char is first selected
+    beq select_icon_to_move
+check_icon_destination:
+    cmp #BOARD_EMPTY_SQUARE
+    // Note that square will be empty if drop of selected piece source square. We'll check for that later.
+    beq select_icon_destination
+    sta curr_battle_icon_type
+    tay
+    lda board.icon.init_matrix,y
+    eor state.flag__is_light_turn
+    and #$08
+    beq !return+ // Do nothing if click on occupied square of same color
+    lda #FLAG_ENABLE // Valid action
+    sta main.temp.flag__icon_destination_valid
+    sta flag__is_battle_required
+    // Set flag if icon transports instead of moves. Used to determine if should show icon moving between sqaures or
+    // keep the current sqaure selection icon.
+    lda curr_icon_num_moves
+    and #ICON_CAN_CAST
+    asl
+    sta flag__icon_can_cast
+!return:
+    rts
+    //
+select_icon_destination:
+    lda main.temp.data__curr_board_col
+    cmp main.temp.data__curr_icon_col
+    bne set_icon_destination
+    lda main.temp.data__curr_board_row
+    cmp main.temp.data__curr_icon_row
+    bne set_icon_destination
+    bit curr_icon_num_moves
+    bvc !return+ // Don't allow drop on selected piece source square if not a spell caster
+    // If spell caster is selected, set spell cast mode if source square selected as destination
+    lda #FLAG_ENABLE
+    sta curr_spell_cast_selection
+    bmi add_icon_to_destination
+set_icon_destination:
+    lda curr_icon_num_moves
+    and #ICON_CAN_CAST
+    asl
+    sta flag__icon_can_cast
+    bmi !next+
+add_icon_to_destination:
+    // Add piece to the destination square.
+    lda board.icon.type
+    sta (FREEZP),y
+!next:
+    asl main.temp.flag__icon_destination_valid // Set valid move
+!return:
+    rts
+    //
+select_icon_to_move:
+    // Ignore if no icon in selected source sqaure
+    cmp #BOARD_EMPTY_SQUARE
+    beq !return-
+    sta board.icon.type
+    // Ignore if selected other player piece.
+    tax
+    lda board.icon.init_matrix,x
+    eor state.flag__is_light_turn
+    and #$08
+    bne !return-
+    // Ignore and set error message if selected icon is imprisoned.
+    ldx curr_player_offset
+    lda imprisoned_icon_id,x
+    cmp board.icon.type
+    beq !next+
+    // Accept destination.
+    lda #FLAG_ENABLE
+    sta main.temp.flag__icon_destination_valid
+    ldx curr_spell_cast_selection // Don't clear square if selected a magic caster as they teleport instead of moving
+    bmi !return-
+    sta (FREEZP),y // Clears current square as piece is now moving
+    rts
+!next:
+    lda #(FLAG_ENABLE + STRING_ICON_IMPRISONED)
+    sta flag__new_square_selected
+    rts
+
+// 88AF
+// Returns the icon type (in A) at board row (in Y) and column (in A).
+get_square_occupancy:
+    pha
+    lda data.row_occupancy_lo_ptr,y
+    sta FREEZP
+    lda data.row_occupancy_hi_ptr,y
+    sta FREEZP+1
+    pla
+    tay
+    lda (FREEZP),y
+    rts
+
+// 8953
+// Displays an error message on piece selection. The message has $80 added to it and is stored in
+// `flag__new_square_selected`. This method specifically preserves the X register.
+show_selection_error_message:
+    jsr board.clear_text_row
+    txa
+    pha
+    ldx #CHARS_PER_SCREEN_ROW
+    lda flag__new_square_selected
+    and #$7F
+    jsr board.write_text      
+    pla
+    tax
+    rts
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -930,6 +1075,22 @@ flag__icon_selected: .byte $00 // An icon is currently selected for movemement
 // BCFD
 curr_icon_num_moves: .byte $00 // Selected icon number moves (+$40 if can cast spells, +$80 if can fly)
 
+// BCFF
+flag__is_battle_required: .byte $00 // Is enabled if the icon must battle for the destination square
+
+// BD00
+curr_battle_icon_type: .byte $00 // Type of selected icon to battle for the destination square
+
+// BD09
+curr_icon_move_speed: .byte $00 // Delay between movement for selected icon. Is only delayed for Golem and Troll.
+
+// BD0E
+curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell
+
+// BD0F
+// Is $80 if the selected icon can cast spells. Used to determine if icon transports or moves.
+flag__icon_can_cast: .byte $00
+
 // BD11
 curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
 
@@ -947,3 +1108,13 @@ curr_square_occupancy: .fill BOARD_NUM_ROWS*BOARD_NUM_COLS, $00 // Board square 
 
 // BDFD
 curr_icon_strength: .fill BOARD_NUM_ICONS, $00 // Current strength of each board icon
+
+// BEA2
+// Stores each column the icon enters as it is being moved. Used to calculate number of moves.
+// Allows for a total of 5 moves (maximum move count) plus the starting column.
+icon_move_col_buffer: .byte $00, $00, $00, $00, $00, $00
+
+// BEA8
+// Stores each row the icon enters as it is being moved. Used to calculate number of moves.
+// Allows for a total of 5 moves (maximum move count) plus the starting row.
+icon_move_row_buffer: .byte $00, $00, $00, $00, $00, $00

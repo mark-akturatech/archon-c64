@@ -12,33 +12,32 @@
 
 
 
-// get selected icon
-8227  AC 2D BF   ldy  board_character_icon_type
-822A  B9 FF 8A   lda  board_character_setup_matrix,y
-822D  8D 29 BF   sta  board_icon_offset
-8230  AA         tax
-8231  BD 7C 8B   lda  board_character_string_id,x
-8234  A2 0A      ldx  #$0A
-8236  20 09 65   jsr  board_write_text
-// i dont know
-8239  AD 28 BF   lda  main.temp.data__curr_board_col
-// 823C  8D 27 BF   sta  WBF27 // ?
-// 823F  8D A2 BE   sta  WBEA2 // ?
-8242  AC 26 BF   ldy  temp_data__current_board_row
-// 8245  8C 25 BF   sty  main_temp_data__sprite_final_y_pos // ?
-// 8248  8C A8 BE   sty  WBEA8 // ?
-// copy sprite animation frames in to graphical memory
-824B  A2 00      ldx  #$00
-824D  20 22 64   jsr  board_convert_coord_sprite_pos
-8250  20 4D 64   jsr  board_sprite_initialize
-8253  A9 36      lda  #$36
-8255  8D DF BC   sta  board_sprite_copy_length
-8258  20 DE 8B   jsr  W8BDE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+8258
+
+
+
+    8258  20 DE 8B   jsr  W8BDE
 // detect if piece can move?
-825B  AE 29 BF   ldx  board_icon_offset
+825B  AE 29 BF   ldx  board.icon.offset
 825E  BD C7 8A   lda  board.icon.number_moves,x
 8261  8D FD BC   sta  curr_icon_num_moves
-8264  30 41      bmi  W82A7
+8264  30 41      bmi  W82A7 // can fly
 8266  20 7C 6C   jsr  W6C7C
 8269  A2 07      ldx  #$07
 W826B:
@@ -51,10 +50,10 @@ W826B:
 8278  30 14      bmi  W828E
 827A  C9 09      cmp  #$09
 827C  B0 10      bcs  W828E
-827E  20 AF 88   jsr  W88AF
+827E  20 AF 88   jsr  get_square_occupancy
 8281  30 24      bmi  W82A7
 8283  A8         tay
-8284  B9 FF 8A   lda  board_character_setup_matrix,y
+8284  B9 FF 8A   lda board.icon.init_matrix,y
 8287  4D C6 BC   eor  flag__is_light_turn
 828A  29 08      and  #$08
 828C  D0 19      bne  W82A7
@@ -62,9 +61,9 @@ W828E:
 828E  CA         dex
 828F  CA         dex
 8290  10 D9      bpl  W826B
-8292  A2 28      ldx  #$28
+8292  A2 28      ldx  #CHARS_PER_SCREEN_ROW
 8294  A9 01      lda  #$01
-8296  20 09 65   jsr  board_write_text
+8296  20 09 65   jsr board.write_text
 8299  20 65 89   jsr  board_add_icon_to_matrix
 829C  A2 60      ldx  #$60
 829E  20 90 64   jsr  W6490
@@ -89,13 +88,13 @@ W82A7:
 82C9  8D 15 D0   sta  io_SPENA
 W82CC:
 // set icon movement speed
-82CC  A9 00      lda  #$00
-82CE  8D 09 BD   sta  WBD09
-82D1  AD 29 BF   lda  board_icon_offset
+82CC  A9 00      lda #$00
+82CE  8D 09 BD   sta curr_icon_move_speed
+82D1  AD 29 BF   lda  board.icon.offset
 82D4  29 07      and  #$07
 82D6  C9 03      cmp  #$03 // wtf - why Golem or troll? speed?? slow
 82D8  D0 03      bne  W82DD
-82DA  EE 09 BD   inc  WBD09 // Speed? delay between moves
+82DA  EE 09 BD   inc curr_icon_move_speed // Speed? delay between moves
 // AI move piece to destination
 // W82DD:
 // 82DD  AD C0 BC   lda  state.flag__ai_player_ctl
@@ -115,7 +114,7 @@ W82CC:
 // W82FA:
 // 82FA  69 09      adc  #$09
 // 82FC  A2 04      ldx  #$04
-// 82FE  20 22 64   jsr  board_convert_coord_sprite_pos
+// 82FE  20 22 64   jsr board.convert_coord_sprite_pos
 // 8301  8D 17 BD   sta  main_temp_data__sprite_final_x_pos
 // 8304  8C 15 BD   sty  intro_sprite_final_y_pos
 // 8307  CE 38 BD   dec  temp_data__num_icons
@@ -128,7 +127,7 @@ W82CC:
 // 8319  AE FD BC   ldx  curr_icon_num_moves
 // 831C  10 1A      bpl  W8338
 // 831E  A2 04      ldx  #$04
-// 8320  20 22 64   jsr  board_convert_coord_sprite_pos
+// 8320  20 22 64   jsr board.convert_coord_sprite_pos
 // 8323  2C FD BC   bit  curr_icon_num_moves
 // 8326  50 0A      bvc  W8332
 // 8328  38         sec
@@ -151,18 +150,18 @@ W8338:
 //
 // ...... below is triggered when piece destination square is selected
 
-8343  AD 0E BD   lda  WBD0E
+8343  AD 0E BD   lda  curr_spell_cast_selection
 8346  F0 03      beq  W834B
 8348  20 B4 67   jsr  W67B4
 W834B:
-834B  AD 0F BD   lda  WBD0F
+834B  AD 0F BD   lda flag__icon_can_cast
 834E  10 0C      bpl  W835C
-8350  AE 2D BF   ldx  board_character_icon_type
-8353  BD FF 8A   lda  board_character_setup_matrix,x
-8356  8D 29 BF   sta  board_icon_offset
+8350  AE 2D BF   ldx board.icon.type
+8353  BD FF 8A   lda board.icon.init_matrix,x
+8356  8D 29 BF   sta  board.icon.offset
 8359  20 7B 89   jsr  W897B
 W835C:
-835C  AD FF BC   lda  WBCFF
+835C  AD FF BC   lda flag__is_battle_required
 835F  30 03      bmi  W8364
 8361  4C 19 80   jmp  game_entry
 
@@ -206,31 +205,31 @@ verify_valid_move:
 86CF  AC A1 BE   ldy  WBEA1
 86D2  F0 15      beq  W86E9
 86D4  88         dey
-86D5  B9 A2 BE   lda  WBEA2,y
+86D5  B9 A2 BE   lda  icon_move_col_buffer,y
 86D8  CD 31 BF   cmp  main.temp.data__curr_column
 86DB  D0 0C      bne  W86E9
-86DD  B9 A8 BE   lda  WBEA8,y
+86DD  B9 A8 BE   lda  icon_move_row_buffer,y
 86E0  CD 30 BF   cmp  main.temp.data__curr_line
 86E3  D0 04      bne  W86E9
 86E5  CE A1 BE   dec  WBEA1
 86E8  60         rts
 
 W86E9:
-86E9  20 BF 88   jsr  W88BF                 
-86EC  20 3C 89   jsr  W893C                 
-86EF  20 E1 88   jsr  W88E1                 
-86F2  EE A1 BE   inc  WBEA1                 
-86F5  AC A1 BE   ldy  WBEA1                 
-86F8  AD 30 BF   lda  main.temp.data__curr_line  
-86FB  99 A8 BE   sta  WBEA8,y               
-86FE  AD 31 BF   lda  temp_data__curr_column 
-8701  99 A2 BE   sta  WBEA2,y               
-8704  60         rts                        
+86E9  20 BF 88   jsr  W88BF
+86EC  20 3C 89   jsr  W893C
+86EF  20 E1 88   jsr  W88E1
+86F2  EE A1 BE   inc  WBEA1
+86F5  AC A1 BE   ldy  WBEA1
+86F8  AD 30 BF   lda  main.temp.data__curr_line
+86FB  99 A8 BE   sta  icon_move_row_buffer,y
+86FE  AD 31 BF   lda  temp_data__curr_column
+8701  99 A2 BE   sta  icon_move_col_buffer,y
+8704  60         rts
 
 W8705:
-8705  C9 8F      cmp  #$8F                  
-8707  F0 03      beq  W870C                 
-8709  20 03 89   jsr  W8903                 
+8705  C9 8F      cmp  #$8F
+8707  F0 03      beq  W870C
+8709  20 03 89   jsr  W8903
 W870C:
-870C  60         rts                   
+870C  60         rts
 
