@@ -232,47 +232,50 @@ add_sprite_to_graphics:
     lda sprite.copy_source_hi_ptr,x
     adc sprite.frame_offset+1,y
     sta FREEZP+1
-// 8C85 // TODO
-//     lda  board_sprite_flag__copy_animation_group // TODO!!!!!!!!!!!!! - I think the copy below copies and entire sprite icon set
-//     bmi  board_move_sprite
-//     cpx  #$02
-//     bcc  board_move_sprite
-//     txa
-//     and  #$01
-//     tay
-//     lda  board_character_icon_offset,y
-//     and  #$07
-//     cmp  #$06
-//     bne  W8CA3
-//     lda  #$FF
-//     sta  board_sprite.copy_length
-//     jmp  board_move_sprite
-
-// W8CA3:
-//     ldy  #$00
-// W8CA5:
-//     lda  main.temp.data__sprite_x_direction_offset
-//     bpl  W8CBF
-//     lda  #$08
-//     sta  temp_data__curr_color
-//     lda  (FREEZP),y
-//     sta  temp_ptr__sprite
-// W8CB4:
-//     ror  temp_ptr__sprite
-//     rol
-//     dec  temp_data__curr_color
-//     bne  W8CB4
-//     beq  W8CC1
-// W8CBF:
-//     lda  (FREEZP),y
-// W8CC1:
-//     sta  (FREEZP+2),y
-//     inc  FREEZP+2
-//     inc  FREEZP+2
-//     iny
-//     cpy  board_sprite.copy_length
-//     bcc  W8CA5
-//     rts
+    lda sprite.flag__copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
+    bmi move_sprite
+    cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light bullets, 3 for dark bullets
+    bcc move_sprite
+    //
+    // Copy sprites used for attacks (eg projectiles, clubs, sords, screams, fire etc)
+    txa
+    // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
+    and #$01
+    tay
+    lda icon.offset,y
+    and #$07
+    cmp #$06
+    bne !next+
+    lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 255 (0 offset)
+    sta sprite.copy_length
+    jmp move_sprite
+!next:
+    // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
+    ldy #$00
+!loop:
+    lda main.temp.data__icon_sprite_frame
+    bpl no_invert_attack_frame // +$80 to invert attack frame
+    // Inversts 8 bits. eg 1000110 becomes 0110001
+    lda #$08
+    sta main.temp.data__temp_store
+    lda (FREEZP),y
+    sta main.temp.ptr__sprite
+rotate_loop:
+    ror main.temp.ptr__sprite
+    rol
+    dec main.temp.data__temp_store
+    bne rotate_loop
+    beq !next+
+no_invert_attack_frame:
+    lda (FREEZP),y
+!next:
+    sta (FREEZP+2),y    
+    inc FREEZP+2
+    inc FREEZP+2
+    iny
+    cpy sprite.copy_length
+    bcc !loop-
+    rts
 move_sprite:
     ldy #$00
     lda main.temp.data__icon_set_sprite_frame
@@ -975,9 +978,17 @@ interrupt_handler__play_music:
         .byte LIGHT_GRAY, RED, BROWN, BLUE
 
     // 8D44
-    frame_offset: // Memory offset of each sprite frame within a sprite set
+    // Memory offset of each sprite frame within a sprite set.
+    // In description below: 
+    // - m-=movement frame, a-=attack frame, s-=shot (bullet, sword etc) frame
+    // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
+    // - numbers represent the animation frame. eg movement frames have 4 animations each
+    frame_offset: 
+         //   m-e1   m-e2   m-e3   m-e4   m-s1   m-s2   m-s3   m-s4
         .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
+         //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
         .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
+        //    a-s    s-e    s-n    s-ne   s-se
         .word $02F4, $0008, $0000, $0010, $0018
 
     // 906F

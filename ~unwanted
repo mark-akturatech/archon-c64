@@ -1,43 +1,73 @@
+
+x = 0 to copy light player icon frames
+x = 1 to copy dark player icon frames
+x = 2 to copy light player bullets
+x = 3 to copy dark player bullets
+
+
 W8BDE:
 8BDE  8A         txa
 8BDF  0A         asl
 8BE0  A8         tay
 8BE1  B9 CB 8D   lda  sprite_00_memory_ptr,y
 8BE4  85 FD      sta  FREEZP+2
-8BE6  8D 23 BF   sta  intro_sprite_y_direction
+8BE6  8D 23 BF   sta  main.temp.data__temp_store_1
 8BE9  B9 CC 8D   lda  sprite_00_memory_ptr+1,y
 8BEC  85 FE      sta  FREEZP+3
 8BEE  E0 02      cpx  #$02
 8BF0  90 1C      bcc  W8C0E
+// attack frames
 8BF2  8A         txa
 8BF3  29 01      and  #$01
 8BF5  A8         tay
 8BF6  B9 29 BF   lda icon.offset,y
-8BF9  29 07      and  #$07
-8BFB  C9 06      cmp  #$06
-8BFD  D0 08      bne  W8C07
-8BFF  A9 00      lda  #$00
-8C01  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8BF9  29 07      and #$07
+8BFB  C9 06      cmp #$06 
+8BFD  D0 08      bne  W8C07 
+8BFF  A9 00      lda  #$00 // banshee or phoenix
+8C01  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 8C04  4C 6D 8C   jmp add_sprite_to_graphics
 
 W8C07:
 8C07  A9 11      lda  #$11
-8C09  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8C09  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 8C0C  D0 05      bne  W8C13
+
+24 sprites...
+4r, 
+4d,
+4u,
+fire n, ne,e,sw
+fire s
+...mirrors...
+4l, 
+fire nw, w, sw
+
+if x=2, we load 24 sprites for each player, then we load bullets as follows:
+e, n/s, ne, se, w, nw, sw, blank
+Unless banshee or phoenix - here we only copy
+e,s,n,w
+
+icon frames:
+0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f,10,80,81,82,83,8d,8e,8f = 24 :)
+attack frames:
+11,12,13,14,91,93,94 = 7 :)
+
+
 W8C0E:
 8C0E  A9 00      lda  #$00
-8C10  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8C10  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 W8C13:
 8C13  20 6D 8C   jsr add_sprite_to_graphics
-8C16  EE 24 BF   inc  main.temp.data__sprite_x_direction_offset
+8C16  EE 24 BF   inc  main.temp.data__icon_sprite_frame
 8C19  E0 02      cpx  #$02
 8C1B  B0 1B      bcs  W8C38
-8C1D  AD 24 BF   lda  main.temp.data__sprite_x_direction_offset
+8C1D  AD 24 BF   lda  main.temp.data__icon_sprite_frame
 8C20  30 0B      bmi  W8C2D
 8C22  C9 11      cmp  #$11
 8C24  90 36      bcc  W8C5C
 8C26  A9 80      lda  #$80
-8C28  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8C28  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 8C2B  30 2F      bmi  W8C5C
 W8C2D:
 8C2D  C9 84      cmp  #$84
@@ -48,12 +78,12 @@ W8C2D:
 8C37  60         rts
 
 W8C38:
-8C38  AD 24 BF   lda  main.temp.data__sprite_x_direction_offset
+8C38  AD 24 BF   lda  main.temp.data__icon_sprite_frame
 8C3B  30 0B      bmi  W8C48
 8C3D  C9 15      cmp  #$15
 8C3F  90 1B      bcc  W8C5C
 8C41  A9 91      lda  #$91
-8C43  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8C43  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 8C46  30 14      bmi  W8C5C
 W8C48:
 8C48  C9 95      cmp  #$95
@@ -63,73 +93,22 @@ W8C48:
 W8C4D:
 8C4D  C9 92      cmp  #$92
 8C4F  D0 0B      bne  W8C5C
-8C51  EE 24 BF   inc  main.temp.data__sprite_x_direction_offset
+8C51  EE 24 BF   inc  main.temp.data__icon_sprite_frame // dont invert up south sprite - use the same sprite for north
 8C54  4C 5C 8C   jmp  W8C5C
 
 W8C57:
 8C57  A9 8D      lda  #$8D
-8C59  8D 24 BF   sta  main.temp.data__sprite_x_direction_offset
+8C59  8D 24 BF   sta  main.temp.data__icon_sprite_frame
 W8C5C:
-8C5C  AD 23 BF   lda  intro_sprite_y_direction
+// next sprite location in graphical memory
+8C5C  AD 23 BF   lda  main.temp.data__temp_store_1
 8C5F  18         clc
-8C60  69 40      adc  #$40
-8C62  8D 23 BF   sta  intro_sprite_y_direction
+8C60  69 40      adc  #BYTES_PER_SPRITE
+8C62  8D 23 BF   sta  main.temp.data__temp_store_1
 8C65  85 FD      sta  FREEZP+2
 8C67  90 AA      bcc  W8C13
 8C69  E6 FE      inc  FREEZP+3
 8C6B  B0 A6      bcs  W8C13
-//Copies a sprite frame in to graphical memory.
-//Also includes additional functionality to add a mirrored sprite to graphics memory.
-board_add_sprite_to_graphics:
-
-.....
-
-
-
-// 8C85
-    lda sprite.flag__copy_animation_group // Set to $80+ to copy all animation frames for a single piece
-    bmi move_sprite
-    cpx #$02 // X holds player (0 for light, 1 for dark)
-    bcc move_sprite
-    // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
-    txa
-    and #$01
-    tay
-    lda icon.offset,y
-    and #$07
-    cmp #$06
-    bne !next+
-    lda #$FF // TODO: this isn't enough - how does it work
-    sta sprite.copy_length // We can copy all frames in 255 bytes. No special additional copy required.
-    jmp move_sprite
-!next:
-    ldy #$00
-!loop:
-8CA5  AD 24 BF   lda  main.temp.data__sprite_x_direction_offset
-8CA8  10 15      bpl  W8CBF
-8CAA  A9 08      lda  #$08
-8CAC  8D 1A BF   sta  main.temp.data__temp_store
-8CAF  B1 FB      lda  (FREEZP),y
-8CB1  8D 1B BF   sta  main.temp.ptr__sprite
-W8CB4:
-8CB4  6E 1B BF   ror  main.temp.ptr__sprite
-8CB7  2A         rol
-8CB8  CE 1A BF   dec  main.temp.data__temp_store
-8CBB  D0 F7      bne  W8CB4
-8CBD  F0 02      beq  W8CC1
-W8CBF:
-8CBF  B1 FB      lda  (FREEZP),y
-W8CC1:
-8CC1  91 FD      sta  (FREEZP+2),y
-8CC3  E6 FD      inc  FREEZP+2
-8CC5  E6 FD      inc  FREEZP+2
-8CC7  C8         iny
-8CC8  CC DF BC   cpy sprite.copy_length
-8CCB  90 D8      bcc !loop-
-8CCD  60         rts
-
-....
-
 
 
 
@@ -167,5 +146,53 @@ W67B4:
 67C3  CD C6 BC   cmp  game_state_flag__is_light_turn 
 67C6  D0 03      bne  W67CB                 
 67C8  4C 1D 7A   jmp  W7A1D    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
