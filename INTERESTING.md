@@ -15,11 +15,11 @@
 
 - Sprites are smaller than usual - 54 bytes instead of 64. This is because only 54 bytes are needed to render a
   sprite big enough to fit within a board square. It also uses less memory.
-- Each icon is made up of 15 sprites (except shapeshifter). Each direction (right, up, down) comprises 4 sprites
-  making up animation frames for walking/flying etc, 1 for shoot up, 2 animation frames for shoot right and 1 for
-  shoot left.
-- Note that there are no sprites for left direction - the sprite copy algoritm takes a parameter that allows the
-  sprite to be horizontally mirrored on copy, thus providing left direction sprites.
+- Each icon is made up of 15 sprites (except shapeshifter). Each direction (east, north, south) comprises 4 sprites
+  making up animation frames for walking/flying etc, and atatck frames for north, south, east, north east and south
+  east.
+- Note that there are no sprites for west direction - the sprite copy algorithm takes a parameter that allows the
+  sprite to be horizontally mirrored on copy, thus providing west direction sprites.
 - The shapeshifter only uses 10 sprites as it doesnt need any sprites for a challenge battle.
 - The "ARCHON" sprite at the top of the baord during gameplay is dynamically created using the character set dot data
   for each letter. Change address `$9274` to any 6 letters to display any string you like.

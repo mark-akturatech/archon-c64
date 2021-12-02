@@ -6,7 +6,7 @@ The following terminology is used throughout the source code comments and memory
 - `Turn`: Archon is a turn based game. A player has a turn, the second player has a turn, the first player has another
   turn and so on.
 - `Round`: A round is completed after both players have completed a single turn.
-- `Light` and `Dark`: Archon comprises two sides. At the start of the game, light occupies the left of the board and
+- `Light` and `Dark`: Archon comprises two sides. At the start of the game, light occupies the east of the board and
    dark, the right.
 - `Pattern`: A pattern is a series of notes that can can be played or repeated to form music or sound effect.
 - `Flag`: A flag is a memory location that is toggled between two (or more) states. Flags may be used to keep track

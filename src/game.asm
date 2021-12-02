@@ -303,7 +303,7 @@ play_turn:
     jsr board.sprite_initialize
     lda #$36
     sta board.sprite.copy_length
-    // 8258  20 DE 8B   jsr  W8BDE // TODO move sprite set to graphics area
+    jsr board.add_sprite_set_to_graphics
     // detect if piece can move?
     ldx board.icon.offset
     lda board.icon.number_moves,x
@@ -428,6 +428,7 @@ configure_selected_icon:
 !next:
     lda flag__icon_can_cast
     bpl end_turn
+    // Transport piece (selected from trasport spell or when moving spell caster)
     ldx board.icon.type
     lda board.icon.init_matrix,x
     sta board.icon.offset

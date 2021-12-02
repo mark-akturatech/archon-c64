@@ -552,7 +552,6 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BD0D
     data__sprite_x_direction_offset_1: // Amount added to x plan to move sprite to the left or right (uses rollover)
     flag__board_sprite_moved: // Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
-    data__icon_sprite_frame: // Icon sprite frame to copy in to graphic memory, +$80 to invert horizontally.
         .byte $00
 
     // BD17

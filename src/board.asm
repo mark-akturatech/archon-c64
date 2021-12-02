@@ -215,6 +215,110 @@ add_icon_to_matrix:
     sta (OLDLIN),y
     rts
 
+// 8BDE
+// Adds a set of sprites for an icon to the graphics memory. Requires:
+// - X Register = 0 to copy light player icon frames
+// - X Register = 1 to copy dark player icon frames
+// - X Register = 2 to copy light player shot frames
+// - X Register = 3 to copy dark player shot frames
+// Icon frames add 24 sprites as follows:
+// - 4 x East facing icons (4 animation frames)
+// - 4 x South facing icons (4 animation frames)
+// - 4 x North facing icons (4 animation frames)
+// - 5 x Attack frames (north, north east, east, south east, south facing)
+// - 4 x West facing icon frames (mirrored representation of east facing icons)
+// - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
+// Shot frames are frames used to animate the players projectile (or scream/fire). There are 7 sprites as follows:
+// - 1 x East direction shot
+// - 1 x North/south direction shot (same sprite is used for both directions)
+// - 1 x North east direction shot
+// - 1 x South east direction shot
+// - 1 x East direction shot (mirrored copy of east)
+// - 1 x North west direction shot (mirrored copy of north east)
+// - 1 x South west direction shot (mirrored copy of south east)
+// Note that special player pieces Phoneix and Banshee only copy 4 sprites (east, south, north, west).
+add_sprite_set_to_graphics:
+    txa
+    asl
+    tay
+    lda main.sprite.mem_ptr_00,y
+    sta FREEZP+2
+    sta main.temp.data__temp_store_1
+    lda main.sprite.mem_ptr_00+1,y
+    sta FREEZP+3
+    cpx #$02
+    bcc add_icon_frames_to_graphics // Copy icon or shot frames?
+    // Shot frames.
+    txa
+    and #$01
+    tay
+    lda icon.offset,y
+    and #$07
+    cmp #$06
+    bne add_shot_frames_to_graphics // Banshee/Phoenix?
+    lda #$00
+    sta main.temp.data__icon_set_sprite_frame
+    jmp add_sprite_to_graphics // Add special full height shot frames for Banshee and Phoneix icons.
+// Copies shot frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
+add_shot_frames_to_graphics:
+    lda #$11
+    sta main.temp.data__icon_set_sprite_frame
+    bne add_individual_frame_to_graphics
+// Copies shot frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,$02+$80,
+// $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
+add_icon_frames_to_graphics:
+    lda #$00
+    sta main.temp.data__icon_set_sprite_frame
+add_individual_frame_to_graphics:
+    jsr add_sprite_to_graphics
+    inc main.temp.data__icon_set_sprite_frame
+    cpx #$02
+    bcs check_shot_frames
+    lda main.temp.data__icon_set_sprite_frame
+    bmi check_inverted_icon_frames
+    cmp #$11
+    bcc add_next_frame_to_graphics
+    lda #$80 // Jump from frame 10 to 80 (skip 11 to 7f)
+    sta main.temp.data__icon_set_sprite_frame
+    bmi add_next_frame_to_graphics
+check_inverted_icon_frames:
+    cmp #$84
+    bcc add_next_frame_to_graphics
+    beq skip_frames_84_to_8C
+    cmp #$90
+    bcc add_next_frame_to_graphics
+    rts // End after copying frame 8f
+check_shot_frames:
+    lda main.temp.data__icon_set_sprite_frame
+    bmi check_inverted_shot_frames
+    cmp #$15
+    bcc add_next_frame_to_graphics
+    lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
+    sta main.temp.data__icon_set_sprite_frame
+    bmi add_next_frame_to_graphics
+check_inverted_shot_frames:
+    cmp #$95
+    bcc !next+
+    rts // End after copying frame 94
+!next:
+    cmp #$92
+    bne add_next_frame_to_graphics
+    inc main.temp.data__icon_set_sprite_frame // Skip frame 92
+    jmp add_next_frame_to_graphics
+skip_frames_84_to_8C:
+    lda #$8D
+    sta main.temp.data__icon_set_sprite_frame
+add_next_frame_to_graphics:
+    // Incremement frame grpahics pointer to point to next sprite memory location.
+    lda main.temp.data__temp_store_1
+    clc
+    adc #BYTES_PER_SPRITE
+    sta main.temp.data__temp_store_1
+    sta FREEZP+2
+    bcc add_individual_frame_to_graphics
+    inc FREEZP+3
+    bcs add_individual_frame_to_graphics
+
 // 8C6D
 // Copies a sprite frame in to graphical memory.
 // Also includes additional functionality to add a mirrored sprite to graphics memory.
@@ -253,7 +357,7 @@ add_sprite_to_graphics:
     // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
     ldy #$00
 !loop:
-    lda main.temp.data__icon_sprite_frame
+    lda main.temp.data__icon_set_sprite_frame
     bpl no_invert_attack_frame // +$80 to invert attack frame
     // Inversts 8 bits. eg 1000110 becomes 0110001
     lda #$08
@@ -269,7 +373,7 @@ rotate_loop:
 no_invert_attack_frame:
     lda (FREEZP),y
 !next:
-    sta (FREEZP+2),y    
+    sta (FREEZP+2),y
     inc FREEZP+2
     inc FREEZP+2
     iny
@@ -341,7 +445,6 @@ invert_bytes:
     ror main.temp.data__temp_store+4
     ror main.temp.data__temp_store+5
     rts
-
 
 // 8D6E
 // Places a sprite at a given location and enables the sprite.
@@ -979,11 +1082,11 @@ interrupt_handler__play_music:
 
     // 8D44
     // Memory offset of each sprite frame within a sprite set.
-    // In description below: 
+    // In description below:
     // - m-=movement frame, a-=attack frame, s-=shot (bullet, sword etc) frame
     // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
     // - numbers represent the animation frame. eg movement frames have 4 animations each
-    frame_offset: 
+    frame_offset:
          //   m-e1   m-e2   m-e3   m-e4   m-s1   m-s2   m-s3   m-s4
         .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
          //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
@@ -1139,7 +1242,7 @@ interrupt_handler__play_music:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $3E, $2A, $11, SOUND_CMD_END
     pattern_player_dark_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $1F, $16, $11, SOUND_CMD_END
-    pattern_unknown03:
+    pattern_transport:
         .byte SOUND_CMD_NO_NOTE, $80, $03, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $23, $11, SOUND_CMD_END
 }
 
@@ -1539,7 +1642,7 @@ render_square_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw o
 
 // BE8F
 // Array of squares adjacent to the source square.
-surrounding_square_row: 
+surrounding_square_row:
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
 surrounding_square_column:
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00

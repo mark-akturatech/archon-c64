@@ -1,198 +1,150 @@
+// W897B
+// transport piece
+W897B:
+897B  A2 00      ldx  #$00
+897D  8E EE BC   stx  temp_flag__alternating_state
+8980  A9 0F      lda  #$0F
+8982  8D F8 47   sta  SPTMEM
+8985  8D F9 47   sta  $47F9 // <--------  enable sprite 24
+8988  20 1F 93   jsr  W931F // clears sprite 24
+898B  AD 1C D0   lda  io_SPMC
+898E  09 03      ora  #$03
+8990  8D 1C D0   sta  io_SPMC
+8993  AD 1D D0   lda  io_XXPAND
+8996  29 FC      and  #$FC
+8998  8D 1D D0   sta  io_XXPAND
+899B  A9 35      lda  #$35
+899D  8D 2D BD   sta  WBD2D
+89A0  AD 27 BF   lda  temp_data__curr_icon_col
+89A3  AC 25 BF   ldy  temp_data__curr_icon_row
+89A6  20 22 64   jsr  board_convert_coord_sprite_pos
+89A9  AC 2D BF   ldy  board_icon_type
+89AC  B9 FF 8A   lda  board_icon_init_matrix,y
+89AF  8D 29 BF   sta  board_icon_offset
+89B2  20 4D 64   jsr  board_sprite_initialize
+89B5  AD CB 8D   lda  sprite_00_memory_ptr
+89B8  85 FD      sta  io_FREEZP+2
+89BA  AD CC 8D   lda  sprite_00_memory_ptr+1
+89BD  85 FE      sta  io_FREEZP+3
+89BF  A9 36      lda  #$36
+89C1  8D DF BC   sta  board_sprite_copy_length
+89C4  AD E3 BC   lda  common_sprite_init_animation_frame
+89C7  F0 02      beq  W89CB
+89C9  A9 80      lda  #$80
+W89CB:
+89CB  8D 24 BF   sta  main_temp_data__character_sprite_frame
+89CE  20 6D 8C   jsr  board_add_sprite_to_graphics
+89D1  A2 01      ldx  #$01
+89D3  A9 00      lda  #$00
+W89D5:
+89D5  9D E3 BC   sta  common_sprite_init_animation_frame,x
+89D8  9D E7 BC   sta  common_sprite_curr_animation_frame,x
+89DB  CA         dex
+89DC  10 F7      bpl  W89D5
+89DE  AA         tax
+89DF  20 6E 8D   jsr  board_render_sprite
+89E2  20 76 90   jsr  board_draw_board
+89E5  A2 01      ldx  #$01
+89E7  AD 28 BF   lda  temp_data__curr_board_col
+89EA  AC 26 BF   ldy  temp_data__curr_board_row
+89ED  20 22 64   jsr  board_convert_coord_sprite_pos
+89F0  20 6E 8D   jsr  board_render_sprite
+89F3  A9 80      lda  #$80
+89F5  8D 08 BF   sta  common_sound_flag__enable_voice
+89F8  A2 00      ldx  #$00
+89FA  8E 0B BF   stx  common_sound_new_note_delay
+89FD  A9 16      lda  #<board.sound.pattern_transport
+89FF  85 3D      sta  io_OLDTXT
+8A01  A9 A2      lda  #>board.sound.pattern_transport
+8A03  85 3E      sta  io_OLDTXT+1
+8A05  AD 1B A2   lda  board_sound_phrase_shoot_02+29
+8A08  8D 68 BD   sta  WBD68
+8A0B  20 B1 A0   jsr  board_play_character_sound
+8A0E  AD CB 8D   lda  sprite_00_memory_ptr
+8A11  85 FB      sta  io_FREEZP
+8A13  AD CC 8D   lda  sprite_00_memory_ptr+1
+8A16  85 FC      sta  io_FREEZP+1
+8A18  AD CD 8D   lda  sprite_24_memory_ptr
+8A1B  85 FD      sta  io_FREEZP+2
+8A1D  AD CE 8D   lda  sprite_24_memory_ptr+1
+8A20  85 FE      sta  io_FREEZP+3
+8A22  78         sei
+8A23  A9 37      lda  #<transport_piece_interrupt
+8A25  8D CC BC   sta  main_interrupt_system_fn_ptr
+8A28  A9 8A      lda  #>transport_piece_interrupt
+8A2A  8D CD BC   sta  main_interrupt_system_fn_ptr+1
+8A2D  58         cli
+8A2E  20 67 83   jsr  game_wait_for_state_change
+8A31  A9 0F      lda  #$0F
+8A33  8D F8 47   sta  SPTMEM
+8A36  60         rts
+
+// 8A37
+transport_piece_interrupt:
+8A37  20 BB 92   jsr  board_draw_magic_square
+8A3A  AD D0 BC   lda  main_state_flag_update_state
+8A3D  30 0A      bmi  W8A49
+8A3F  EE EE BC   inc  temp_flag__alternating_state
+8A42  AD EE BC   lda  temp_flag__alternating_state
+8A45  29 03      and  #$03
+8A47  F0 03      beq  W8A4C
+W8A49:
+8A49  4C 8E 63   jmp common.complete.interrupt
+W8A4C:
+8A4C  A9 00      lda  #$00
+8A4E  8D 04 D4   sta  io_VCREG1
+8A51  AD 68 BD   lda  WBD68
+8A54  18         clc
+8A55  69 02      adc  #$02
+8A57  8D 68 BD   sta  WBD68
+8A5A  8D 01 D4   sta  io_FREHI1
+8A5D  A9 11      lda  #$11
+8A5F  8D 04 D4   sta  io_VCREG1
+8A62  AC 2D BD   ldy  WBD2D
+8A65  A2 03      ldx  #$03
+W8A67:
+8A67  B1 FB      lda  (io_FREEZP),y    // copy line by line (one line per interrupt - transport effect)
+8A69  91 FD      sta  (io_FREEZP+2),y
+8A6B  A9 00      lda  #$00
+8A6D  91 FB      sta  (io_FREEZP),y
+8A6F  88         dey
+8A70  30 09      bmi  W8A7B
+8A72  CA         dex
+8A73  D0 F2      bne  W8A67
+8A75  8C 2D BD   sty  WBD2D
+8A78  4C 8E 63   jmp common.complete.interrupt
+W8A7B:
+8A7B  AD FF BC   lda  game_flag__is_challenge_required
+8A7E  30 03      bmi  W8A83
+8A80  20 65 89   jsr  board_add_piece_to_matrix
+W8A83:
+8A83  A9 80      lda  #$80
+8A85  8D D0 BC   sta  main_state_flag_update_state
+8A88  4C 8E 63   jmp common.complete.interrupt
 
-x = 0 to copy light player icon frames
-x = 1 to copy dark player icon frames
-x = 2 to copy light player bullets
-x = 3 to copy dark player bullets
 
 
-W8BDE:
-8BDE  8A         txa
-8BDF  0A         asl
-8BE0  A8         tay
-8BE1  B9 CB 8D   lda  sprite_00_memory_ptr,y
-8BE4  85 FD      sta  FREEZP+2
-8BE6  8D 23 BF   sta  main.temp.data__temp_store_1
-8BE9  B9 CC 8D   lda  sprite_00_memory_ptr+1,y
-8BEC  85 FE      sta  FREEZP+3
-8BEE  E0 02      cpx  #$02
-8BF0  90 1C      bcc  W8C0E
-// attack frames
-8BF2  8A         txa
-8BF3  29 01      and  #$01
-8BF5  A8         tay
-8BF6  B9 29 BF   lda icon.offset,y
-8BF9  29 07      and #$07
-8BFB  C9 06      cmp #$06 
-8BFD  D0 08      bne  W8C07 
-8BFF  A9 00      lda  #$00 // banshee or phoenix
-8C01  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-8C04  4C 6D 8C   jmp add_sprite_to_graphics
 
-W8C07:
-8C07  A9 11      lda  #$11
-8C09  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-8C0C  D0 05      bne  W8C13
 
-24 sprites...
-4r, 
-4d,
-4u,
-fire n, ne,e,sw
-fire s
-...mirrors...
-4l, 
-fire nw, w, sw
 
-if x=2, we load 24 sprites for each player, then we load bullets as follows:
-e, n/s, ne, se, w, nw, sw, blank
-Unless banshee or phoenix - here we only copy
-e,s,n,w
 
-icon frames:
-0,1,2,3,4,5,6,7,8,9,a,b,c,d,e,f,10,80,81,82,83,8d,8e,8f = 24 :)
-attack frames:
-11,12,13,14,91,93,94 = 7 :)
 
 
-W8C0E:
-8C0E  A9 00      lda  #$00
-8C10  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-W8C13:
-8C13  20 6D 8C   jsr add_sprite_to_graphics
-8C16  EE 24 BF   inc  main.temp.data__icon_sprite_frame
-8C19  E0 02      cpx  #$02
-8C1B  B0 1B      bcs  W8C38
-8C1D  AD 24 BF   lda  main.temp.data__icon_sprite_frame
-8C20  30 0B      bmi  W8C2D
-8C22  C9 11      cmp  #$11
-8C24  90 36      bcc  W8C5C
-8C26  A9 80      lda  #$80
-8C28  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-8C2B  30 2F      bmi  W8C5C
-W8C2D:
-8C2D  C9 84      cmp  #$84
-8C2F  90 2B      bcc  W8C5C
-8C31  F0 24      beq  W8C57
-8C33  C9 90      cmp  #$90
-8C35  90 25      bcc  W8C5C
-8C37  60         rts
 
-W8C38:
-8C38  AD 24 BF   lda  main.temp.data__icon_sprite_frame
-8C3B  30 0B      bmi  W8C48
-8C3D  C9 15      cmp  #$15
-8C3F  90 1B      bcc  W8C5C
-8C41  A9 91      lda  #$91
-8C43  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-8C46  30 14      bmi  W8C5C
-W8C48:
-8C48  C9 95      cmp  #$95
-8C4A  90 01      bcc  W8C4D
-8C4C  60         rts
 
-W8C4D:
-8C4D  C9 92      cmp  #$92
-8C4F  D0 0B      bne  W8C5C
-8C51  EE 24 BF   inc  main.temp.data__icon_sprite_frame // dont invert up south sprite - use the same sprite for north
-8C54  4C 5C 8C   jmp  W8C5C
 
-W8C57:
-8C57  A9 8D      lda  #$8D
-8C59  8D 24 BF   sta  main.temp.data__icon_sprite_frame
-W8C5C:
-// next sprite location in graphical memory
-8C5C  AD 23 BF   lda  main.temp.data__temp_store_1
-8C5F  18         clc
-8C60  69 40      adc  #BYTES_PER_SPRITE
-8C62  8D 23 BF   sta  main.temp.data__temp_store_1
-8C65  85 FD      sta  FREEZP+2
-8C67  90 AA      bcc  W8C13
-8C69  E6 FE      inc  FREEZP+3
-8C6B  B0 A6      bcs  W8C13
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-W67B4:
-67B4  AD 25 BF   lda  temp_data__curr_icon_row 
-67B7  8D 53 BD   sta  WBD53                 
-67BA  AD 27 BF   lda  temp_data__curr_icon_col 
-67BD  8D 54 BD   sta  WBD54                 
-67C0  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-67C3  CD C6 BC   cmp  game_state_flag__is_light_turn 
-67C6  D0 03      bne  W67CB                 
-67C8  4C 1D 7A   jmp  W7A1D    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// erase sprite 24
+W931F:
+931F  AD CD 8D   lda  sprite_24_memory_ptr
+9322  85 FD      sta  io_FREEZP+2
+9324  AD CE 8D   lda  sprite_24_memory_ptr+1
+9327  85 FE      sta  io_FREEZP+3
+9329  A0 3F      ldy  #(BYTES_PER_SPRITE - 1)
+932B  A9 00      lda  #$00
+W932D:
+932D  91 FD      sta  (io_FREEZP+2),y
+932F  88         dey
+9330  10 FB      bpl  W932D
+9332  60         rts
 
 
