@@ -57,7 +57,7 @@ import_sprites:
     // Copy in icon frames for chase scene
     lda #FLAG_ENABLE
     sta board.sprite.flag__copy_animation_group
-    lda #$36
+    lda #BYTERS_PER_STORED_SPRITE
     sta board.sprite.copy_length
     lda main.sprite.mem_ptr_24
     sta FREEZP+2
@@ -226,7 +226,7 @@ state__draw_freefall_logo:
     bcs !loop-
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
     // read the screen rows from the remaining string messages.
-    lda #$00
+    lda #FLAG_DISABLE
     sta main.temp.flag__string_pos_ctl
     jsr screen_draw_text
     //
@@ -265,7 +265,7 @@ get_next_char:
     bne !next+
     inc FREEZP+1
 !next:
-    cmp #$80 // New line
+    cmp #STRING_CMD_NEWLINE
     bcc !next+
     beq screen_calc_start_addr
     rts

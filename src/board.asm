@@ -906,6 +906,21 @@ clear_text_row:
     bpl !loop-
     rts
 
+// 931F
+// Clear sprite position 24 in graphics memory.
+clear_mem_sprite_24:
+    lda main.sprite.mem_ptr_24
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_24+1
+    sta FREEZP+3
+    ldy #(BYTES_PER_SPRITE - 1)
+    lda #$00
+!loop:
+    sta (FREEZP+2),y
+    dey
+    bpl !loop-
+    rts
+
 // A0B1
 // Plays an icon movement or fire sound.
 // Requires pointer to sound pattern in OLDTXT.
@@ -1028,10 +1043,10 @@ interrupt_handler__play_music:
         .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
 
     // 6323
-    magic_square_col: .byte $4A, $1A, $4A, $4A, $7A // Column of each magic square (used with magic_square_row)
+    magic_square_col: .byte $00, $04, $04, $04, $08 // Column of each magic square (used with magic_square_row)
 
     // 6328
-    magic_square_row: .byte $17, $57, $57, $97, $57 // Row of each magic square (used with magic_square_col)
+    magic_square_row: .byte $04, $00, $04, $08, $04 // Row of each magic square (used with magic_square_col)
 
     // 8BD2
     color_phase: // Colors used for each board game phase

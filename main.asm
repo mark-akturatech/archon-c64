@@ -95,7 +95,7 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
-    lda #$00
+    lda #FLAG_DISABLE
     sta game.state.flag__ai_player_ctl
     sta common.options.temp__ai_player_ctl
     sta common.options.flag__ai_player_ctl
@@ -198,7 +198,7 @@ skip_intro:
     sta SPENA
 #endif
 skip_board_walk:
-    lda #$00
+    lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
     lda #FLAG_DISABLE
     sta flag__enable_intro
@@ -230,7 +230,7 @@ board_setup_player_1_loop:
     dey
     bne board_setup_player_1_loop
     ldy #$05
-    lda #$80 // Empty cell
+    lda #BOARD_EMPTY_SQUARE
 board_setup_empty_col_loop:
     sta game.curr_square_occupancy,x
     inx
@@ -562,6 +562,10 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     data__curr_sprite_ptr: // Current sprite counter
         .byte $00
 
+    // BD2D
+    data__temp_store_2: // Temporary storage
+        .byte $00
+
     // BD38
     data__num_icons: // Number of baord icons to render
         .byte $00
@@ -640,6 +644,10 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BD3A
     data__msg_offset: // Offset of current message being rendered in into page
     data__icon_offset: // Offset of current icon being rendered on to the board
+        .byte $00
+
+    // BD68
+    data__temp_note_store: // Temporary storage for musical note being played
         .byte $00
 
     // BD7B

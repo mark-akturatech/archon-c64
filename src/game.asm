@@ -96,7 +96,7 @@ entry:
     sta FREEZP
     lda data.row_occupancy_hi_ptr,y
     sta FREEZP+1
-    ldy board.data.magic_square_col,x
+    ldy board.data.magic_square_row,x
     lda (FREEZP),y // Get ID of icon on magic square
     bmi !check_win_next+ // Square unoccupied
     // This is clever - continually OR $40 for light or $80 for dark. If all squares are occupied by the same player
@@ -250,7 +250,7 @@ check_game_state:
     dec board.countdown_timer
     bpl !next+
     // Start game.
-    lda #$00
+    lda #FLAG_DISABLE
     sta main.curr_pre_game_progress
     jmp main.restart_game_loop
 !next:
@@ -301,7 +301,7 @@ play_turn:
     ldx #$00
     jsr board.convert_coord_sprite_pos
     jsr board.sprite_initialize
-    lda #$36
+    lda #BYTERS_PER_STORED_SPRITE
     sta board.sprite.copy_length
     jsr board.add_sprite_set_to_graphics
     // detect if piece can move?
@@ -424,7 +424,7 @@ configure_selected_icon:
     // Icon destination selected.
     lda curr_spell_cast_selection
     beq !next+
-    // 8348  20 B4 67   jsr  W67B4 // TODO: Cast spell
+    // 8348  20 B4 67   jsr  W67B4 // TODO: select spell
 !next:
     lda flag__icon_can_cast
     bpl end_turn
@@ -432,7 +432,7 @@ configure_selected_icon:
     ldx board.icon.type
     lda board.icon.init_matrix,x
     sta board.icon.offset
-    // 8359  20 7B 89   jsr  W897B // TODO: transport spell caster
+    jsr transport_icon
 end_turn:
     lda flag__is_challenge_required
     bmi !next+
@@ -620,7 +620,7 @@ game_over__show_winner:
     beq !loop+
     lda #$07 // Approx 30s (each tick is ~4s)
     sta board.countdown_timer
-    lda #$80 // Intro
+    lda #FLAG_ENABLE // Intro
     sta main.curr_pre_game_progress
 !loop:
     jsr common.check_option_keypress
@@ -632,7 +632,7 @@ game_over__show_winner:
     sta main.state.last_stored_time
     dec board.countdown_timer
     bpl !next+
-    lda #$00
+    lda #FLAG_DISABLE
     sta main.curr_pre_game_progress
     jmp main.restart_game_loop
 !next:
@@ -641,7 +641,7 @@ game_over__show_winner:
 // 8367
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
-    lda #$00
+    lda #FLAG_DISABLE
     sta main.interrupt.flag__enable
 !loop:
     jsr common.check_stop_keypess
@@ -659,7 +659,7 @@ interrupt_handler:
     lda game.state.flag__is_turn_started
     bmi new_player_sound
     // Initialize turn.
-    lda #$80
+    lda #FLAG_ENABLE
     sta game.state.flag__is_turn_started
     lda #$00
     sta main.temp.data__dark_icon_count
@@ -698,7 +698,7 @@ new_player_sound:
     bmi !next+
     jmp common.complete_interrupt
 !next:
-    lda #$00
+    lda #FLAG_DISABLE
     sta flag__new_square_selected
     sta main.temp.flag__board_sprite_moved
     // Set player offset.
@@ -748,7 +748,7 @@ joystick_icon_select:
     and #$7F
     bne move_sprite_to_square
     // Select icon.
-    lda #$80
+    lda #FLAG_ENABLE
     sta flag__icon_selected
     lda #$10 // Wait 10 interrupts before allowing icon destination square selection
     sta curr_debounce_count
@@ -894,7 +894,7 @@ check_move_sprite_up:
     bne render_selected_sprite
     inc common.sprite.curr_animation_frame,x
     // Configure movement sound effect for selected piece.
-    lda #$80
+    lda #FLAG_ENABLE
     cmp common.sound.flag__enable_voice
     beq render_selected_sprite
     sta common.sound.flag__enable_voice
@@ -1058,7 +1058,7 @@ select_or_move_icon:
     jsr get_square_occupancy
     ldx curr_spell_cast_selection // Magic caster selected
     beq !next+
-    // 8720  4C BC 87   jmp  W87BC   // TODO select spell TODO
+    // 8720  4C BC 87   jmp  W87BC   // TODO cast spell
 !next:
     ldx curr_icon_total_moves // is 0 when char is first selected
     beq select_icon_to_move
@@ -1258,6 +1258,147 @@ show_selection_error_message:
     pla
     tax
     rts
+
+// 897B
+// transport piece
+transport_icon:
+    ldx #$00
+    stx main.temp.flag__alternating_state
+    // Enable 2 sprites for animating transport from and to - the source sprite is slowly removed from the source
+    // location and rebuilt at the destination location. This is done by removing one line from the source (every 3
+    // interrupts) and adding it to the destination.
+    lda #%0000_1111
+    sta SPTMEM
+    sta SPTMEM+1
+    jsr board.clear_mem_sprite_24
+    lda SPMC
+    ora #%000_0011
+    sta SPMC
+    lda XXPAND
+    and #%1111_1100
+    sta XXPAND
+    // Configure source icon.
+    lda #(BYTERS_PER_STORED_SPRITE - 1)
+    sta main.temp.data__temp_store_2
+    lda main.temp.data__curr_icon_col
+    ldy main.temp.data__curr_icon_row
+    jsr board.convert_coord_sprite_pos
+    ldy board.icon.type
+    lda board.icon.init_matrix,y
+    sta board.icon.offset
+    jsr board.sprite_initialize
+    //
+    lda main.sprite.mem_ptr_00
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_00+1
+    sta FREEZP+3
+    lda #BYTERS_PER_STORED_SPRITE
+    sta board.sprite.copy_length
+    lda common.sprite.init_animation_frame
+    beq !next+
+    lda #FLAG_ENABLE // Invert sprite
+!next:
+    sta main.temp.data__icon_set_sprite_frame
+    jsr board.add_sprite_to_graphics
+    //
+    ldx #$01
+    lda #$00
+!loop:
+    sta common.sprite.init_animation_frame,x
+    sta common.sprite.curr_animation_frame,x
+    dex
+    bpl !loop-
+    //
+    tax
+    jsr board.render_sprite
+    jsr board.draw_board
+    // Configure destination icon.
+    ldx #$01
+    lda main.temp.data__curr_board_col
+    ldy main.temp.data__curr_board_row
+    jsr board.convert_coord_sprite_pos
+    jsr board.render_sprite
+    // Configure transport sound effect.
+    lda #FLAG_ENABLE
+    sta common.sound.flag__enable_voice
+    ldx #$00
+    stx common.sound.new_note_delay
+    //
+    lda #<board.sound.pattern_transport
+    sta OLDTXT
+    lda #>board.sound.pattern_transport
+    sta OLDTXT+1
+    lda board.sound.pattern_transport+5 // This note increases in patch as animation runs
+    sta main.temp.data__temp_note_store
+    jsr board.play_icon_sound
+    // Configure sprite source and destination pointers (for line by line copy)
+    lda main.sprite.mem_ptr_00
+    sta FREEZP
+    lda main.sprite.mem_ptr_00+1
+    sta FREEZP+1
+    lda main.sprite.mem_ptr_24
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_24+1
+    sta FREEZP+3
+    // Set interrupt handler for transport animation.
+    sei
+    lda #<transport_icon_interrupt
+    sta main.interrupt.system_fn_ptr
+    lda #>transport_icon_interrupt
+    sta main.interrupt.system_fn_ptr+1
+    cli
+    // Wait for animation to completee.
+    jsr wait_for_state_change
+    lda #%0000_1111
+    sta SPTMEM
+    rts
+
+// 8A37
+// Performs an animation when transporting an icon from one location to another.
+transport_icon_interrupt:
+    jsr board.draw_magic_square
+    lda main.interrupt.flag__enable
+    bmi !return+
+    // Animate every 4th interrupt.
+    inc main.temp.flag__alternating_state
+    lda main.temp.flag__alternating_state
+    and #$03
+    beq !next+
+!return:
+    jmp common.complete_interrupt
+!next:
+    // Play sound.
+    lda #$00
+    sta VCREG1
+    lda main.temp.data__temp_note_store
+    clc
+    adc #$02
+    sta main.temp.data__temp_note_store
+    sta FREHI1
+    lda #$11
+    sta VCREG1
+    // Copy 2 lines of the source sprite and move to destination sprite.
+    ldy main.temp.data__temp_store_2
+    ldx #$03
+!loop:
+    lda (FREEZP),y    // copy line by line (one line per interrupt - transport effect)
+    sta (FREEZP+2),y
+    lda #$00
+    sta (FREEZP),y
+    dey
+    bmi !return+ // Copy finished?
+    dex
+    bne !loop-
+    sty main.temp.data__temp_store_2
+    jmp common.complete_interrupt
+!return:
+    lda flag__is_challenge_required
+    bmi !next+
+    jsr board.add_icon_to_matrix
+!next:
+    lda #FLAG_ENABLE
+    sta main.interrupt.flag__enable
+    jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets

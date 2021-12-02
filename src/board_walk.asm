@@ -34,7 +34,7 @@ entry:
     sta XXPAND
     lda %0111_1111
     sta SPMC
-    lda #$36 // 54 bytes per sprite
+    lda #BYTERS_PER_STORED_SPRITE
     sta board.sprite.copy_length
     // Adds icon types to the board one at a time. Each icon is added by animating it (flying or walking) to the
     // icon's square.

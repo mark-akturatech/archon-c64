@@ -28,6 +28,9 @@
 // Bytes consumed by each sprite
 .const BYTES_PER_SPRITE = 64;
 
+// Stored sprites are not full height (to fit in to square) and therefore consume less memory.
+.const BYTERS_PER_STORED_SPRITE = 54;
+
 // Characters per screen row
 .const CHARS_PER_SCREEN_ROW = 40;
 
