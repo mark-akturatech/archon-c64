@@ -204,13 +204,13 @@ skip_board_walk:
     sta flag__enable_intro
     lda TIME+1
     sta state.last_stored_time // Large jiffy (increments 256 jiffies aka ~ 4 seconds)
-    // NFI - sprite position maybe? // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // 6283  A2 0D      ldx #$0D
-    // 6285  A9 FD      lda #$FD
-    // !loop:
-    // 6287  9D FA BE   sta WBEFA,x
-    // 628A  CA         dex
-    // 628B  10 FA      bpl !loop-
+    // Clear used spell flags.
+    ldx #$0D
+    lda #$FD // Spell not used
+!loop:
+    sta game.flag__light_used_spells,x
+    dex
+    bpl !loop-
     //
     // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
@@ -626,6 +626,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BF32
     data__dark_icon_count: // Dark remaining icon count
     data__board_sprite_move_y_cnt: // Sprite Y position movement counter
+    data__temp_cia_store: // Current spell selection
         .byte $00
 
     // BF33

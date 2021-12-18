@@ -638,6 +638,30 @@ game_over__show_winner:
 !next:
     jmp !loop-
 
+// 7205
+// Count number of spells left for current player.
+// Y register is 0 for light player and 7 for dark player.
+// X register is preserved.
+// Results in `main.temp.data__temp_store_1`
+count_used_spells:
+    txa
+    pha
+    lda #$00
+    sta main.temp.data__temp_store_1
+    ldx #$07
+!loop:
+    lda flag__light_used_spells,y
+    cmp #$FE // Spell used?
+    bne !next+
+    inc main.temp.data__temp_store_1
+!next:
+    iny
+    dex
+    bne !loop-
+    pla
+    tax
+    rts
+
 // 8367
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
@@ -757,7 +781,7 @@ joystick_icon_select:
     bmi !next+
     lda flag__new_square_selected
     bpl move_sprite_to_square
-    jsr show_selection_error_message // Display message if selected icon is imprisoned
+    jsr display_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
     sta main.interrupt.flag__enable
@@ -831,7 +855,7 @@ check_joystick_up_down:
 !next:
     lda flag__new_square_selected
     bpl set_sprite_square_position
-    jsr show_selection_error_message
+    jsr display_message
 set_sprite_square_position:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
     lda main.temp.data__board_sprite_move_x_cnt // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
@@ -1247,7 +1271,7 @@ warn_on_move_limit_reached:
 // 8953
 // Displays an error message on piece selection. The message has $80 added to it and is stored in
 // `flag__new_square_selected`. This method specifically preserves the X register.
-show_selection_error_message:
+display_message:
     jsr board.clear_text_row
     txa
     pha
@@ -1415,12 +1439,25 @@ transport_icon_interrupt:
 }
 
 .namespace data {
+    // 67A0
+    // Location of used spell arrays for each player
+    used_spell_ptr:
+        .word flag__light_used_spells, flag__dark_used_spells
+
+    // 8B8C
+    // Spell name message string IDs.
+    spell_string_id:
+        .byte STRING_TELEPORT, STRING_HEAL, STRING_SHIFT_TIME, STRING_EXCHANGE, STRING_SUMMON_ELEMENTAAL
+        .byte STRING_REVIVE, STRING_IMPRISON, STRING_CEASE
+
     // BEC0
-    row_occupancy_lo_ptr: // Low byte memory offset of square occupancy data for each board row
+    // Low byte memory offset of square occupancy data for each board row
+    row_occupancy_lo_ptr:
         .fill BOARD_NUM_COLS, <(curr_square_occupancy + i * BOARD_NUM_COLS)
 
     // BEC9
-    row_occupancy_hi_ptr: // High byte memory offset of square occupancy data for each board row
+    // High byte memory offset of square occupancy data for each board row
+    row_occupancy_hi_ptr:
         .fill BOARD_NUM_COLS, >(curr_square_occupancy + i * BOARD_NUM_COLS)
 }
 
@@ -1496,7 +1533,9 @@ curr_color_phase: .byte $00 // Current board color phase (colors phase between l
 imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark)
 
 // BD3D
-flag__new_square_selected: .byte $00 // Is set to non-zero if a new board square was selected
+flag__new_square_selected: // Is set to non-zero if a new board square was selected
+selected_spell_id: // ID of selected spell used as an offset when calling spell logic
+    .byte $00 
 
 // BD70
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
@@ -1519,3 +1558,11 @@ icon_move_col_buffer: .byte $00, $00, $00, $00, $00, $00
 // Stores each row the icon enters as it is being moved. Used to calculate number of moves.
 // Allows for a total of 5 moves (maximum move count) plus the starting row.
 icon_move_row_buffer: .byte $00, $00, $00, $00, $00, $00
+
+// BEFA
+// Flags used to keep track of spells used by light player.
+flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
+
+// BF01
+// Flags used to keep track of spells used by dark player.
+flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00

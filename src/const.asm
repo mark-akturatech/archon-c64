@@ -109,7 +109,7 @@
 .const STRING_CMD_END = $FF         // End of string
 .const STRING_CMD_NEWLINE = $80     // New line (row and column offset follow)
 
-// .const STRING_NO_SPELLS = 00
+.const STRING_NO_SPELLS = 00
 .const STRING_CANNOT_MOVE = 01
 .const STRING_CHALLENGE_FOE = 02
 .const STRING_LIMIT_MOVED = 03
@@ -137,14 +137,14 @@
 // .const STRING_SEND_WHERE = 25
 // .const STRING_WIZARD = 26
 // .const STRING_SOURCERESS = 27
-// .const STRING_TELEPORT = 44
-// .const STRING_HEAL = 45
-// .const STRING_SHIFT_TIME = 46
-// .const STRING_EXCHANGE = 47
-// .const STRING_SUMMON_ELEMENTAAL = 48
-// .const STRING_REVIVE = 49
-// .const STRING_IMPROSON = 50
-// .const STRING_CEASE = 51
+.const STRING_TELEPORT = 44
+.const STRING_HEAL = 45
+.const STRING_SHIFT_TIME = 46
+.const STRING_EXCHANGE = 47
+.const STRING_SUMMON_ELEMENTAAL = 48
+.const STRING_REVIVE = 49
+.const STRING_IMPRISON = 50
+.const STRING_CEASE = 51
 // .const STRING_CHARMED_PROOF = 52
 // .const STRING_SPELL_WASTED = 53
 // .const STRING_SELECT_SPELL = 54
