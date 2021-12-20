@@ -579,7 +579,6 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BD66
     dynamic_fn_ptr: .word $0000 // Pointer to a dynanic function determined at runtime
 
-
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
     data__board_icon_char_offset: // Index to character dot data for current board icon part (icons are 6 caharcters)
@@ -635,8 +634,8 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF32
     data__dark_icon_count: // Dark remaining icon count
-    data__board_sprite_move_y_cnt: // Sprite Y position movement counter
-    data__temp_cia_store: // Current spell selection
+    data__board_sprite_move_y_count: // Sprite Y position movement counter
+    data__hold_delay_count: // Current spell selection
         .byte $00
 
     // BF33
@@ -645,7 +644,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF36
     data__light_icon_count: // Light remaining icon count
-    data__board_sprite_move_x_cnt: // Sprite X position movement counter
+    data__board_sprite_move_x_count: // Sprite X position movement counter
         .byte $00
 
     // BF37
@@ -677,6 +676,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BF23
     data__sprite_y_direction_offset: // Amount added to y plan to move sprite to the left or right (uses rollover)
     data__temp_store_1: // Temporary data storage
+    data__used_spell_count: // Count of number of used spells for a specific player
         .byte $00
 
     // BF24

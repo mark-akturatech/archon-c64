@@ -276,7 +276,7 @@ play_turn:
     ldx #$60 // Normal AI start delay
     lda board.countdown_timer // Will be FF is option timer expired
     bmi !next+
-    ldx  #$40 // Short AI start delay if AI vs AI
+    ldx #$40 // Short AI start delay if AI vs AI
 !next:
     stx delay_before_turn
     jsr wait_for_state_change
@@ -372,47 +372,47 @@ set_icon_speed:
     cmp state.flag__is_light_turn
     bne configure_selected_icon
     // AI piece selection. // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // 82E5  AD FD BC   lda  curr_icon_total_moves
-    // 82E8  30 20      bmi  W830A
-    // 82EA  AC 38 BD   ldy  temp_data__num_icons
-    // 82ED  B9 32 BD   lda  WBD32,y
-    // 82F0  A0 00      ldy  #$00
+    // 82E5  AD FD BC   lda curr_icon_total_moves
+    // 82E8  30 20      bmi W830A
+    // 82EA  AC 38 BD   ldy temp_data__num_icons
+    // 82ED  B9 32 BD   lda WBD32,y
+    // 82F0  A0 00      ldy #$00
     // W82F2:
     // 82F2  38         sec
-    // 82F3  E9 09      sbc  #$09
-    // 82F5  90 03      bcc  W82FA
+    // 82F3  E9 09      sbc #$09
+    // 82F5  90 03      bcc W82FA
     // 82F7  C8         iny
-    // 82F8  B0 F8      bcs  W82F2
+    // 82F8  B0 F8      bcs W82F2
     // W82FA:
-    // 82FA  69 09      adc  #$09
-    // 82FC  A2 04      ldx  #$04
+    // 82FA  69 09      adc #$09
+    // 82FC  A2 04      ldx #$04
     // 82FE  20 22 64   jsr board.convert_coord_sprite_pos
-    // 8301  8D 17 BD   sta  main_temp_data__sprite_final_x_pos
-    // 8304  8C 15 BD   sty  intro_sprite_final_y_pos
-    // 8307  CE 38 BD   dec  temp_data__num_icons
+    // 8301  8D 17 BD   sta main_temp_data__sprite_final_x_pos
+    // 8304  8C 15 BD   sty intro_sprite_final_y_pos
+    // 8307  CE 38 BD   dec temp_data__num_icons
     // W830A:
-    // 830A  AE 22 BF   ldx  flag__sprites_initialized
-    // 830D  BD 5B BE   lda  WBE5B,x
-    // 8310  8D 28 BD   sta  WBD28
-    // 8313  BC 6D BE   ldy  WBE6D,x
-    // 8316  8C 29 BD   sty  WBD29
-    // 8319  AE FD BC   ldx  curr_icon_total_moves
-    // 831C  10 1A      bpl  configure_selected_icon
-    // 831E  A2 04      ldx  #$04
+    // 830A  AE 22 BF   ldx flag__sprites_initialized
+    // 830D  BD 5B BE   lda WBE5B,x
+    // 8310  8D 28 BD   sta WBD28
+    // 8313  BC 6D BE   ldy WBE6D,x
+    // 8316  8C 29 BD   sty WBD29
+    // 8319  AE FD BC   ldx curr_icon_total_moves
+    // 831C  10 1A      bpl configure_selected_icon
+    // 831E  A2 04      ldx #$04
     // 8320  20 22 64   jsr board.convert_coord_sprite_pos
-    // 8323  2C FD BC   bit  curr_icon_total_moves
-    // 8326  50 0A      bvc  W8332
+    // 8323  2C FD BC   bit curr_icon_total_moves
+    // 8326  50 0A      bvc W8332
     // 8328  38         sec
-    // 8329  E9 02      sbc  #$02
+    // 8329  E9 02      sbc #$02
     // 832B  48         pha
     // 832C  98         tya
     // 832D  38         sec
-    // 832E  E9 01      sbc  #$01
+    // 832E  E9 01      sbc #$01
     // 8330  A8         tay
     // 8331  68         pla
     // W8332:
-    // 8332  8D 17 BD   sta  main_temp_data__sprite_final_x_pos
-    // 8335  8C 15 BD   sty  intro_sprite_final_y_pos
+    // 8332  8D 17 BD   sta main_temp_data__sprite_final_x_pos
+    // 8335  8C 15 BD   sty intro_sprite_final_y_pos
     //
 configure_selected_icon:
     ldx #$00
@@ -745,8 +745,8 @@ joystick_icon_select:
     lda flag__icon_selected
     bmi move_sprite_to_square
     // Don't select icon if selection square is still moving (ie not directly over an icon).
-    lda main.temp.data__board_sprite_move_x_cnt
-    ora main.temp.data__board_sprite_move_y_cnt
+    lda main.temp.data__board_sprite_move_x_count
+    ora main.temp.data__board_sprite_move_y_count
     and #$7F
     bne move_sprite_to_square
     // Select icon.
@@ -763,8 +763,8 @@ joystick_icon_select:
     jmp common.complete_interrupt
 !next:
     sta main.interrupt.flag__enable
-    // 844C  8D 55 BD   sta  WBD55 // TODO
-    jmp  common.complete_interrupt
+    // 844C  8D 55 BD   sta WBD55 // TODO
+    jmp common.complete_interrupt
     //
 move_sprite_to_square:
     lda curr_player_offset
@@ -775,24 +775,24 @@ move_sprite_to_square:
     beq check_joystick_left_right
     bmi check_joystick_left_right
     // Don't bother checking joystick position until we reach the previously selected square.
-    lda main.temp.data__board_sprite_move_x_cnt
-    ora main.temp.data__board_sprite_move_y_cnt
+    lda main.temp.data__board_sprite_move_x_count
+    ora main.temp.data__board_sprite_move_y_count
     and #$7F
     beq check_joystick_left_right
     jmp set_sprite_square_position
 check_joystick_left_right:
-    lda  CIAPRA,x
+    lda CIAPRA,x
     pha // Put joystick status on stack
     lda magic.curr_spell_cast_selection
     cmp #($80 + SPELL_END)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
-    lda main.temp.data__board_sprite_move_x_cnt
+    lda main.temp.data__board_sprite_move_x_count
     and #$7F
     bne move_up_down
     pla
     pha
-    and  #$08 // Joystick right
+    and #$08 // Joystick right
     bne !next+
     jsr set_square_right
     jmp move_up_down
@@ -813,7 +813,7 @@ move_up_down:
     jmp set_sprite_square_position
     // Disable joystick up/down movement if sprite has not reached Y direction final position.
 check_joystick_up_down:
-    lda main.temp.data__board_sprite_move_y_cnt
+    lda main.temp.data__board_sprite_move_y_count
     and #$7F
     beq !next+
     pla
@@ -836,12 +836,12 @@ check_joystick_up_down:
     jsr display_message
 set_sprite_square_position:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
-    lda main.temp.data__board_sprite_move_x_cnt // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
+    lda main.temp.data__board_sprite_move_x_count // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
     bmi check_move_sprite_left
     // Move sprite right.
     inc common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_move_x_cnt
+    dec main.temp.data__board_sprite_move_x_count
     inc main.temp.flag__board_sprite_moved
     bpl !next+
 check_move_sprite_left:
@@ -849,15 +849,15 @@ check_move_sprite_left:
     beq !next+
     // Move sprite left.
     dec common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_move_x_cnt
+    dec main.temp.data__board_sprite_move_x_count
     inc main.temp.flag__board_sprite_moved
 !next:
-    lda main.temp.data__board_sprite_move_y_cnt // Number of pixels to move in y direction ($00-$7f for down, $80-ff for up)
+    lda main.temp.data__board_sprite_move_y_count // Number of pixels to move in y direction ($00-$7f for down, $80-ff for up)
     beq !next+
     bmi check_move_sprite_up
     // Move sprite down.
     inc common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_move_y_cnt
+    dec main.temp.data__board_sprite_move_y_count
     inc main.temp.flag__board_sprite_moved
     bpl !next+
 check_move_sprite_up:
@@ -865,7 +865,7 @@ check_move_sprite_up:
     beq !next+
     // Move sprite up.
     dec common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_move_y_cnt
+    dec main.temp.data__board_sprite_move_y_count
     inc main.temp.flag__board_sprite_moved
 !next:
     lda main.temp.flag__board_sprite_moved
@@ -926,7 +926,7 @@ set_square_right:
     jsr verify_valid_move
 !next:
     lda #$0C // Move 12 pixels to the right
-    sta main.temp.data__board_sprite_move_x_cnt
+    sta main.temp.data__board_sprite_move_x_count
     inc main.temp.data__curr_board_col
     inc flag__new_square_selected
 !return:
@@ -946,7 +946,7 @@ set_square_left:
     sta icon_dir_frame_offset
     jsr verify_valid_move
     lda #$8C // Move 12 pixels to the left
-    sta main.temp.data__board_sprite_move_x_cnt
+    sta main.temp.data__board_sprite_move_x_count
     dec main.temp.data__curr_board_col
     inc flag__new_square_selected
 !return:
@@ -969,7 +969,7 @@ set_square_up:
 !next:
     jsr verify_valid_move
     lda #$90 // Move 16 pixels up
-    sta main.temp.data__board_sprite_move_y_cnt
+    sta main.temp.data__board_sprite_move_y_count
     dec main.temp.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
@@ -994,7 +994,7 @@ set_square_down:
 !next:
     jsr verify_valid_move
     lda #$10 // Move down 16 pixels
-    sta main.temp.data__board_sprite_move_y_cnt
+    sta main.temp.data__board_sprite_move_y_count
     inc main.temp.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
@@ -1053,14 +1053,14 @@ check_move_limit:
 // Selects an icon on joystick fire button or moves a selected icon to the selected destination on joystick fire.
 // This method also detects double fire on a spell caster and activates spell selection.
 select_or_move_icon:
-    lda #$40 // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
     sta main.temp.flag__icon_destination_valid
     ldy main.temp.data__curr_board_row
     lda main.temp.data__curr_board_col
     jsr get_square_occupancy
     ldx magic.curr_spell_cast_selection // Magic caster selected
     beq !next+
-    // 8720  4C BC 87   jmp  W87BC   // TODO cast spell
+    jmp magic.select_spell_destination
 !next:
     ldx curr_icon_total_moves // is 0 when char is first selected
     beq select_icon_to_move

@@ -13,7 +13,7 @@
 // Description:
 // - Gets sound pattern for the current icon.
 // Prerequisites:
-// - X: 
+// - X:
 //   $00: Retrieve sound for one player icon only (moving on board)
 //   $01: Retrieve sound for two player icons (when in battle)
 // - Y: Current player offset (0 for light, 1 for dark, 0 when X is $01)
@@ -30,6 +30,40 @@ get_sound_for_icon:
     sta sound.pattern_lo_ptr,x
     lda sound.pattern_ptr+1,y
     sta sound.pattern_hi_ptr,x
+    rts
+
+// 62FF
+// Description:
+// - Detects if the selected square is a magic sqaure.
+// Prerequisites:
+// - `main.temp.data__curr_row`: row of the cell to test.
+// - `main.temp.data__curr_column`: column of the cell to test.
+// Sets:
+// - `main.temp.flag__icon_destination_valid`: is $80 if selected square is a magic square.
+// Preserves:
+// - X, Y
+test_magic_square_selected:
+    tya
+    pha
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta main.temp.flag__icon_destination_valid
+    ldy #$04 // 5 magic squares (zero based)
+!loop:
+    lda board.data.magic_square_col,y
+    cmp main.temp.data__curr_row
+    bne !next+
+    lda board.data.magic_square_row,y
+    cmp main.temp.data__curr_column
+    beq magic_square_selected
+!next:
+    dey
+    bpl !loop-
+    bmi no_magic_square_selected
+magic_square_selected:
+    asl main.temp.flag__icon_destination_valid
+no_magic_square_selected:
+    pla
+    tay
     rts
 
 // 6422
@@ -504,7 +538,7 @@ invert_bytes:
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
-// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50, 
+// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 render_sprite:
     txa
@@ -528,7 +562,7 @@ render_sprite:
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
-// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50, 
+// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 render_sprite_preconf:
     lda common.sprite.curr_y_pos,x

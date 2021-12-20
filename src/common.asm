@@ -152,7 +152,7 @@ check_stop_keypess:
     jmp main.restart_game_loop
 !next:
     lda main.interrupt.flag__enable_next
-    eor #$ff
+    eor #$FF
     sta main.interrupt.flag__enable_next
 !loop:
     jsr STOP
