@@ -947,9 +947,9 @@ configure_voice:
     asl
     tay
     lda common.sound.note_data_fn_ptr,y
-    sta common.sound.curr_note_data_fn_ptr
+    sta main.temp.dynamic_fn_ptr
     lda common.sound.note_data_fn_ptr+1,y
-    sta common.sound.curr_note_data_fn_ptr+1
+    sta main.temp.dynamic_fn_ptr+1
     lda common.sound.voice_io_addr,y
     sta FREEZP+2 // SID voice address
     lda common.sound.voice_io_addr+1,y

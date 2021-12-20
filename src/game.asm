@@ -1,7 +1,7 @@
 .filenamespace game
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for playiong the game.
+// Contains routines for playing the board game.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"
@@ -265,7 +265,7 @@ play_turn:
     sta game.state.flag__is_turn_started
     sta flag__is_challenge_required
     sta curr_icon_total_moves
-    sta curr_spell_cast_selection
+    sta magic.curr_spell_cast_selection
     sta flag__icon_can_cast
     ldx #$05 // Short delay before start of turn
     // Check AI turn.
@@ -368,11 +368,10 @@ set_icon_speed:
     bne !next+
     inc curr_icon_move_speed // Slow down movement of golem and troll
 !next:
-    // W82DD: // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // 82DD  AD C0 BC   lda  state.flag__ai_player_ctl
-    // 82E0  CD C6 BC   cmp  state.flag__is_light_turn
-    // 82E3  D0 53      bne  configure_selected_icon
-    // AI piece selection.
+    lda state.flag__ai_player_ctl
+    cmp state.flag__is_light_turn
+    bne configure_selected_icon
+    // AI piece selection. // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // 82E5  AD FD BC   lda  curr_icon_total_moves
     // 82E8  30 20      bmi  W830A
     // 82EA  AC 38 BD   ldy  temp_data__num_icons
@@ -422,9 +421,9 @@ configure_selected_icon:
     jsr wait_for_state_change
     //
     // Icon destination selected.
-    lda curr_spell_cast_selection
+    lda magic.curr_spell_cast_selection
     beq !next+
-    // 8348  20 B4 67   jsr  W67B4 // TODO: select spell
+    jsr magic.select_spell
 !next:
     lda flag__icon_can_cast
     bpl end_turn
@@ -638,30 +637,6 @@ game_over__show_winner:
 !next:
     jmp !loop-
 
-// 7205
-// Count number of spells left for current player.
-// Y register is 0 for light player and 7 for dark player.
-// X register is preserved.
-// Results in `main.temp.data__temp_store_1`
-count_used_spells:
-    txa
-    pha
-    lda #$00
-    sta main.temp.data__temp_store_1
-    ldx #$07
-!loop:
-    lda flag__light_used_spells,y
-    cmp #$FE // Spell used?
-    bne !next+
-    inc main.temp.data__temp_store_1
-!next:
-    iny
-    dex
-    bne !loop-
-    pla
-    tax
-    rts
-
 // 8367
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
@@ -755,8 +730,8 @@ new_player_sound:
     sta flag__icon_selected
     beq move_sprite_to_square
 joystick_icon_select:
-    lda curr_spell_cast_selection
-    cmp #SPELL_END
+    lda magic.curr_spell_cast_selection
+    cmp #($80 + SPELL_END)
     beq !next+
     // Ensure selected column is within bounds.
     lda main.temp.data__curr_board_col
@@ -805,8 +780,8 @@ move_sprite_to_square:
 check_joystick_left_right:
     lda  CIAPRA,x
     pha // Put joystick status on stack
-    lda curr_spell_cast_selection
-    cmp #SPELL_END
+    lda magic.curr_spell_cast_selection
+    cmp #($80 + SPELL_END)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
     lda main.temp.data__board_sprite_move_x_cnt
@@ -901,7 +876,7 @@ check_move_sprite_up:
     sta common.sound.new_note_delay
     jmp render_selected_sprite
 !next:
-    lda curr_spell_cast_selection
+    lda magic.curr_spell_cast_selection
     bmi !next+
     jsr board.clear_text_row
 !next:
@@ -1080,7 +1055,7 @@ select_or_move_icon:
     ldy main.temp.data__curr_board_row
     lda main.temp.data__curr_board_col
     jsr get_square_occupancy
-    ldx curr_spell_cast_selection // Magic caster selected
+    ldx magic.curr_spell_cast_selection // Magic caster selected
     beq !next+
     // 8720  4C BC 87   jmp  W87BC   // TODO cast spell
 !next:
@@ -1119,7 +1094,7 @@ select_icon_destination:
     bvc !return+ // Don't allow drop on selected piece source square if not a spell caster
     // If spell caster is selected, set spell cast mode if source square selected as destination
     lda #FLAG_ENABLE
-    sta curr_spell_cast_selection
+    sta magic.curr_spell_cast_selection
     bmi add_icon_to_destination
 set_icon_destination:
     lda curr_icon_total_moves
@@ -1155,7 +1130,7 @@ select_icon_to_move:
     // Accept destination.
     lda #FLAG_ENABLE
     sta main.temp.flag__icon_destination_valid
-    ldx curr_spell_cast_selection // Don't clear square if selected a magic caster as they teleport instead of moving
+    ldx magic.curr_spell_cast_selection // Don't clear square if selected a magic caster as they teleport instead of moving
     bmi !return-
     sta (FREEZP),y // Clears current square as piece is now moving
     rts
@@ -1276,7 +1251,7 @@ display_message:
     txa
     pha
     ldx #CHARS_PER_SCREEN_ROW
-    lda flag__new_square_selected
+    lda message_id
     and #$7F
     jsr board.write_text
     pla
@@ -1439,17 +1414,6 @@ transport_icon_interrupt:
 }
 
 .namespace data {
-    // 67A0
-    // Location of used spell arrays for each player
-    used_spell_ptr:
-        .word flag__light_used_spells, flag__dark_used_spells
-
-    // 8B8C
-    // Spell name message string IDs.
-    spell_string_id:
-        .byte STRING_TELEPORT, STRING_HEAL, STRING_SHIFT_TIME, STRING_EXCHANGE, STRING_SUMMON_ELEMENTAAL
-        .byte STRING_REVIVE, STRING_IMPRISON, STRING_CEASE
-
     // BEC0
     // Low byte memory offset of square occupancy data for each board row
     row_occupancy_lo_ptr:
@@ -1519,9 +1483,6 @@ curr_challenge_icon_type: .byte $00 // Type of selected icon to challenge for th
 // BD09
 curr_icon_move_speed: .byte $00 // Delay between movement for selected icon. Is only delayed for Golem and Troll.
 
-// BD0E
-curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell
-
 // BD0F
 // Is $80 if the selected icon can cast spells. Used to determine if icon transports or moves.
 flag__icon_can_cast: .byte $00
@@ -1534,7 +1495,7 @@ imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset
 
 // BD3D
 flag__new_square_selected: // Is set to non-zero if a new board square was selected
-selected_spell_id: // ID of selected spell used as an offset when calling spell logic
+message_id: // ID of selected spell used as an offset when calling spell logic
     .byte $00 
 
 // BD70
@@ -1558,11 +1519,3 @@ icon_move_col_buffer: .byte $00, $00, $00, $00, $00, $00
 // Stores each row the icon enters as it is being moved. Used to calculate number of moves.
 // Allows for a total of 5 moves (maximum move count) plus the starting row.
 icon_move_row_buffer: .byte $00, $00, $00, $00, $00, $00
-
-// BEFA
-// Flags used to keep track of spells used by light player.
-flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
-
-// BF01
-// Flags used to keep track of spells used by dark player.
-flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00

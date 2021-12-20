@@ -78,6 +78,7 @@
     #import "src/board_walk.asm"
 #endif
 #import "src/game.asm"
+#import "src/magic.asm"
 #import "src/challenge.asm"
 #import "src/ai.asm"
 
@@ -205,10 +206,10 @@ skip_board_walk:
     lda TIME+1
     sta state.last_stored_time // Large jiffy (increments 256 jiffies aka ~ 4 seconds)
     // Clear used spell flags.
-    ldx #$0D
-    lda #$FD // Spell not used
+    ldx #$0D // 7 spells per size (14 total - zero based)
+    lda #SPELL_UNUSED
 !loop:
-    sta game.flag__light_used_spells,x
+    sta magic.flag__light_used_spells,x
     dex
     bpl !loop-
     //
@@ -249,7 +250,7 @@ board_setup_player_2_loop:
     //
     lda game.state.flag__is_first_player_light
     eor #$FF
-    sta state.counter+3 // Phase state and direction
+    sta state.curr_phase // Phase state and direction
     sta game.state.flag__is_light_turn // Set current player
     // Set starting board color.
     lda #$06
@@ -505,7 +506,12 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     curr_game_fn_ptr: .word $0000, $0000, $0000 // Pointers used to jump to various game states (intro, board, play)
 
     // BCC7
-    counter: .byte $00, $00, $00, $00 // State counters
+    counter: // State counters
+        .byte $00
+        .byte $00
+        .byte $00
+    curr_phase:
+        .byte $00 
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -569,6 +575,10 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BD38
     data__num_icons: // Number of baord icons to render
         .byte $00
+
+    // BD66
+    dynamic_fn_ptr: .word $0000 // Pointer to a dynanic function determined at runtime
+
 
     // BF1A
     data__curr_color: // Color of the current intro string being rendered
@@ -645,6 +655,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BD3A
     data__msg_offset: // Offset of current message being rendered in into page
     data__icon_offset: // Offset of current icon being rendered on to the board
+    data__curr_spell_id: // Current selected spell ID
         .byte $00
 
     // BD68

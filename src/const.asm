@@ -114,12 +114,12 @@
 .const STRING_CHALLENGE_FOE = 02
 .const STRING_LIMIT_MOVED = 03
 .const STRING_SQUARE_OCCUPIED = 04
-// .const STRING_SPELL_DONE = 05
+.const STRING_SPELL_DONE = 05
 // .const STRING_LIGHT_WINS = 06
 // .const STRING_DARK_WINS = 07
 // .const STRING_TIE = 08
-// .const STRING_REVERED_TIME = 09
-// .const STRING_HEAL_WHICH = 10
+.const STRING_REVERED_TIME = 09
+.const STRING_HEAL_WHICH = 10
 // .const STRING_TELEPORT_WHICH = 11
 // .const STRING_TELEPORT_WHERE = 12
 // .const STRING_TRANSPOSE_WHICH = 13
@@ -127,8 +127,8 @@
 // .const STRING_REVIVE_WHICH = 15
 // .const STRING_CHARMED_WHERE = 16
 // .const STRING_IMPRISON_WHICH = 17
-// .const STRING_NO_CHARMED = 18
-// .const STRING_ICONS_ALL_ALIVE = 19
+.const STRING_NO_CHARMED = 18
+.const STRING_ICONS_ALL_ALIVE = 19
 .const STRING_ICON_IMPRISONED = 20
 // .const STRING_AIR = 21
 // .const STRING_FIRE = 22
@@ -141,13 +141,13 @@
 .const STRING_HEAL = 45
 .const STRING_SHIFT_TIME = 46
 .const STRING_EXCHANGE = 47
-.const STRING_SUMMON_ELEMENTAAL = 48
+.const STRING_SUMMON_ELEMENTAL = 48
 .const STRING_REVIVE = 49
 .const STRING_IMPRISON = 50
 .const STRING_CEASE = 51
 // .const STRING_CHARMED_PROOF = 52
 // .const STRING_SPELL_WASTED = 53
-// .const STRING_SELECT_SPELL = 54
+.const STRING_SELECT_SPELL = 54
 .const STRING_COMPUTER = 55
 .const STRING_LIGHT = 56
 .const STRING_TWO_PLAYER = 57
@@ -155,7 +155,7 @@
 .const STRING_DARK = 59
 .const STRING_READY = 60
 .const STRING_PRESS = 61
-// .const STRING_SPELL_CANCELED = 62
+.const STRING_SPELL_CANCELED = 62
 .const STRING_GAME_ENDED = 63
 .const STRING_STALEMATE = 64
 // .const STRING_ELEMENT_APPEARS = 65
@@ -178,4 +178,8 @@
 // Spell constants
 //---------------------------------------------------------------------------------------------------------------------
 
-.const SPELL_END = $87
+.const SPELL_END = $07
+.const POST_SPELL_HEAL_ID = $82;
+
+.const SPELL_UNUSED = $FD;
+.const SPELL_USED = $FE;

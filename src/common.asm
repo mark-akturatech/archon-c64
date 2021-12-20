@@ -251,9 +251,9 @@ play_music:
     asl
     tay
     lda sound.note_data_fn_ptr,y
-    sta sound.curr_note_data_fn_ptr
+    sta main.temp.dynamic_fn_ptr
     lda sound.note_data_fn_ptr+1,y
-    sta sound.curr_note_data_fn_ptr+1
+    sta main.temp.dynamic_fn_ptr+1
     lda sound.voice_io_addr,y
     sta FREEZP+2
     lda sound.voice_io_addr+1,y
@@ -269,7 +269,7 @@ play_music:
     bne decrease_delay
     // Release note just before delay expires.
     lda sound.curr_voice_ctl,x
-    and #$FE
+    and #%1111_1110
     ldy #$04
     sta (FREEZP+2),y
 decrease_delay:
@@ -360,7 +360,7 @@ set_note:
 // Read note from current music loop and increment the note pointer.
 get_note: // Get note for current voice and increment note pointer
     ldy #$00
-    jmp (sound.curr_note_data_fn_ptr)
+    jmp (main.temp.dynamic_fn_ptr)
 
 // A143
 get_note_V1: // Get note for voice 1 and increment note pointer
@@ -719,9 +719,6 @@ intro_music:
 }
 
 .namespace sound {
-    // BD66
-    curr_note_data_fn_ptr: .word $0000 // Pointer to function to read current note for current voice
-
     // BF08
     curr_pattern_data_fn_ptr: // Pointer to function to read current pattern for current voice
     flag__enable_voice: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
