@@ -9,7 +9,8 @@
 .segment Common
 
 // 638E
-// Complete the current interrupt by restoring the registers pushed on to the stack by the interrupt.
+// Description:
+// - Complete the current interrupt by restoring the registers pushed on to the stack by the interrupt.
 complete_interrupt:
     pla
     tay
@@ -110,8 +111,14 @@ advance_intro_state:
     rts
 
 // 6490
-// Wait for a numbe rof jiffies. Requires:
-// - X register loaded with number of jiffies (~0.01667s) to wait.
+// Description:
+// - Create a time delay by waiting for a number of jiffies.
+// Requires:
+// - X: number of jiffies (~0.01667s per jiffy) to wait.
+// Preserves:
+// - Y
+// Notes:
+// - Wait time can be cancelled by pressing 'Q' or STOP key.
 wait_for_jiffy:
     lda TIME+2
 !loop:
@@ -123,9 +130,15 @@ wait_for_jiffy:
     rts
 
 // 677C
-// Detect if break/q key is pressed.
+// Description:
+// - Detect if RUN/STOP or Q key is pressed.
+// Sets:
+// - `main.interrupt.flag__enable_next` is toggled if RUN/STOP pressed.
+// Notes:
+// - Game is reset if Q key is pressed.
+// - Subroutine waits for key to be released before exiting.
 check_stop_keypess:
-    // go to next state of ESC
+    // go to next state of RUN/STOP
     jsr STOP
     beq !next+
     cmp #KEY_Q
@@ -148,7 +161,8 @@ check_stop_keypess:
     rts
 
 // 7FAB
-// Stop sound from playing on all 3 voices.
+// Description:
+// - Stop sound from playing on all 3 voices.
 stop_sound:
     ldx #$01
 !loop:
@@ -169,7 +183,11 @@ stop_sound:
     rts
 
 // 8DD3
-// Clear the video graphics area.
+// Description:
+// - Clear the video graphics area and reset sprite positions and sprite configuration.
+// Sets:
+// - Clears 4kb of graphical memory with 00 bytes.
+// - All 8 sprites are reset by setting 00 to sprite position and configuration (color, size etc) bytes.
 clear_sprites:
     lda #<GRPMEM
     sta FREEZP+2
@@ -195,7 +213,10 @@ clear_sprites:
     rts
 
 // 905C
-// Busy wait for STOP, game options (function keys) or Q keypress or game state change.
+// Description:
+// - Busy wait for STOP, game options (function keys) or Q keypress or game state change.
+// Notes:
+// - Repeats until `main.interrupt.flag__enable` is set.
 wait_for_key:
     lda #FLAG_DISABLE
     sta main.interrupt.flag__enable
@@ -207,8 +228,10 @@ wait_for_key:
     jmp stop_sound
 
 // 9333
-// Clear the video screen area.
-// Loads $00 to the video matrix SCNMEM to SCNMEM+$3E7.
+// Description:
+// - Clear the character graphical area.
+// Sets:
+// - Loads $00 to the video matrix SCNMEM to SCNMEM+$3E7.
 clear_screen:
     lda #<SCNMEM
     sta FREEZP+2
@@ -232,18 +255,23 @@ clear_screen:
     rts
 
 // AC16
-// Read music from the music pattern command list and play notes or execute special commands.
-// Commands are separated by notes and begin with a special code as follows:
-// - 00: stop current note
-// - 01-F9: Plays a note (of given note value)
-// - FB: Set delay - next number in pattern is the delay time.
-// - FC: Set early filter gate release (release gate but continue delay).
-// - FD: Set game state (synch state with certain points in the music).
-// - FE: End pattern - move to next pattern in the pattern list.
-// - FF: End music.
-// See `initialize_music` for further details of how music and patterns are stored.
-// Note that this sub is called each time an interrupt occurs. It runs once and processes notes/command on each voice,
-// increments the pointer to the next command/note and then exits.
+// Description:
+// - Read music from the music pattern command list and play notes or execute special commands.
+// Prerequisites:
+// - Pointers to patterns are stored in OLDTXT/OLDTXT+1 for voice 1, OLDTXT+2/OLDTXT+3 for voice 2 and OLDTXT+4/OLDTXT+5
+//   for voice 3.
+// Notes:
+// - Commands are separated by notes and begin with a special code as follows:
+//      00: stop current note
+//      01-F9: Plays a note (of given note value)
+//      FB: Set delay - next number in pattern is the delay time.
+//      FC: Set early filter gate release (release gate but continue delay).
+//      FD: Set game state (synch state with certain points in the music).
+//      FE: End pattern - move to next pattern in the pattern list.
+//      FF: End music.
+// - See `initialize_music` for further details of how music and patterns are stored.
+// - This sub is called each time an interrupt occurs. It runs once and processes notes/command on each voice,
+//   increments the pointer to the next command/note and then exits.
 play_music:
     ldx #$02
 !loop:
@@ -441,22 +469,26 @@ get_pattern_V3: // Get pattern for voice 3 and increment pattern pointer
     rts
 
 // AD1E
-// Initialize music and configure voices.
-// Pointers are set to the start of each music pattern. A pattern is part of a music sequence for single voice that can
-// be repeated if necessary.
-// Patterns hold notes, delays and commands for ending the pattern or setting a game state (modify how the intro
-// displays matched to a music sequence).
-// The method also sets pointers to a list of patterns for each voice. The song loop plays a pattern (terminated by FE)
-// and then moves to the next pattern in the pattern list to read which pattern to play next.
-// A final FF command tells the music loop that there are no more patterns.
-// Super neat and efficient as repeated beats only need to be stored once. NICE!
-// Note that this method handles both the intro and outro music. Both icons start with the same patterns and end with
-// the same terminating patterns. The otro just skips all the patterns in the middle. Kind of cheeky.
+// Dscription:
+// - Initialize music and configure voices.
+// Sets:
+// - Pointers to patterns are stored in OLDTXT/OLDTXT+1 for voice 1, OLDTXT+2/OLDTXT+3 for voice 2 and OLDTXT+4/OLDTXT+5
+//   for voice 3.
+// Notes:
+// - Pointers are set to the start of each music pattern. A pattern is part of a music sequence for single voice that
+//   can be repeated if necessary.
+// - Patterns hold notes, delays and commands for ending the pattern or setting a game state (modify how the intro
+//   displays matched to a music sequence).
+// - The method also sets pointers to a list of patterns for each voice. The song loop plays a pattern (terminated by
+//   FE) and then moves to the next pattern in the pattern list to read which pattern to play next.
+// - A final FF command tells the music loop that there are no more patterns.
+// - Super neat and efficient as repeated beats only need to be stored once. NICE!
+// - Note that this method handles both the intro and outro music. Both icons start with the same patterns and end with
+//   the same terminating patterns. The otro just skips all the patterns in the middle. Kind of cheeky.
 initialize_music:
     // Full volume.
     lda #%0000_1111
     sta SIGVOL
-
     // Configure music pointers.
     ldy #$05
 !loop:

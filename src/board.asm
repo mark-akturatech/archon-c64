@@ -10,8 +10,18 @@
 .segment Common
 
 // 62EB
-// Gets sound for the current icon.
-// X may be 0 or 1, allowing sound to be retrieved for both icons in a challenge battle.
+// Description:
+// - Gets sound pattern for the current icon.
+// Prerequisites:
+// - X: 
+//   $00: Retrieve sound for one player icon only (moving on board)
+//   $01: Retrieve sound for two player icons (when in battle)
+// - Y: Current player offset (0 for light, 1 for dark, 0 when X is $01)
+// Sets:
+// - `sound.pattern_lo_ptr`: Lo byte pointer to sound pattern
+// - `sound.pattern_hi_ptr`: Hi byte pointer to sound pattern
+// Preserves:
+// - X
 get_sound_for_icon:
     ldy icon.offset,x
     lda sound.icon_pattern,y
@@ -23,14 +33,20 @@ get_sound_for_icon:
     rts
 
 // 6422
-// Converts a board row and column coordinate to a corresponding sprite screen position.
-// Requires:
-// - A Register: Board column
-// - Y Register: Board row
-// - X Register: Sprite number
-// Sets `sprite.curr_x_pos,x` and `sprite.curr_y_pos,x` with the calculated position for all sprites except
-// sprite number 4.
-// Returns calculated X position in A register and Y position in Y register.
+// Description:
+// - Converts a board row and column coordinate to a corresponding sprite screen position so that the sprite is
+//   positioned exactly over the board cell.
+// Prerequisites:
+// - A: Board column
+// - Y: Board row
+// - X: Sprite number $00 to $07 ($04 is special - see below)
+// Sets:
+// - `common.sprite.curr_x_pos,x` and `common.sprite.curr_y_pos,x` with the calculated position.
+// - A: Sprite X position
+// - Y: Sprite Y position
+// Notes:
+// - If X is set to $04, then the position is not stored in `common.sprite.curr_x_pos,x` and
+//   `common.sprite.curr_y_pos,x`.
 convert_coord_sprite_pos:
     // Calculate X position.
     pha
@@ -67,7 +83,17 @@ convert_coord_sprite_pos:
     rts
 
 // 644D
-// Determine sprite source data address for a given peice, set the sprite color and direction and enable.
+// Description:
+// - Determine sprite source data address for a given icon, set the sprite color and direction and enable.
+// Prerequisites:
+// - X: Sprite number (0 - 4)
+// - `icon.offset,x`: contains the sprite group pointer offset (see `sprite.icon_offset` for details).
+// - `icon.type,x`: contains the sprite icons type.
+// Sets:
+// - `sprite.copy_source_lo_ptr`: Lo pointer to memory containing the sprite definition start address.
+// - `sprite.copy_source_hi_ptr`: Hi pointer to memory containing the sprite definition start address.
+// - `common.sprite.init_animation_frame`: set to #$00 for right facing icons and #$11 for left facing.
+// - Sprite + X is enabled and color configured
 sprite_initialize:
     lda icon.offset,x
     asl
@@ -79,7 +105,7 @@ sprite_initialize:
     lda icon.type,x
     cmp #AIR_ELEMENTAL // Is sprite an elemental?
     bcc !next+
-    and  #$03
+    and #$03
     tay
     lda sprite.elemental_color,y
     bpl intialize_enable_sprite
@@ -104,10 +130,13 @@ intialize_enable_sprite:
     rts
 
 // 6509
-// Writes a text message to the board text area.
-// Requires:
-// - A regsiter set with the text message offset.
-// - X register with column offset.
+// Description:
+// - Writes a text message to the board text area.
+// Prerequisites:
+// - A: text message offset (see `screen.message_ptr` for message order).
+// - X: column offset.
+// Sets:
+// - Screen graphical character memory.
 write_text:
     asl
     tay
@@ -171,10 +200,17 @@ display_two_player:
     jmp common.check_option_keypress
 
 // 6C7C
-// Fills an array of rows and columns with the coordinates of the squares surrounding the current square. Requires:
-// - `main.temp.data__curr_icon_row` set with row of source square
-// - `main.temp.data__curr_icon_col` set with column of source square
-// Note that the array also includes the source square.
+// Description:
+// - Fills an array of rows and columns with the coordinates of the squares surrounding the current square.
+// Prerequisites:
+// - `main.temp.data__curr_icon_row`: row of source square
+// - `main.temp.data__curr_icon_col`: column of source square
+// Sets:
+// - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
+// - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
+// Notes:
+// - The array also includes the source square.
+// - Rows and columns may be out of bounds if the source square is on a board edge.
 surrounding_squares_coords:
     ldx #$08 // 9 squares (0 offset)
     ldy main.temp.data__curr_icon_row
@@ -201,8 +237,14 @@ surrounding_squares_coords:
     rts
 
 // 8965
-// Adds an icon to the board matrix.
-// Requires the board row and column to be set in the temp data.
+// Description:
+// - Adds an icon to the board matrix.
+// Prerequisites:
+// - `main.temp.data__curr_board_row`: Row offset of board matrix cell.
+// - `main.temp.data__curr_board_col`: Column offset of board matrix cell.
+// - `icon.type`: Type of icon to add to the cell.
+// Sets:
+// - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 add_icon_to_matrix:
     ldy main.temp.data__curr_board_row
     lda game.data.row_occupancy_lo_ptr,y
@@ -216,27 +258,32 @@ add_icon_to_matrix:
     rts
 
 // 8BDE
-// Adds a set of sprites for an icon to the graphics memory. Requires:
+// Description:
+// - Adds a set of sprites for an icon to the graphics memory.
+// Prerequisites:
 // - X Register = 0 to copy light player icon frames
 // - X Register = 1 to copy dark player icon frames
 // - X Register = 2 to copy light player shot frames
 // - X Register = 3 to copy dark player shot frames
-// Icon frames add 24 sprites as follows:
-// - 4 x East facing icons (4 animation frames)
-// - 4 x South facing icons (4 animation frames)
-// - 4 x North facing icons (4 animation frames)
-// - 5 x Attack frames (north, north east, east, south east, south facing)
-// - 4 x West facing icon frames (mirrored representation of east facing icons)
-// - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
-// Shot frames are frames used to animate the players projectile (or scream/fire). There are 7 sprites as follows:
-// - 1 x East direction shot
-// - 1 x North/south direction shot (same sprite is used for both directions)
-// - 1 x North east direction shot
-// - 1 x South east direction shot
-// - 1 x East direction shot (mirrored copy of east)
-// - 1 x North west direction shot (mirrored copy of north east)
-// - 1 x South west direction shot (mirrored copy of south east)
-// Note that special player pieces Phoneix and Banshee only copy 4 sprites (east, south, north, west).
+// Notes:
+// - Icon frames add 24 sprites as follows:
+//  - 4 x East facing icons (4 animation frames)
+//  - 4 x South facing icons (4 animation frames)
+//  - 4 x North facing icons (4 animation frames)
+//  - 5 x Attack frames (north, north east, east, south east, south facing)
+//  - 4 x West facing icon frames (mirrored representation of east facing icons)
+//  - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
+// - Shot frames are frames used to animate the players projectile (or scream/fire). There are 7 sprites as follows:
+//  - 1 x East direction shot
+//  - 1 x North/south direction shot (same sprite is used for both directions)
+//  - 1 x North east direction shot
+//  - 1 x South east direction shot
+//  - 1 x East direction shot (mirrored copy of east)
+//  - 1 x North west direction shot (mirrored copy of north east)
+//  - 1 x South west direction shot (mirrored copy of south east)
+// - Special player pieces Phoneix and Banshee only copy 4 sprites (east, south, north, west).
+// - Mirrored sprite sources are not represented in memory. Instead the sprite uses the original version and logic is
+//   used to create a mirrored copy.
 add_sprite_set_to_graphics:
     txa
     asl
@@ -447,11 +494,18 @@ invert_bytes:
     rts
 
 // 8D6E
-// Places a sprite at a given location and enables the sprite.
-// The following prerequisites are required:
-// - X register is loaded with the sprite number to be enabled.
-// - The sprite frame ofsfetis set
-// - The sprite location is set in `common.sprite.curr_x_pos` and ``common.sprite.curr_y_pos`.
+// Description:
+// - Places a sprite at a given location and enables the sprite.
+// Prerequisites:
+// - X: sprite number to be enabled.
+// - `common.sprite.curr_x_pos`: Screen X location of the sprite.
+// - `common.sprite.curr_y_pos`: Screen Y location of the sprite.
+// - `common.sprite.curr_animation_frame`: Current frame number (0 to 4) of animated sprite
+// Sets:
+// - Enables the sprite and sets X and Y coordinates.
+// Notes:
+// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50, 
+//   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 render_sprite:
     txa
     asl
@@ -462,13 +516,20 @@ render_sprite:
     adc common.sprite.init_animation_frame,x
     adc main.sprite.offset_00,x
     sta SPTMEM,x
+
 // 8D80
-// Places a sprite at a given location and enables the sprite.
-// The following prerequisites are required:
-// - The sprite location is set in `common.sprite.curr_x_pos` and `common.sprite.curr_y_pos`.
-// - X register is loaded with the sprite number to be enabled.
-// - Y register is loaded with 2 * the sprite number to be enabled.
-// The Y position is offset by 50 and X position is doubled and then offset by 24.
+// Description:
+// - Places a sprite at a given location and enables the sprite.
+// Prerequisites:
+// - X: sprite number to be enabled.
+// - Y: 2 * the sprite number to be enabled.
+// - `common.sprite.curr_x_pos`: Screen X location of the sprite.
+// - `common.sprite.curr_y_pos`: Screen Y location of the sprite.
+// Sets:
+// - Enables the sprite and sets X and Y coordinates.
+// Notes:
+// - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50, 
+//   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 render_sprite_preconf:
     lda common.sprite.curr_y_pos,x
     clc
@@ -882,7 +943,10 @@ selection_square__vert_line:
     rts
 
 // 9352
-// Clear text area underneath the board and reset the color to white.
+// Description:
+// - Clear text area underneath the board and reset the color to white.
+// Sets:
+// - Clears graphical character memory for rows 23 and 24 (0 offset).
 clear_text_area:
     ldx #(CHARS_PER_SCREEN_ROW*2-1) // Two rows of text
 !loop:
@@ -897,7 +961,13 @@ clear_text_area:
     rts
 
 // 8948
-clear_text_row:
+// Description:
+// - Clear the last text row under the board. Leave's the first text row untouched.
+// Sets:
+// - Clears graphical character memory for row 24 (0 offset).
+// Notes:
+// - Does not clear color memory.
+clear_last_text_row:
     ldy #(CHARS_PER_SCREEN_ROW - 1)
     lda #$00
 !loop:
@@ -907,7 +977,10 @@ clear_text_row:
     rts
 
 // 931F
-// Clear sprite position 24 in graphics memory.
+// Description:
+// - Clear sprite position 24 in graphics memory.
+// Sets:
+// - Clears the 24th sprite position graphical memory (with 00).
 clear_mem_sprite_24:
     lda main.sprite.mem_ptr_24
     sta FREEZP+2
@@ -922,11 +995,17 @@ clear_mem_sprite_24:
     rts
 
 // A0B1
-// Plays an icon movement or fire sound.
-// Requires pointer to sound pattern in OLDTXT.
+// Description:
+// - Plays an icon movement or shot sound.
+// Prerequisites:
+// - OLDTXT/OLDTXT+1: Pointer to sound pattern.
+// - `common.sound.flag__enable_voice`: $00 to disable sound for light player, $80 to enable sound
+// - `common.sound.flag__enable_voice+1`: $00 to disable sound for dark player, $80 to enable sound
+// Notes:
+// - See `get_note_data` below for special commands within sound pattern.
 play_icon_sound:
     ldx #$01
-    // Icon sounds can be played on voices 1 and 2 sepparately. This allows two icon movement sounds to be played at
+    // Icon sounds can be played on voices 1 and 2 separately. This allows two icon movement sounds to be played at
     // the same time.
     // If 00, then means don't play sound for that icon.
 !loop:
@@ -1157,14 +1236,14 @@ interrupt_handler__play_music:
         .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
 
     // 8AFF
-    // Matrix used to determine offset of each icon type AND determine which peices occupy which squares on initial
+    // Matrix used to determine offset of each icon type AND determine which pieces occupy which squares on initial
     // setup.
     // This is a little bit odd - the numbers below are indexes used to retrieve an address from
     // `sprite.icon_offset` to determine the source sprite memory address. The `Icon Type` are actually an offset
     // in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling us to
     // read the 6th word of the sprite icon offset to determine the first frame of the Phoenix icon set.
     // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial icon setup
-    // with 2 bytes represeting two columns of each row. The setup starts with all the light peices, then dark.
+    // with 2 bytes represeting two columns of each row. The setup starts with all the light pieces, then dark.
     init_matrix:
         .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
         .byte DJINNI_OFFSET, KNIGHT_OFFSET, WIZARD_OFFSET, KNIGHT_OFFSET, PHOENIX_OFFSET, KNIGHT_OFFSET

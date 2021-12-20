@@ -76,9 +76,15 @@ cancel_spell_selection:
     jmp game.play_turn
 
 // 6833
-// Configures a pointer to the start of the used spell array for the current player.
-// Player is stored in `curr_player_offset`.
-// Pointer is configured in `CURLIN`
+// Description:
+// - Configures a pointer to the start of the used spell array for the current player.
+// Prerequisites:
+// - `game.curr_player_offset`: Current player (0 for light, 1 for dark).
+// Sets:
+// - `CURLIN`: Pointer to spell used array (one byte for each spell type). See `flag__light_used_spells` for order
+//   of bytes.
+// Preserves:
+// - X
 config_used_spell_ptr:
     lda game.curr_player_offset
     asl
@@ -112,7 +118,7 @@ spell_select_heal:
 end_spell_selection:
     sta game.message_id
     jsr game.display_message
-    ldx #$80 // 1.3 seconds
+    ldx #$80 // ~2 sec
     jsr common.wait_for_jiffy
     rts
 
@@ -145,18 +151,48 @@ get_selected_spell: // TODO
     rts
 
 // 6CAA
-spell_select_cease: // TODO
+spell_select_cease:
+    lda #STRING_SPELL_DONE
+    jmp cancel_spell_selection
+
+// 6CAF
+spell_abort: // TODO
     rts
 
 // 6CDC
 select_icon_for_spell: // TODO
     rts
-    
+
+// 6D16
+// Description:
+// - Set cell occupancy.
+// Prerequisites:
+// - A: Column offset of board matrix cell.
+// - Y: Row offset of board matrix cell.
+// - X: Icon ID.
+// Sets:
+// - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
+set_occupied_cell:
+    pha
+    lda game.data.row_occupancy_lo_ptr,y
+    sta OLDLIN
+    lda game.data.row_occupancy_hi_ptr,y
+    sta OLDLIN+1
+    pla
+    tay
+    txa
+    sta (OLDLIN),y
+    rts
+
 // 7205
-// Count number of spells left for current player.
-// Y register is 0 for light player and 7 for dark player.
-// X register is preserved.
-// Results in `main.temp.data__temp_store_1`
+// Description:
+// - Count number of used spells for the current player.
+// Prerequisites:
+// - Y: is 0 for light player and 7 for dark player.
+// Sets:
+// - `main.temp.data__temp_store_1`: Number of used spells.
+// Preserves:
+// - X
 count_used_spells:
     txa
     pha
@@ -191,7 +227,7 @@ count_used_spells:
     // Spell cast function pointers.
     spell_cast_fn_ptr:
         .word spell_select_teleport, spell_select_heal, spell_select_shift_time, spell_select_exchange
-        .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease        
+        .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease
 
     // 8B8C
     // Spell name message string IDs.
@@ -219,8 +255,10 @@ temp_column_store: .byte $00 // Temporary current column row storage
 
 // BEFA
 // Flags used to keep track of spells used by light player.
+// Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
 flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
 
 // BF01
 // Flags used to keep track of spells used by dark player.
+// Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
 flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00

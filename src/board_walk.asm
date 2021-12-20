@@ -84,7 +84,17 @@ add_icon:
     jmp add_icon
 
 // 8EB0
-// Adds an icon to the board.
+// Description:
+// - Adds an icon to the board.
+// Prerequisites:
+// - `main.temp.data__curr_board_col`: Destination column of piece
+// - `main.temp.data__curr_board_row`: Starting destination row of piece
+// - `board.icon.type`: Type of piece to animation in to destination cell
+// - `main.temp.data__num_icons`: Number of icons to add to board
+// Notes:
+// - If number of icons is set to 2, the destination row of the second piece is automatically calculated to be 9 minus
+//   the source row.
+// - If number of icons is set to 7, the destination row is incremented for each piece added.
 animate_icon:
     ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
     lda main.temp.data__curr_board_col

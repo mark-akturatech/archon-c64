@@ -178,8 +178,8 @@
 // Spell constants
 //---------------------------------------------------------------------------------------------------------------------
 
-.const SPELL_END = $07
-.const POST_SPELL_HEAL_ID = $82;
-
 .const SPELL_UNUSED = $FD;
 .const SPELL_USED = $FE;
+
+.const SPELL_END = $07
+.const POST_SPELL_HEAL_ID = $82;

@@ -339,7 +339,7 @@ play_turn:
     lda #STRING_CANNOT_MOVE
     jsr board.write_text
     jsr board.add_icon_to_matrix
-    ldx #$60 // Wait for approximately 1 second
+    ldx #$60 // ~1.5 sec
     jsr common.wait_for_jiffy
     jsr board.clear_text_area
     jmp play_turn
@@ -560,15 +560,18 @@ game_over__imprisoned:
     lda state.flag__is_light_turn
     eor #$FF
     sta main.temp.data__curr_count
+
 // 66F8
-// Print game over message, play outro music and reset game.
-// `main.temp.data__curr_count` contains the winning side:
-// - $40: light player
-// - $80: dark player
-// - $C0: tie
-// - $01: stalemate
+// Description:
+// - Print game over message, play outro music and reset game.
+// Prerequisites:
+// - `main.temp.data__curr_count` contains the winning side:
+//      $40: light player
+//      $80: dark player
+//      $C0: tie
+//      $01: stalemate
 game_over:
-    jsr board.clear_text_row
+    jsr board.clear_last_text_row
     lda #STRING_GAME_ENDED
     ldx #CHARS_PER_SCREEN_ROW
     jsr board.write_text
@@ -878,7 +881,7 @@ check_move_sprite_up:
 !next:
     lda magic.curr_spell_cast_selection
     bmi !next+
-    jsr board.clear_text_row
+    jsr board.clear_last_text_row
 !next:
     cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
@@ -1247,7 +1250,7 @@ warn_on_move_limit_reached:
 // Displays an error message on piece selection. The message has $80 added to it and is stored in
 // `flag__new_square_selected`. This method specifically preserves the X register.
 display_message:
-    jsr board.clear_text_row
+    jsr board.clear_last_text_row
     txa
     pha
     ldx #CHARS_PER_SCREEN_ROW
@@ -1496,7 +1499,7 @@ imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset
 // BD3D
 flag__new_square_selected: // Is set to non-zero if a new board square was selected
 message_id: // ID of selected spell used as an offset when calling spell logic
-    .byte $00 
+    .byte $00
 
 // BD70
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)

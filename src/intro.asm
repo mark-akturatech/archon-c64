@@ -239,8 +239,15 @@ state__draw_freefall_logo:
     jmp common.complete_interrupt
 
 // AACF
-// Initiates the draw text routine by selecting a color and text offset.
-// The routine then calls a method to write the text to the screen.
+// Description:
+// - Initiates the draw text routine by selecting a color and text offset.
+// - The routine then calls a method to write the text to the screen.
+// Prerequisites:
+// - `main.temp.data__msg_offset`: Contains the string ID offset
+// Notes:
+// - The message offset is used to read the string memory location from `screen.string_data_ptr` (message offset is
+//   multiplied by 2 as 2 bytes are required to store the message location).
+// - The message offset is used to read the string color from `screen.string_color_data`.
 screen_draw_text:
     ldy main.temp.data__msg_offset
     lda screen.string_color_data,y
@@ -256,7 +263,22 @@ screen_draw_text:
     jmp screen_calc_start_addr
 
 // AAEA
-// Write characters and colors to the screen.
+// Description:
+// - Write characters and colors to the screen.
+// Prerequisites:
+// - FREEZP/FREEZP+1: Pointer to string data. The string data starts with a column offset and ends with $FF.
+// - FREEZP+2/FREEZP+3: Pointer to screen character memory.
+// - FORPNT/FORPNT+1: Pointer to screen color memory.
+// - `main.temp.data__curr_color`: Color code used to set the character color.
+// Sets:
+// - Updates screen character and color memory.
+// Notes:
+// - Calls `screen_calc_start_addr` to determine screen character and color memory on new line command.
+// - Strings are defined as follows:
+//  - A $80 byte in the string represents a 'next line'.
+//  - A screen row and colum offset must follow a $80 command.
+//  - The string is terminated with a $ff byte.
+//  - Spaces are represented as $00.
 screen_write_chars:
     ldy #$00
 get_next_char:
@@ -276,7 +298,7 @@ get_next_char:
     and #$F0
     ora main.temp.data__curr_color
     sta (FORPNT),y
-    // Next icon.
+    // Next character.
     inc FORPNT
     inc FREEZP+2
     bne get_next_char
@@ -285,16 +307,19 @@ get_next_char:
     jmp get_next_char
 
 // AB13
-// Derive the screen starting character offset and color memory offset.
-// Requires the following prerequisites:
-// - FB/FC - Pointer to string data. The string data starts with a column offset and ends with FF.
-// - BF3C: Row control flag:
+// Description:
+// - Derive the screen starting character offset and color memory offset.
+// Prerequisites:
+// - FREEZP/FREEZP+1 - Pointer to string data. The string data starts with a column offset and ends with FF.
+// - `main.flag__string_pos_ctl`: Row control flag:
 //    $00 - the screen row and column is read from the first byte and second byte in the string
 //    $80 - the screen row is supplied using the X register and column is the first byte in the string
 //    $C0 - the screen column is hard coded to #06 and the screen row is read X register
-// A $80 byte in the string represents a 'next line'. A screen row and colum offset must follw a $80 command.
-// The string is terminated with a $ff byte.
-// Spaces are represented as $00.
+// Sets:
+// - FREEZP+2/FREEZP+3 - Pointer to screen character memory.
+// - FORPNT/FORPNT+1 - Pointer to screen color memory.
+// Notes:
+// - Calls `screen_write_chars` to output the characters after the screen location is determined.
 screen_calc_start_addr:
     lda main.temp.flag__string_pos_ctl
     bmi skip_sceen_row // flag = $80 or $c0
@@ -547,7 +572,7 @@ state__end_intro:
     logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
 
     // ADAA:
-    icon_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Icon IDs of peices used in chase scene
+    icon_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Icon IDs of pieces used in chase scene
 
     // ADAE:
     flag__is_icon_mirrored: // Direction flags of intro sprites ($80=invert direction)
