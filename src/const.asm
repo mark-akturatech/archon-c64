@@ -38,6 +38,9 @@
 .const FLAG_DISABLE = $00; // Off
 .const FLAG_ENABLE = $80; // Enabled
 
+// Phase cycle constants
+.const PHASE_CYCLE_LENGTH = $0E // Length of colour cycle (7 colors forward, then 7 colors in reverse)
+
 //---------------------------------------------------------------------------------------------------------------------
 // Icon constants
 //---------------------------------------------------------------------------------------------------------------------
@@ -181,13 +184,21 @@
 .const SPELL_UNUSED = $FD
 .const SPELL_USED = $FE
 .const DEAD_ICON_SLOT_UNUSED = $FF
-.const SPELL_END = $07
+
+.const SPELL_ID_TELEPORT = $00
+.const SPELL_ID_HEAL = $01
+.const SPELL_ID_SHIFT_TIME = $02
+.const SPELL_ID_EXCHANGE = $03
+.const SPELL_ID_SUMMON_ELEMENTAL = $04
+.const SPELL_ID_REVIVE = $05
+.const SPELL_ID_IMPRISON = $06
+.const SPELL_ID_CEASE = $07
 
 .const ACTION_SELECT_ICON = $80
-.const ACTION_SELECT_CELL = $81
+.const ACTION_SELECT_SQUARE = $81
 .const ACTION_SELECT_PLAYER_ICON = $82
 .const ACTION_SELECT_CHALLENGE_ICON = $83
-.const ACTION_SELECT_CHARMED_CELL = $84
+.const ACTION_SELECT_CHARMED_SQUARE = $84
 .const ACTION_SELECT_OPPOSING_ICON = $85
 .const ACTION_SELECT_FREE_PLAYER_ICON = $86
 .const ACTION_SELECT_REVIVE_ICON = $87

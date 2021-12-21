@@ -53,7 +53,7 @@ select_spell_start:
     ldx #$0A
     jsr board.write_text
     ldy main.temp.data__curr_spell_id
-    cpy #SPELL_END
+    cpy #SPELL_ID_CEASE
     beq !next+
     lda #SPELL_USED
     sta (CURLIN),y
@@ -96,7 +96,42 @@ config_used_spell_ptr:
     rts
 
 // 6843
-spell_select_teleport: // TODO
+spell_select_teleport:
+    lda #STRING_TELEPORT_WHICH
+    sta game.message_id
+    jsr game.display_message
+    lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_FREE_PLAYER_ICON
+    jsr spell_select_destination
+    //
+    lda game.state.flag__ai_player_ctl
+    cmp game.state.flag__is_light_turn
+    bne !next+
+    // 685D  AD 6E BE   lda WBE6E // TODO
+    // 6860  8D 51 BD   sta WBD51
+    // 6863  AD 5C BE   lda WBE5C
+    // 6866  8D 50 BD   sta WBD50
+    // 6869  20 A1 7A   jsr W7AA1
+    jmp skip_teleport_message
+!next:
+    lda #STRING_TELEPORT_WHERE
+    sta game.message_id
+    jsr game.display_message
+skip_teleport_message:
+    ldy main.temp.data__curr_board_row
+    sty main.temp.data__curr_icon_row
+    lda main.temp.data__curr_board_col
+    sta main.temp.data__curr_icon_col
+    lda #(ICON_CAN_FLY + ICON_CAN_CAST + $0F) // Allow selected icon to move anywhere usin the teleport animation
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_SQUARE
+    jsr spell_select_destination
+    //
+    ldx #BOARD_EMPTY_SQUARE
+    ldy main.temp.data__curr_icon_row
+    lda main.temp.data__curr_icon_col
+    jsr set_occupied_square
     rts
 
 // 6899
@@ -104,10 +139,10 @@ spell_select_heal:
     lda #STRING_HEAL_WHICH
     sta game.message_id
     jsr game.display_message
-    lda #$00
+    lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_PLAYER_ICON
-    jsr initiate_spell_action
+    jsr spell_select_destination
     ldx board.icon.type
     ldy board.icon.init_matrix,x
     lda board.icon.init_strength,y
@@ -131,7 +166,49 @@ spell_select_shift_time:
     bpl end_spell_selection
 
 // 68D1
-spell_select_exchange: // TODO
+spell_select_exchange:
+    lda #STRING_TRANSPOSE_WHICH
+    sta game.message_id
+    jsr game.display_message
+    lda #$FF // Clear selected icon
+    sta board.icon.type
+    lda #$00
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_ICON
+    jsr spell_select_destination
+    //
+    lda main.temp.data__curr_board_row
+    sta main.temp.data__curr_icon_row
+    lda main.temp.data__curr_board_col
+    sta main.temp.data__curr_icon_col
+    lda board.icon.type
+    sta temp_selected_icon_store // First selected icon
+    lda #STRING_EXCHANGE_WHICH
+    sta game.message_id
+    jsr game.display_message
+    lda #ACTION_SELECT_ICON
+    jsr spell_select_destination
+    //
+    jsr board.clear_text_area
+    // Swap icons.
+    ldx #BOARD_EMPTY_SQUARE
+    ldy main.temp.data__curr_board_row
+    lda main.temp.data__curr_board_col
+    jsr set_occupied_square
+    lda main.temp.data__curr_icon_col
+    ldy main.temp.data__curr_icon_row
+    jsr set_occupied_square
+    jsr board.draw_board
+    ldx #$30 // ~0.75 seconds
+    jsr common.wait_for_jiffy
+    ldx board.icon.type
+    ldy main.temp.data__curr_icon_row
+    lda main.temp.data__curr_icon_col
+    jsr set_occupied_square
+    ldx temp_selected_icon_store
+    ldy main.temp.data__curr_board_row
+    lda main.temp.data__curr_board_col
+    jsr set_occupied_square
     rts
 
 // 6AFE
@@ -143,9 +220,40 @@ spell_select_revive: // TODO
     rts
 
 // 6ABA
-spell_select_imprison: // TODO
-    rts
-
+spell_select_imprison:
+    // Check if color is strongest opposing color. If so, the icon will be immidiately released from prison and
+    // therefore the spell will be wasted.
+    ldy #PHASE_CYCLE_LENGTH
+    lda game.state.flag__is_light_turn
+    bmi !next+
+    ldy #$00
+!next:
+    sty main.temp.data__temp_store
+    lda main.state.curr_cycle+3
+    cmp main.temp.data__temp_store
+    beq display_spell_wasted
+    //
+    lda #STRING_IMPRISON_WHICH
+    sta game.message_id
+    jsr game.display_message
+    lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_OPPOSING_ICON
+    jsr spell_select_destination
+    ldx #$00
+    lda board.icon.type
+    cmp #MANTICORE // First dark player
+    bcc !next+
+    inx
+!next:
+    sta game.imprisoned_icon_id,x
+    lda #STRING_SPELL_DONE
+    jmp end_spell_selection
+display_spell_wasted:
+    lda #STRING_SPELL_WASTED
+    sta game.message_id
+    jsr game.display_message
+    jmp spell_complete
 
 // 6BD4
 // Description:
@@ -210,7 +318,7 @@ get_previous_spell:
 !next:
     sta main.temp.data__temp_store
     tay
-    cpy #SPELL_END
+    cpy #SPELL_ID_CEASE
     beq display_spell // Don't check if spell is used if cease casting option selected
     lda (CURLIN),y
     cmp #SPELL_USED
@@ -235,7 +343,7 @@ set_selected_spell:
 !next:
     sta main.temp.data__temp_store
     tay
-    cpy #SPELL_END // Cease casting?
+    cpy #SPELL_ID_CEASE // Cease casting?
     beq display_spell // Don't check if spell is used if cease casting option selected
     lda (CURLIN),y
     cmp #SPELL_USED
@@ -263,7 +371,7 @@ spell_select_cease:
 
 // 6CAF
 // Abort current spell and return back to spell selection.
-spell_abort:
+spell_complete:
     ldx #$60 // ~1.5 sec
     jsr common.wait_for_jiffy
     jsr config_used_spell_ptr
@@ -283,19 +391,49 @@ spell_abort:
     jmp select_spell_start
 
 // 6CDC
-initiate_spell_action: // TODO
+// Allows user to select a destination for the cast spell. Each spell has a different action, eg a spell may select
+// a current player icon to heal, or two icons to swap or an opposing player icon to imprison. The action is placed
+// in the A register (see ACTION_SELECT_ constants).
+spell_select_destination:
+    sta curr_spell_cast_selection
+!loop:
+    lda #$00
+    sta game.flag__interrupt_response
+    jsr game.wait_for_state_change
+    lda game.flag__interrupt_response
+    bmi !return+
+    lda game.state.flag__ai_player_ctl
+    cmp game.state.flag__is_light_turn
+    beq !return+
+    ldy main.temp.data__curr_spell_id
+    cpy #SPELL_ID_SUMMON_ELEMENTAL
+    bcc complete_destination_selection
+    cpy #SPELL_ID_IMPRISON
+    bcs complete_destination_selection
+    // Summon elemental or revive spell
+    ldx #$40 // ~1 sec
+    jsr common.wait_for_jiffy
+    lda temp_message_id_store
+    sta game.message_id
+    jsr game.display_message
+    jmp !loop-
+complete_destination_selection:
+    pla
+    pla
+    jmp spell_complete
+!return:
     rts
 
 // 6D16
 // Description:
-// - Set cell occupancy.
+// - Set square occupancy.
 // Prerequisites:
-// - A: Column offset of board matrix cell.
-// - Y: Row offset of board matrix cell.
+// - A: Column offset of board square.
+// - Y: Row offset of board square.
 // - X: Icon ID.
 // Sets:
 // - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
-set_occupied_cell:
+set_occupied_square:
     pha
     lda game.data.row_occupancy_lo_ptr,y
     sta OLDLIN
@@ -336,11 +474,11 @@ count_used_spells:
     rts
 
 // 87BC
-// Allows the player to select a cell or icon to cast the spell on to. Some spells (eg transport) require multiple
+// Allows the player to select a square or icon to cast the spell on to. Some spells (eg transport) require multiple
 // selections. Others require selection of current player icon (eg heal), opposing player icon (eg imprison) or
 // any icon (eg exchange) or location (eg transport destination). 
-// After the action is completed, the selected icon type will be added to the stack or $80 if empty cell selected.
-select_spell_destination:
+// After the action is completed, the selected icon type will be added to the stack or $80 if empty square selected.
+spell_select:
     pha
     txa
     and #$0F // Remove $80 flag
@@ -356,6 +494,14 @@ select_spell_destination:
     bpl check_valid_square
     lda game.curr_icon_total_moves
     beq !next+
+    // Move icon to destination after selection completed.
+    // `game.curr_icon_total_moves` will contain either a:
+    // - 00: means return immediately after selection (eg heal spell)
+    // - 8F: means icon can be placed anwwhere on the board and will be moved in to that location (eg exchange spell).
+    //       This will use the fly action (eg $80 means fly and $0F means move up to 15 squares).
+    // - CF: means icon can be placed anwwhere on the board and will be transported to that location (eg transport 
+    //       spell). This will use the transport animation (eg $80 means fly, $40 means transport and $0f means move up
+    //       to 15 squares).
 check_valid_square:
     lda main.temp.data__curr_board_row
     sta main.temp.data__curr_row
@@ -377,7 +523,7 @@ spell_abort_magic_square:
 // Action command: `ACTION_SELECT_ICON` ($80)
 spell_select_icon:
     pla
-    bmi !return+ // Unoccupied cell selected
+    bmi !return+ // Unoccupied square selected
     cmp board.icon.type
     beq !return+
     sta board.icon.type
@@ -399,9 +545,9 @@ spell_end_turn:
     rts
 
 // 881A
-// Allow player to select any cell on the board.
-// Action command: `ACTION_SELECT_CELL` ($81)
-spell_select_cell:
+// Allow player to select any square on the board.
+// Action command: `ACTION_SELECT_SQUARE` ($81)
+spell_select_square:
     pla
     jmp game.check_icon_destination
 
@@ -410,7 +556,7 @@ spell_select_cell:
 // Action command: `ACTION_SELECT_PLAYER_ICON` ($82)
 spell_select_player_icon:
     pla
-    bmi !return- // Unoccupied cell selected
+    bmi !return- // Unoccupied square selected
     sta board.icon.type
     tay
     lda board.icon.init_matrix,y
@@ -425,15 +571,15 @@ spell_select_player_icon:
 // Action command: `ACTION_SELECT_CHALLENGE_ICON` ($83)
 spell_select_challenge_icon:
     pla
-    bmi !return- // Unoccupied cell selected
+    bmi !return- // Unoccupied square selected
     jmp game.check_icon_destination
 
 // 8839
 // Allow player to select a square surrounding the spell caster (charmed sqaure).
-// Action command: `ACTION_SELECT_CHARMED_CELL` ($84)
-spell_select_charmed_cell:
+// Action command: `ACTION_SELECT_CHARMED_SQUARE` ($84)
+spell_select_charmed_square:
     pla
-    bpl !return- // Occupied cell selected
+    bpl !return- // Occupied square selected
     // Check if selected square is immediately above or below the spell caster.
     ldy main.temp.data__curr_board_row
     cpy main.temp.data__curr_icon_row
@@ -468,7 +614,7 @@ spell_select_charmed_cell:
 // Action command: `ACTION_SELECT_OPPOSING_ICON` ($85)
 spell_select_opposing_icon:
     pla
-    bmi !return- // Unoccupied cell selected
+    bmi !return- // Unoccupied square selected
     sta board.icon.type
     tay
     lda board.icon.init_matrix,y
@@ -484,7 +630,7 @@ spell_select_opposing_icon:
 // Action command: `ACTION_SELECT_FREE_PLAYER_ICON` ($86)
 spell_select_free_player_icon:
     pla
-    bmi !return- // Unoccupied cell selected
+    bmi !return- // Unoccupied square selected
     sta board.icon.type
     tay
     lda board.icon.init_matrix,y
@@ -527,10 +673,10 @@ spell_select_revive_icon:
         .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease
 
     // 87AC
-    // Spell action function pointers. Actions are used to allow the player to select board cells or icons.
+    // Spell action function pointers. Actions are used to allow the player to select board squares or icons.
     spell_action_fn_ptr:
-        .word spell_select_icon, spell_select_cell, spell_select_player_icon, spell_select_challenge_icon
-        .word spell_select_charmed_cell, spell_select_opposing_icon, spell_select_free_player_icon
+        .word spell_select_icon, spell_select_square, spell_select_player_icon, spell_select_challenge_icon
+        .word spell_select_charmed_square, spell_select_opposing_icon, spell_select_free_player_icon
         .word spell_select_revive_icon
 
     // 8B8C
@@ -557,6 +703,9 @@ temp_row_store: .byte $00 // Temporary current row storage
 // BD54
 temp_column_store: .byte $00 // Temporary current column row storage
 
+// BD71
+temp_message_id_store: .byte $00 // Temporary message ID storage
+
 // BE7F
 curr_dead_icons: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon types.
 
@@ -569,3 +718,6 @@ flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
 // Flags used to keep track of spells used by dark player.
 // Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
 flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
+
+// BF2E
+temp_selected_icon_store: .byte $00 // Temporary storage for selected icon

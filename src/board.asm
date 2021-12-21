@@ -36,8 +36,8 @@ get_sound_for_icon:
 // Description:
 // - Detects if the selected square is a magic sqaure.
 // Prerequisites:
-// - `main.temp.data__curr_row`: row of the cell to test.
-// - `main.temp.data__curr_column`: column of the cell to test.
+// - `main.temp.data__curr_row`: row of the square to test.
+// - `main.temp.data__curr_column`: column of the square to test.
 // Sets:
 // - `main.temp.flag__icon_destination_valid`: is $80 if selected square is a magic square.
 // Preserves:
@@ -69,7 +69,7 @@ no_magic_square_selected:
 // 6422
 // Description:
 // - Converts a board row and column coordinate to a corresponding sprite screen position so that the sprite is
-//   positioned exactly over the board cell.
+//   positioned exactly over the board square.
 // Prerequisites:
 // - A: Board column
 // - Y: Board row
@@ -274,9 +274,9 @@ surrounding_squares_coords:
 // Description:
 // - Adds an icon to the board matrix.
 // Prerequisites:
-// - `main.temp.data__curr_board_row`: Row offset of board matrix cell.
-// - `main.temp.data__curr_board_col`: Column offset of board matrix cell.
-// - `icon.type`: Type of icon to add to the cell.
+// - `main.temp.data__curr_board_row`: Row offset of board square.
+// - `main.temp.data__curr_board_col`: Column offset of board square.
+// - `icon.type`: Type of icon to add to the square.
 // Sets:
 // - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 add_icon_to_matrix:
@@ -1762,7 +1762,7 @@ countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate action
 
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
-// cell only.
+// square only.
 flag__render_square_ctl: .byte $00
 
 // BD4E

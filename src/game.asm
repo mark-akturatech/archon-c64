@@ -185,7 +185,7 @@ change_phase_color:
     jsr regenerate_hitpoints
     jmp !next+
 check_light_icons:
-    cmp #$0E
+    cmp #PHASE_CYCLE_LENGTH
     bne !next+
     // Board is white
     lda #$FF
@@ -488,7 +488,7 @@ cycle_phase_counters:
     lda main.state.counter,y
     bmi cycle_phase_counters__reverse
     lda main.state.curr_cycle,y
-    cmp #$0E
+    cmp #PHASE_CYCLE_LENGTH
     bne increase_cycle_count
     lda #$00 // Reset cycle
     beq !next+
@@ -508,7 +508,7 @@ increase_cycle_count_again:
     adc #$02
 !next:
     sta main.state.curr_cycle,y
-    cmp #$0E
+    cmp #PHASE_CYCLE_LENGTH
     bcc set_phase_color
     lda #$FF // Reverse phase
     sta main.state.counter,y
@@ -526,7 +526,7 @@ set_phase_color:
 cycle_phase_counters__reverse:
     lda main.state.curr_cycle,y
     bne decrease_cycle_count
-    lda #$0E // Reset cycle
+    lda #PHASE_CYCLE_LENGTH
     bpl !next+
 decrease_cycle_count:
     sec
@@ -734,7 +734,7 @@ new_player_sound:
     beq move_sprite_to_square
 joystick_icon_select:
     lda magic.curr_spell_cast_selection
-    cmp #($80 + SPELL_END)
+    cmp #($80 + SPELL_ID_CEASE)
     beq !next+
     // Ensure selected column is within bounds.
     lda main.temp.data__curr_board_col
@@ -763,7 +763,7 @@ joystick_icon_select:
     jmp common.complete_interrupt
 !next:
     sta main.interrupt.flag__enable
-    // 844C  8D 55 BD   sta WBD55 // TODO
+    sta flag__interrupt_response
     jmp common.complete_interrupt
     //
 move_sprite_to_square:
@@ -784,7 +784,7 @@ check_joystick_left_right:
     lda CIAPRA,x
     pha // Put joystick status on stack
     lda magic.curr_spell_cast_selection
-    cmp #($80 + SPELL_END)
+    cmp #($80 + SPELL_ID_CEASE)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
     lda main.temp.data__board_sprite_move_x_count
@@ -1060,7 +1060,7 @@ select_or_move_icon:
     jsr get_square_occupancy
     ldx magic.curr_spell_cast_selection // Magic caster selected
     beq !next+
-    jmp magic.select_spell_destination
+    jmp magic.spell_select
 !next:
     ldx curr_icon_total_moves // is 0 when char is first selected
     beq select_icon_to_move
@@ -1499,6 +1499,10 @@ imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset
 // BD3D
 flag__new_square_selected: // Is set to non-zero if a new board square was selected
 message_id: // ID of selected spell used as an offset when calling spell logic
+    .byte $00
+
+// BD55
+flag__interrupt_response: // Interrrupt response saved after interrupt was completed.
     .byte $00
 
 // BD70

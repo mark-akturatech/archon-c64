@@ -89,7 +89,7 @@ add_icon:
 // Prerequisites:
 // - `main.temp.data__curr_board_col`: Destination column of piece
 // - `main.temp.data__curr_board_row`: Starting destination row of piece
-// - `board.icon.type`: Type of piece to animation in to destination cell
+// - `board.icon.type`: Type of piece to animation in to destination square
 // - `main.temp.data__num_icons`: Number of icons to add to board
 // Notes:
 // - If number of icons is set to 2, the destination row of the second piece is automatically calculated to be 9 minus
