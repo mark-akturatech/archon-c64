@@ -174,7 +174,8 @@
 
 .const BOARD_NUM_COLS = 9
 .const BOARD_NUM_ROWS = 9
-.const BOARD_NUM_ICONS = BOARD_NUM_COLS * 2 * 2 // Each side has 2 columns full of icons
+.const BOARD_SIZE = BOARD_NUM_COLS*BOARD_NUM_ROWS
+.const BOARD_NUM_ICONS = BOARD_NUM_COLS*2*2 // Each side has 2 columns full of icons
 .const BOARD_EMPTY_SQUARE = FLAG_ENABLE
 
 //---------------------------------------------------------------------------------------------------------------------

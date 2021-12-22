@@ -158,7 +158,7 @@ intialize_enable_sprite:
     lda icon.offset,x
     and #$08 // Icons with bit 8 set are dark icons
     beq !next+
-    lda #$11
+    lda #$11 // Left facing icon
 !next:
     sta common.sprite.init_animation_frame,x
     rts
@@ -602,9 +602,9 @@ render_sprite_preconf:
 // between $55 and $aa which makes the tile solid color 1 or solid color 2.
 set_player_color:
     .const player_dot_data_offset = $600 // Offset of character dot data for player tile
-    lda #<(CHRMEM2 + player_dot_data_offset)
+    lda #<(CHRMEM2+player_dot_data_offset)
     sta FREEZP+2
-    lda #>(CHRMEM2 + player_dot_data_offset)
+    lda #>(CHRMEM2+player_dot_data_offset)
     sta FREEZP+3
     ldy #$07
     lda game.state.flag__is_light_turn
@@ -628,11 +628,11 @@ draw_board:
     lda data.square_colors__icon
     sta EXTCOL
     //
-    lda #(BOARD_NUM_ROWS - 1) // Number of rows (0 based, so 9)
+    lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
     sta main.temp.data__curr_row
     // Draw each board row.
 draw_row:
-    lda #(BOARD_NUM_COLS - 1) // Number of columns (0 based, so 9)
+    lda #(BOARD_NUM_COLS-1) // Number of columns (0 based, so 9)
     sta main.temp.data__curr_column
     ldy main.temp.data__curr_row
     //
@@ -756,7 +756,7 @@ draw_border:
     // Draw top border.
     lda data.row_screen_offset_lo_ptr
     sec
-    sbc #(CHARS_PER_SCREEN_ROW + 1) // 1 row and 1 character before start of board
+    sbc #(CHARS_PER_SCREEN_ROW+1) // 1 row and 1 character before start of board
     sta FREEZP+2 // Screen offset
     sta FORPNT // Color memory offset
     lda data.row_screen_offset_hi_ptr
@@ -765,7 +765,7 @@ draw_border:
     clc
     adc main.screen.color_mem_offset
     sta FORPNT+1
-    ldy #(BOARD_NUM_COLS*3 + 1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
+    ldy #(BOARD_NUM_COLS*3+1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
 !loop:
     lda #BORDER_CHARACTER // Border character
     sta (FREEZP+2),y
@@ -776,7 +776,7 @@ draw_border:
     dey
     bpl !loop-
     // Draw side borders.
-    ldx #(BOARD_NUM_ROWS*2) //  9 squares (2 characters per square)
+    ldx #(BOARD_NUM_ROWS*2) // 9 squares (2 characters per square)
 !loop:
     lda FREEZP+2
     clc
@@ -813,7 +813,7 @@ draw_border:
     inc FREEZP+3
     inc FORPNT+1
 !next:
-    ldy #(BOARD_NUM_COLS*3 + 1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
+    ldy #(BOARD_NUM_COLS*3+1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
 !loop:
     lda #BORDER_CHARACTER
     sta (FREEZP+2),y
@@ -847,7 +847,7 @@ convert_logo_character:
     asl
     sta FREEZP // Character dot data offset
     .const UPPERCASE_OFFSET = $600
-    lda #>(CHRMEM2 + UPPERCASE_OFFSET)
+    lda #>(CHRMEM2+UPPERCASE_OFFSET)
     adc #$00
     sta FREEZP+1
     ldy #$00
@@ -887,9 +887,9 @@ copy_character_to_sprite:
     sta SP2X
     lda #$B4
     sta SP3X
-    lda #((VICGOFF / BYTES_PER_SPRITE) + 56) // should use main.sprite.offset_56 but source doesn't :(
+    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use main.sprite.offset_56 but source doesn't :(
     sta SPTMEM+2
-    lda #((VICGOFF / BYTES_PER_SPRITE) + 57)
+    lda #((VICGOFF/BYTES_PER_SPRITE)+57)
     sta SPTMEM+3
     rts
 
@@ -1002,7 +1002,7 @@ clear_text_area:
 // Notes:
 // - Does not clear color memory.
 clear_last_text_row:
-    ldy #(CHARS_PER_SCREEN_ROW - 1)
+    ldy #(CHARS_PER_SCREEN_ROW-1)
     lda #$00
 !loop:
     sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
@@ -1175,19 +1175,19 @@ interrupt_handler__play_music:
 
     // BEAE
     row_screen_offset_lo_ptr: // Low byte screen memory offset of start of each board row
-        .fill BOARD_NUM_COLS, <(ROW_START_OFFSET + i * ROWS_PER_SQUARE * CHARS_PER_SCREEN_ROW)
+        .fill BOARD_NUM_COLS, <(ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
 
     // BEB7
     row_screen_offset_hi_ptr: // High byte screen memory offset of start of each board row
-        .fill BOARD_NUM_COLS, >(SCNMEM + ROW_START_OFFSET + i * ROWS_PER_SQUARE * CHARS_PER_SCREEN_ROW)
+        .fill BOARD_NUM_COLS, >(SCNMEM+ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
 
     // BED2
     row_color_offset_lo_ptr: // Low byte memory offset of square color data for each board row
-        .fill BOARD_NUM_COLS, <(square_color + i * BOARD_NUM_COLS)
+        .fill BOARD_NUM_COLS, <(square_color+i*BOARD_NUM_COLS)
 
     // BEDB
     row_color_offset_hi_ptr: // High byte memory offset of square color data for each board row
-        .fill BOARD_NUM_COLS, >(square_color + i * BOARD_NUM_COLS)
+        .fill BOARD_NUM_COLS, >(square_color+i*BOARD_NUM_COLS)
 }
 
 .namespace sprite {

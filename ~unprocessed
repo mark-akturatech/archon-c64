@@ -1,105 +1,35 @@
-// 6AFE
-spell_select_elemental:
-6AFE  A2 50      ldx #$50
-6B00  A0 04      ldy #$04
-6B02  AD 7B 8B   lda W8B7B
-6B05  8D 1A BF   sta main.temp.data__temp_store
-W6B08:
-6B08  EC 1A BF   cpx main.temp.data__temp_store
-6B0B  D0 0C      bne W6B19
-6B0D  88         dey
-6B0E  30 1E      bmi W6B2E
-6B10  B9 77 8B   lda W8B77,y
-6B13  8D 1A BF   sta main.temp.data__temp_store
-6B16  4C 2E 6B   jmp W6B2E
-W6B19:
-6B19  BD 7C BD   lda board_square_occupant_data,x
-6B1C  30 10      bmi W6B2E
-6B1E  C9 12      cmp #$12
-6B20  08         php
-6B21  AD C6 BC   lda game.state.flag__is_light_turn
-6B24  10 05      bpl W6B2B
-6B26  28         plp
-6B27  90 12      bcc W6B3B
-6B29  B0 03      bcs W6B2E
-W6B2B:
-6B2B  28         plp
-6B2C  B0 0D      bcs W6B3B
-W6B2E:
-6B2E  CA         dex
-6B2F  10 D7      bpl W6B08
-6B31  A9 34      lda #$34
-6B33  A2 28      ldx #$28
-6B35  20 09 65   jsr board.write_text
-6B38  4C AF 6C   jmp spell_complete
-W6B3B:
-6B3B  A9 FE      lda #$FE
-6B3D  AE DE BC   ldx game.curr_player_offset
-6B40  F0 02      beq W6B44
-6B42  A9 0A      lda #$0A
-W6B44:
-6B44  8D 28 BF   sta main.temp.data__curr_board_col
-6B47  A9 04      lda #$04
-6B49  8D 26 BF   sta main.temp.data__curr_board_row
-W6B4C:
-6B4C  AD 1B D4   lda $D41B
-6B4F  29 03      and #$03
-6B51  CD FD 6A   cmp W6AFD // ensures both players have a different elemental
-6B54  F0 F6      beq W6B4C
-6B56  8D FD 6A   sta W6AFD
-6B59  48         pha
-6B5A  18         clc
-6B5B  69 24      adc #$24
-6B5D  AA         tax
-6B5E  8E 2D BF   stx board.icon.type
-6B61  BC FF 8A   ldy board.icon.init_matrix,x
-6B64  8C 29 BF   sty board_icon_offset
-6B67  B9 B3 8A   lda board.icon.init_strength,y
-6B6A  9D FD BD   sta game.curr_icon_strength,x
-6B6D  20 52 93   jsr board.clear_text_area
-6B70  68         pla
-6B71  18         clc
-6B72  69 15      adc #$15
-6B74  A2 00      ldx #$00
-6B76  8E 03 D0   stx SP1Y
-6B79  20 09 65   jsr board.write_text
-6B7C  A9 41      lda #$41
-6B7E  20 09 65   jsr board.write_text
-6B81  A2 00      ldx #$00
-6B83  8E 26 BD   stx main.temp.data__curr_sprite_ptr
-6B86  20 EB 62   jsr board_get_sound_for_piece
-6B89  AD 28 BF   lda main.temp.data__curr_board_col
-6B8C  AC 26 BF   ldy main.temp.data__curr_board_row
-6B8F  20 22 64   jsr board.convert_coord_sprite_pos
-6B92  20 4D 64   jsr board.sprite_initialize
-6B95  A9 36      lda #$36
-6B97  8D DF BC   sta board_sprite_copy_length
-6B9A  20 DE 8B   jsr board_add_sprite_set_to_graphics
-6B9D  AD DE BC   lda game.curr_player_offset
-6BA0  F0 02      beq W6BA4
-6BA2  A9 11      lda #$11
-W6BA4:
-6BA4  8D E3 BC   sta common_sprite_init_animation_frame
-6BA7  20 6E 8D   jsr board_render_sprite
-6BAA  AD C0 BC   lda game.state.flag__ai_player_ctl
-6BAD  CD C6 BC   cmp game.state.flag__is_light_turn
-6BB0  F0 0B      beq W6BBD
-6BB2  A9 19      lda #STRING_SEND_WHERE
-6BB4  8D 3D BD   sta game.message_id
-6BB7  8D 71 BD   sta temp_message_id_store
-6BBA  20 53 89   jsr game.display_message
-W6BBD:
-6BBD  AD 29 BF   lda board_icon_offset
-6BC0  C9 12      cmp #$12
-6BC2  D0 05      bne W6BC9
-6BC4  A9 40      lda #$40
-6BC6  8D 09 BD   sta game_curr_icon_move_speed
-W6BC9:
-6BC9  A9 8F      lda #(ICON_CAN_FLY + $0F)
-6BCB  8D FD BC   sta game.curr_icon_total_moves
-6BCE  A9 83      lda #ACTION_SELECT_CHALLENGE_ICON
-6BD0  20 DC 6C   jsr spell_select_destination
-6BD3  60         rts
+// check if only free charmed squares are magic sqaures and display error if they are
+W7912:
+7912  A9 40      lda  #$40                  
+7914  8D 22 BF   sta  flag__sprites_initialized 
+7917  20 7C 6C   jsr  board_surrounding_squares_coords 
+791A  A2 08      ldx  #$08                  
+W791C:
+791C  BD 8F BE   lda  board_surrounding_square_row,x 
+791F  30 56      bmi  W7977                 
+7921  C9 09      cmp  #$09                  
+7923  B0 52      bcs  W7977                 
+7925  A8         tay                        
+7926  8C 30 BF   sty  temp_data__curr_line  
+7929  BD 98 BE   lda  board_surrounding_square_column,x 
+792C  30 49      bmi  W7977                 
+792E  C9 09      cmp  #$09                  
+7930  B0 45      bcs  W7977                 
+7932  8D 31 BF   sta  temp_data__curr_column 
+7935  20 AF 88   jsr  game_get_square_occupancy 
+7938  10 3D      bpl  W7977                 
+793A  20 FF 62   jsr  board_test_magic_square_selected 
+793D  AD FE BC   lda  temp_data__curr_count 
+7940  30 35      bmi  W7977                 
+7942  AD C6 BC   lda  game_state_flag__is_light_turn 
+7945  CD C0 BC   cmp  game_state_flag__ai_player_ctl 
+// 7948  F0 04      beq  W794E                 TODO
+794A  0E 22 BF   asl  flag__sprites_initialized 
+794D  60         rts                        
+W7977:
+7977  CA         dex                        
+7978  10 A2      bpl  W791C                 
+797A  60         rts  
 
 
 
@@ -108,14 +38,13 @@ W6BC9:
 // 693F
 spell_select_revive:
 693F  20 12 79   jsr W7912
-6942  AD 22 BF   lda flag__sprites_initialized
+6942  AD 22 BF   lda main.temp.flag__are_sprites_initialized
 6945  30 0A      bmi W6951
 6947  A9 12      lda #STRING_NO_CHARMED
 W6949:
 6949  A2 00      ldx #$00
 694B  20 09 65   jsr board.write_text
 694E  4C AF 6C   jmp spell_complete
-
 W6951:
 6951  A2 00      ldx #$00
 6953  8E 24 BF   stx main_main.temp.data__character_sprite_frame
@@ -158,7 +87,6 @@ W6997:
 699A  D0 05      bne W69A1
 699C  A9 13      lda #STRING_ICONS_ALL_ALIVE
 699E  4C 49 69   jmp W6949
-
 W69A1:
 69A1  A9 78      lda #$78
 69A3  AC C6 BC   ldy game.state.flag__is_light_turn
@@ -208,7 +136,7 @@ W69EA:
 69FE  38         sec
 69FF  E9 01      sbc #$01
 6A01  8D 47 BD   sta main_sprite_curr_y_pos+1
-6A04  20 6E 8D   jsr board_render_sprite
+6A04  20 6E 8D   jsr board.render_sprite
 6A07  A9 0F      lda #STRING_REVIVE_WHICH
 6A09  8D 3D BD   sta game.message_id
 6A0C  20 53 89   jsr game.display_message
@@ -236,17 +164,16 @@ W6A3F:
 6A45  9D FD BD   sta game.curr_icon_strength,x
 6A48  A2 00      ldx #$00
 6A4A  8E 26 BD   stx main.temp.data__curr_sprite_ptr
-6A4D  20 EB 62   jsr board_get_sound_for_piece
+6A4D  20 EB 62   jsr board.get_sound_for_icon
 6A50  20 4D 64   jsr board.sprite_initialize
-6A53  20 DE 8B   jsr board_add_sprite_set_to_graphics
-6A56  20 6E 8D   jsr board_render_sprite
+6A53  20 DE 8B   jsr board.add_sprite_set_to_graphics
+6A56  20 6E 8D   jsr board.render_sprite
 6A59  20 97 6A   jsr W6A97
-6A5C  A9 8F      lda #(ICON_CAN_FLY + $0F)
+6A5C  A9 8F      lda #(ICON_CAN_FLY+$0F)
 6A5E  8D FD BC   sta game.curr_icon_total_moves
 6A61  A9 84      lda #ACTION_SELECT_CHARMED_SQUARE
 6A63  20 DC 6C   jsr spell_select_destination
 6A66  60         rts
-
 W6A67:
 6A67  A9 02      lda #$02
 6A69  8D 7B BD   sta main.temp.data__counter
@@ -275,7 +202,6 @@ W6A91:
 6A91  CE 7B BD   dec main.temp.data__counter
 6A94  D0 D6      bne W6A6C
 6A96  60         rts
-
 W6A97:
 6A97  AD 43 BF   lda WBF43
 6A9A  85 FD      sta FREEZP+2
@@ -299,6 +225,9 @@ W6AB6:
 6AB6  CA         dex
 6AB7  D0 E9      bne W6AA2
 6AB9  60         rts
+
+
+
 
 
 

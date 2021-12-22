@@ -116,7 +116,7 @@ import_sprite_frame:
     // Pointer to first sprite: 64 bytes per sprite, start at graphmem offset. we add 6 as we are setting the first
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
-    lda #(VICGOFF / BYTES_PER_SPRITE) + NUM_SPRITES
+    lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES
     sta main.temp.ptr__sprite
     ldx #NUM_SPRITES
 !loop:
@@ -586,10 +586,10 @@ state__end_intro:
 
     // ADBA
     icon_sprite_offsets: // Screen pointer sprite offsets for each icon
-        .byte (VICGOFF / BYTES_PER_SPRITE) + 24
-        .byte (VICGOFF / BYTES_PER_SPRITE) + 28
-        .byte (VICGOFF / BYTES_PER_SPRITE) + 32
-        .byte (VICGOFF / BYTES_PER_SPRITE) + 36
+        .byte (VICGOFF/BYTES_PER_SPRITE)+24
+        .byte (VICGOFF/BYTES_PER_SPRITE)+28
+        .byte (VICGOFF/BYTES_PER_SPRITE)+32
+        .byte (VICGOFF/BYTES_PER_SPRITE)+36
 
     // ADBE
     icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites

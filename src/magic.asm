@@ -123,7 +123,7 @@ skip_teleport_message:
     sty main.temp.data__curr_icon_row
     lda main.temp.data__curr_board_col
     sta main.temp.data__curr_icon_col
-    lda #(ICON_CAN_FLY + ICON_CAN_CAST + $0F) // Allow selected icon to move anywhere usin the teleport animation
+    lda #(ICON_CAN_FLY+ICON_CAN_CAST+$0F) // Allow selected icon to move anywhere usin the teleport animation
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_SQUARE
     jsr spell_select_destination
@@ -212,7 +212,122 @@ spell_select_exchange:
     rts
 
 // 6AFE
-spell_select_elemental: // TODO
+spell_select_elemental:
+    // Check if there are any enemy icons located on non-magic squares. If not, the spell will be wasted and an alert
+    // shown. The check is a bit rough - it starts at occupancy location 80 ($50) which is the last square on the board
+    // (0 offset) and works backwards. An array of magic square locations is stored in
+    // `game.data.magic_sqaure_occupancy_index`. If the counter is decremented to the magic square location, the next
+    // magic square is stored and the occupancy check is skipped. This repeats until all squares have been checked.
+    // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic sqaures skipped) and
+    // no enemey piece is found, then we show a spell wasted message.
+    ldx #(BOARD_SIZE-1)
+    ldy #$04 // Number magic sqaures (0 offset)
+    lda game.data.magic_sqaure_occupancy_index+4 
+    sta main.temp.data__temp_store
+!loop:
+    cpx main.temp.data__temp_store // Up to next magic square?
+    bne !next+
+    dey
+    bmi check_next_square // No more magic squares
+    // Store next magic square location.
+    lda game.data.magic_sqaure_occupancy_index,y
+    sta main.temp.data__temp_store
+    jmp check_next_square
+!next:
+    // Check if square has opposing player icon
+    lda game.curr_square_occupancy,x
+    bmi check_next_square // No icon
+    cmp #MANTICORE // First dark player icon id
+    php
+    lda game.state.flag__is_light_turn
+    bpl !next+
+    plp
+    bcc allow_summon_elemental
+    bcs check_next_square
+!next:
+    plp
+    bcs allow_summon_elemental
+check_next_square:
+    dex
+    bpl !loop-
+    // All opposing icons on charmed squares. Spell wasted. Display warning message.
+    lda #STRING_CHARMED_PROOF
+    ldx #CHARS_PER_SCREEN_ROW
+    jsr board.write_text
+    jmp spell_complete
+    //
+allow_summon_elemental:
+    // Set elemental starting position.
+    lda #$FE // 2 columns to the left of board for light player
+    ldx game.curr_player_offset
+    beq !next+
+    lda #$0A // Or 2 columns to the right of board for dark player
+!next:
+    sta main.temp.data__curr_board_col
+    lda #$04 // Middle row
+    sta main.temp.data__curr_board_row
+!loop:
+    // Create random elemental type.
+    lda RANDOM
+    and #$03 // 0-3 random number (choose one of 4 elementals)
+    cmp used_elemental_id // Ensures both players generate a different elemental
+    beq !loop-
+    sta used_elemental_id
+    pha
+    clc
+    adc #AIR_ELEMENTAL // Elemental ID
+    tax
+    stx board.icon.type
+    ldy board.icon.init_matrix,x
+    sty board.icon.offset
+    lda board.icon.init_strength,y
+    sta game.curr_icon_strength,x
+    // Display elemental type.
+    jsr board.clear_text_area
+    pla
+    clc
+    adc #STRING_AIR
+    ldx #$00
+    stx SP1Y
+    jsr board.write_text
+    lda #STRING_ELEMENT_APPEARS
+    jsr board.write_text
+    // Configure sprite and sound.
+    ldx #$00
+    stx main.temp.data__curr_sprite_ptr
+    jsr board.get_sound_for_icon
+    lda main.temp.data__curr_board_col
+    ldy main.temp.data__curr_board_row
+    jsr board.convert_coord_sprite_pos
+    jsr board.sprite_initialize
+    lda #BYTERS_PER_STORED_SPRITE
+    sta board.sprite.copy_length
+    jsr board.add_sprite_set_to_graphics
+    lda game.curr_player_offset
+    beq !next+
+    lda #$11 // Left facing icon
+!next:
+    sta common.sprite.init_animation_frame
+    jsr board.render_sprite
+    //
+    lda game.state.flag__ai_player_ctl
+    cmp game.state.flag__is_light_turn
+    beq !next+
+    lda #STRING_SEND_WHERE
+    sta game.message_id
+    sta temp_message_id_store
+    jsr game.display_message
+!next:
+    lda board.icon.offset
+    cmp #EARTH_ELEMENTAL_OFFSET
+    bne !next+
+    lda #$40 // Slow down animation speed for earth elemental
+    sta game.curr_icon_move_speed
+!next:
+    lda #(ICON_CAN_FLY+$0F)
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_CHALLENGE_ICON
+    jsr spell_select_destination
     rts
 
 // 693F
@@ -355,10 +470,10 @@ display_spell:
 !loop:
     sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x
     inx
-    cpx #(CHARS_PER_SCREEN_ROW + CHARS_PER_SCREEN_ROW)
+    cpx #(CHARS_PER_SCREEN_ROW+CHARS_PER_SCREEN_ROW)
     bcc !loop-
     // Display the name of the spell.
-    ldx #(CHARS_PER_SCREEN_ROW + 10)
+    ldx #(CHARS_PER_SCREEN_ROW+10)
     ldy main.temp.data__temp_store
     lda data.spell_string_id,y
     jsr board.write_text
@@ -515,7 +630,7 @@ check_valid_square:
 spell_abort_magic_square:
     pla
     lsr main.temp.flag__icon_destination_valid // Invalid selection
-    lda #(FLAG_ENABLE + STRING_CHARMED_PROOF)
+    lda #(FLAG_ENABLE+STRING_CHARMED_PROOF)
     bmi spell_end_turn
 
 // 87F6
@@ -537,7 +652,7 @@ spell_check_icon_is_free:
     rts
 !next:
     // Show icon imprisoned message and restart turn
-    lda #(FLAG_ENABLE + STRING_ICON_IMPRISONED)
+    lda #(FLAG_ENABLE+STRING_ICON_IMPRISONED)
 spell_end_turn:
     sta game.flag__new_square_selected
     lda #FLAG_ENABLE
@@ -694,6 +809,10 @@ spell_select_revive_icon:
 // of the data area.
 //
 .segment DynamicData
+
+// 6AFD
+used_elemental_id: .byte $00 // ID of used elemental. Used to ensure opposing player will generate a unique elemental.
+
 // BD0E
 curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell
 

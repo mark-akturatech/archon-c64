@@ -123,7 +123,7 @@ restart_game_loop:
     sta FREEZP+2
     lda #>dynamic_data_start
     sta FREEZP+3
-    ldx #>((dynamic_data_end + $0100) - dynamic_data_start) // Number of blocks to clear + 1
+    ldx #>((dynamic_data_end+$0100)-dynamic_data_start) // Number of blocks to clear + 1
     lda #$00
     tay
 !loop:
@@ -150,7 +150,7 @@ restart_game_loop:
     lda #FLAG_ENABLE
     sta interrupt.flag__enable
     // Clear board square occupancy data.
-    ldx #(BOARD_NUM_COLS * BOARD_NUM_ROWS - 1) // Empty (9x9 grid) squares (0 offset)
+    ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
     sta game.curr_square_occupancy,x
     dex
@@ -245,7 +245,7 @@ board_setup_player_2_loop:
     inx
     dey
     bne board_setup_player_2_loop
-    cpx #(BOARD_NUM_COLS * BOARD_NUM_ROWS)
+    cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
     bcc board_setup_row_loop
     //
     lda game.state.flag__is_first_player_light
@@ -431,32 +431,32 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 
 .namespace sprite {
     // 8DBF
-    offset_00: .byte (VICGOFF / BYTES_PER_SPRITE) + 00 // Sprite 0 screen pointer
+    offset_00: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
 
     // 8DC0
-    offset_24: .byte (VICGOFF / BYTES_PER_SPRITE) + 24 // Sprite 24 screen pointer
+    offset_24: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
 
     // 8DC1
-    offset_48: .byte (VICGOFF / BYTES_PER_SPRITE) + 48 // Sprite 48 screen pointer
+    offset_48: .byte (VICGOFF/BYTES_PER_SPRITE)+48 // Sprite 48 screen pointer
 
     // 8DC2
-    offset_56: .byte (VICGOFF / BYTES_PER_SPRITE) + 56 // Sprite 56 screen pointer
+    offset_56: .byte (VICGOFF/BYTES_PER_SPRITE)+56 // Sprite 56 screen pointer
 
     // 8DCB
     mem_ptr_00: // Pointer to sprite 0 graphic memory area
-        .byte <(GRPMEM + 00 * BYTES_PER_SPRITE), >(GRPMEM + 00 * BYTES_PER_SPRITE)
+        .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
 
     // 8DCD
     mem_ptr_24: // Pointer to sprite 24 (dec) graphic memory area
-        .byte <(GRPMEM + 24 * BYTES_PER_SPRITE), >(GRPMEM + 24 * BYTES_PER_SPRITE)
+        .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
 
     // 8DCF
     mem_ptr_48: // Pointer to sprite 48 (dec) graphic memory area
-        .byte <(GRPMEM + 48 * BYTES_PER_SPRITE), >(GRPMEM + 48 * BYTES_PER_SPRITE)
+        .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
 
     // 8DD1
     mem_ptr_56: // Pointer to sprite 56 (dec) graphic memory area
-        .byte <(GRPMEM + 56 * BYTES_PER_SPRITE), >(GRPMEM + 56 * BYTES_PER_SPRITE)
+        .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
 }
 
 //---------------------------------------------------------------------------------------------------------------------

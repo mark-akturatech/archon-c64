@@ -72,7 +72,7 @@ add_icon:
     lda main.temp.data__icon_offset
     clc
     adc #$04
-    cmp #(16 * 4) // Check if finished (16 icon types * 4 data bytes)
+    cmp #(16*4) // Check if finished (16 icon types * 4 data bytes)
     bcc !next+
     rts
 !next:

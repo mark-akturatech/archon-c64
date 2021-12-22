@@ -391,7 +391,7 @@ set_icon_speed:
     // 8304  8C 15 BD   sty intro_sprite_final_y_pos
     // 8307  CE 38 BD   dec temp_data__num_icons
     // W830A:
-    // 830A  AE 22 BF   ldx flag__sprites_initialized
+    // 830A  AE 22 BF   ldx main.temp.flag__are_sprites_initialized
     // 830D  BD 5B BE   lda WBE5B,x
     // 8310  8D 28 BD   sta WBD28
     // 8313  BC 6D BE   ldy WBE6D,x
@@ -734,7 +734,7 @@ new_player_sound:
     beq move_sprite_to_square
 joystick_icon_select:
     lda magic.curr_spell_cast_selection
-    cmp #($80 + SPELL_ID_CEASE)
+    cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq !next+
     // Ensure selected column is within bounds.
     lda main.temp.data__curr_board_col
@@ -784,7 +784,7 @@ check_joystick_left_right:
     lda CIAPRA,x
     pha // Put joystick status on stack
     lda magic.curr_spell_cast_selection
-    cmp #($80 + SPELL_ID_CEASE)
+    cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
     lda main.temp.data__board_sprite_move_x_count
@@ -942,7 +942,7 @@ set_square_left:
     sty main.temp.data__curr_column
     lda main.temp.data__curr_board_row
     sta main.temp.data__curr_line
-    lda #$11 // Stating animation frame 17
+    lda #$11 // Left facing icon
     sta icon_dir_frame_offset
     jsr verify_valid_move
     lda #$8C // Move 12 pixels to the left
@@ -1138,7 +1138,7 @@ select_icon_to_move:
     sta (FREEZP),y // Clears current square as piece is now moving
     rts
 !next:
-    lda #(FLAG_ENABLE + STRING_ICON_IMPRISONED)
+    lda #(FLAG_ENABLE+STRING_ICON_IMPRISONED)
     sta flag__new_square_selected
     rts
 
@@ -1169,7 +1169,7 @@ warn_on_challenge:
     eor state.flag__is_light_turn
     and #$08
     beq !return+
-    lda #(FLAG_ENABLE + STRING_CHALLENGE_FOE)
+    lda #(FLAG_ENABLE+STRING_CHALLENGE_FOE)
     sta flag__new_square_selected
     pla // Abort move
     pla
@@ -1191,7 +1191,7 @@ warn_on_occupied_square:
     eor state.flag__is_light_turn
     and #$08
     bne !return+
-    lda #(FLAG_ENABLE + STRING_SQUARE_OCCUPIED)
+    lda #(FLAG_ENABLE+STRING_SQUARE_OCCUPIED)
     sta flag__new_square_selected
     pla // Abort move
     pla
@@ -1227,7 +1227,7 @@ warn_on_diagonal_move_exceeded:
     cmp main.temp.data__math_store_2
     bcs !return+
 show_limit_reached_message:
-    lda #(FLAG_ENABLE + STRING_LIMIT_MOVED)
+    lda #(FLAG_ENABLE+STRING_LIMIT_MOVED)
     sta flag__new_square_selected
     pla // Abort move
     pla
@@ -1280,7 +1280,7 @@ transport_icon:
     and #%1111_1100
     sta XXPAND
     // Configure source icon.
-    lda #(BYTERS_PER_STORED_SPRITE - 1)
+    lda #(BYTERS_PER_STORED_SPRITE-1)
     sta main.temp.data__temp_store_2
     lda main.temp.data__curr_icon_col
     ldy main.temp.data__curr_icon_row
@@ -1417,15 +1417,20 @@ transport_icon_interrupt:
 }
 
 .namespace data {
+    // 8B77
+    // Index of magic squares within the square occupancy array
+    magic_sqaure_occupancy_index:
+        .byte $04, $24, $28, $2C, $4C
+
     // BEC0
     // Low byte memory offset of square occupancy data for each board row
     row_occupancy_lo_ptr:
-        .fill BOARD_NUM_COLS, <(curr_square_occupancy + i * BOARD_NUM_COLS)
+        .fill BOARD_NUM_COLS, <(curr_square_occupancy+i*BOARD_NUM_COLS)
 
     // BEC9
     // High byte memory offset of square occupancy data for each board row
     row_occupancy_hi_ptr:
-        .fill BOARD_NUM_COLS, >(curr_square_occupancy + i * BOARD_NUM_COLS)
+        .fill BOARD_NUM_COLS, >(curr_square_occupancy+i*BOARD_NUM_COLS)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1509,7 +1514,7 @@ flag__interrupt_response: // Interrrupt response saved after interrupt was compl
 curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
 
 // BD7C
-curr_square_occupancy: .fill BOARD_NUM_ROWS*BOARD_NUM_COLS, $00 // Board square occupant data (#$80 for no occupant)
+curr_square_occupancy: .fill BOARD_SIZE, $00 // Board square occupant data (#$80 for no occupant)
 
 // BDFD
 curr_icon_strength: .fill BOARD_NUM_ICONS, $00 // Current strength of each board icon

@@ -25,11 +25,11 @@
 .const VICGOFF = videoBankGrphMemOffset.get(videoBank);
 
 // Derive applications specific video bank constants
-.const CHRMEM1  = VICMEM + $0000  // start of character set memory for intro (half set only)
-.const CHRMEM2  = VICMEM + $0800  // start of character set memory for board (full set)
-.const SCNMEM = VICMEM + $0400    // start of screen memory (overlaps bottom half CHRMEM1 as CHRMEM1 is a half set)
-.const SPTMEM = SCNMEM + $03f8    // start of sprite location memory
-.const GRPMEM = VICMEM + VICGOFF  // start of graphics/sprite memory
+.const CHRMEM1  = VICMEM+$0000  // start of character set memory for intro (half set only)
+.const CHRMEM2  = VICMEM+$0800  // start of character set memory for board (full set)
+.const SCNMEM = VICMEM+$0400    // start of screen memory (overlaps bottom half CHRMEM1 as CHRMEM1 is a half set)
+.const SPTMEM = SCNMEM+$03F8    // start of sprite location memory
+.const GRPMEM = VICMEM+VICGOFF  // start of graphics/sprite memory
 
 //---------------------------------------------------------------------------------------------------------------------
 // Memory Addresses
@@ -108,6 +108,7 @@
 .const PWHI3    = $D411 // Voice 3 Pulse Waveform Width (high nybble)
 .const VCREG3   = $D412 // Voice 3 Control Register
 .const SIGVOL   = $D418 // Volume and Filter Select Register
+.const RANDOM   = $D41B // Read Oscillator 3/Random Number Generator
 
 // CIA2
 .const CI2PRA   = $DD00 // Port A access
