@@ -48,10 +48,10 @@ entry:
     sta YXPAND
     // Set position of icon selection sprite.
     ldx #$04 // Sprite 4
-    lda #$FE // Column - FE is 2 columns left of 1st column (column 0)
+    lda #$FE // 2 columns to the left of board for light player
     bit state.flag__is_light_turn
     bpl !next+
-    lda #$0A // 2 columns after last column
+    lda #$0A // Or 2 columns to the right of board for dark player
 !next:
     sta main.temp.data__curr_board_col
     ldy #$04 // row
@@ -103,7 +103,7 @@ entry:
     // then the result should be $40 or $80. If squares are occupied by multiple players, the result will be $C0
     // (ie $80 OR $40) and therefore no winner.
     ldy #$40
-    cmp #$12
+    cmp #BOARD_NUM_PLAYER_ICONS
     bcc !next+ // Player 1 icon?
     ldy #$80
 !next:
@@ -124,12 +124,12 @@ entry:
     sta main.temp.data__dark_icon_count
     sta main.temp.data__light_icon_count
     sta main.temp.data__curr_count
-    ldx #(BOARD_NUM_ICONS - 1)
+    ldx #(BOARD_TOTAL_NUM_ICONS - 1)
 !loop:
     lda curr_icon_strength,x
     beq !check_next+
     ldy #$40
-    cpx #$12
+    cpx #BOARD_NUM_PLAYER_ICONS
     bcc !next+
     inc main.temp.data__dark_icon_count
     stx main.temp.data__remaining_dark_icon_id
@@ -448,7 +448,7 @@ end_turn:
 regenerate_hitpoints:
     txa
     sec
-    sbc #$12
+    sbc #BOARD_NUM_PLAYER_ICONS
     sta main.temp.data__temp_store // First player icon (offset by 1)
 !loop:
     lda curr_icon_strength,x
@@ -639,6 +639,51 @@ game_over__show_winner:
     jmp main.restart_game_loop
 !next:
     jmp !loop-
+
+// 7906
+// Description:
+// - Checks if any of the squares surrounding the current square is empty and non-magical.
+// Prerequisites:
+// - `main.temp.data__curr_icon_row`: row of source square
+// - `main.temp.data__curr_icon_col`: column of source square
+// Sets:
+// - `main.temp.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
+// - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
+// - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
+check_empty_non_magic_surrounding_square:
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta main.temp.flag__is_valid_square
+    jsr board.surrounding_squares_coords
+    ldx #$08 // Number of surrounding squares (and current square)
+!loop:
+    // Test if surrounding sqaure is occupied or is a magic sqaure. If so, test the next square. Set ENABLE flag and
+    // exit as soon as an empty/non-magic sqaure is found.
+    lda board.surrounding_square_row,x
+    bmi !next+
+    cmp #$09 // Only test columns 0-8
+    bcs !next+
+    tay
+    sty main.temp.data__curr_row
+    lda board.surrounding_square_column,x
+    bmi !next+
+    cmp #$09 // Only test rows 0-8
+    bcs !next+
+    sta main.temp.data__curr_column
+    jsr get_square_occupancy
+    bpl !next+
+    jsr board.test_magic_square_selected
+    lda main.temp.flag__icon_destination_valid
+    bmi !next+
+    // Empty non-magical square found.
+    lda state.flag__is_light_turn
+    cmp state.flag__ai_player_ctl
+    // 7948  F0 04      beq W794E // TODO: AI
+    asl main.temp.flag__is_valid_square
+    rts
+!next:
+    dex
+    bpl !loop-
+    rts
 
 // 8367
 // wait for interrupt or 'Q' kepress
@@ -1517,7 +1562,7 @@ curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occur
 curr_square_occupancy: .fill BOARD_SIZE, $00 // Board square occupant data (#$80 for no occupant)
 
 // BDFD
-curr_icon_strength: .fill BOARD_NUM_ICONS, $00 // Current strength of each board icon
+curr_icon_strength: .fill BOARD_TOTAL_NUM_ICONS, $00 // Current strength of each board icon
 
 // BEA1
 curr_icon_move_count: .byte $00 // Selected icon number of moves made in current turn

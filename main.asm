@@ -137,7 +137,7 @@ restart_game_loop:
     jsr common.clear_screen
     jsr common.clear_sprites
     // Set the initial strength of each icon.
-    ldx #(BOARD_NUM_ICONS - 1) // Total number of icons (0 offset)
+    ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
     ldy board.icon.init_matrix,x
     lda board.icon.init_strength,y
@@ -216,7 +216,7 @@ skip_board_walk:
     // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
     // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
-    lda #$12
+    lda #BOARD_NUM_PLAYER_ICONS
     sta temp.data__temp_store // Player 2 icon matrix offset
     lda #$00
     sta temp.data__temp_store+1 // Player 1 icon matrix offset
@@ -604,6 +604,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
     // BF22
     flag__are_sprites_initialized: // Is TRUE if intro icon sprites are initialized
+    flag__is_valid_square: // is TRUE if a surrounding square is valid for movement or magical spell
          .byte $00
 
     // BF25
@@ -683,6 +684,7 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     data__sprite_x_direction_offset: // Amount added to x plan to move sprite to the left or right (uses rollover)
     data__curr_square_color_code: // Color code used to render
     data__icon_set_sprite_frame: // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
+    data__dead_icon_count: // Number of dead icons in the dead icon list.
         .byte $00
 }
 

@@ -222,7 +222,7 @@ spell_select_elemental:
     // no enemey piece is found, then we show a spell wasted message.
     ldx #(BOARD_SIZE-1)
     ldy #$04 // Number magic sqaures (0 offset)
-    lda game.data.magic_sqaure_occupancy_index+4 
+    lda game.data.magic_sqaure_occupancy_index+4
     sta main.temp.data__temp_store
 !loop:
     cpx main.temp.data__temp_store // Up to next magic square?
@@ -331,7 +331,211 @@ allow_summon_elemental:
     rts
 
 // 693F
-spell_select_revive: // TODO
+spell_select_revive:
+    jsr game.check_empty_non_magic_surrounding_square
+    lda main.temp.flag__is_valid_square
+    bmi !next+
+    // No empty non-magical squares surrounding the spell caster.
+    lda #STRING_NO_CHARMED
+revive_error:
+    ldx #$00
+    jsr board.write_text
+    jmp spell_complete
+!next:
+    ldx #$00
+    stx main.temp.data__dead_icon_count
+    cpx game.curr_player_offset
+    beq !next+
+    ldx #BOARD_NUM_PLAYER_ICONS // Set offset for player icon strength and type (0=light, 18=dark)
+!next:
+    // Clear dead icon list.
+    ldy #$07 // Maximum 8 (zero offset) icon types
+    lda #DEAD_ICON_SLOT_UNUSED
+!loop:
+    sta curr_dead_icon_offsets,y
+    dey
+    bpl !loop-
+    // Populate dead icon list.
+    lda #BOARD_NUM_PLAYER_ICONS
+    sta main.temp.data__temp_store
+!loop:
+    lda game.curr_icon_strength,x
+    bne !next+
+    lda board.icon.init_matrix,x
+    // Check if icon type is already in the list (eg 2 of the same type may have been killed).
+    ldy main.temp.data__dead_icon_count
+check_dead_type_loop:
+    cmp curr_dead_icon_offsets,y
+    beq !next+
+    dey
+    bpl check_dead_type_loop
+    // Store the dead icon in the list.
+    ldy main.temp.data__dead_icon_count
+    sta curr_dead_icon_offsets,y
+    txa
+    sta curr_dead_icon_types,y
+    iny
+    sty main.temp.data__dead_icon_count
+    cpy #$08 // Dead icon list full?
+    beq !next++
+!next:
+    inx
+    dec main.temp.data__temp_store
+    bne !loop-
+!next:
+    lda main.temp.data__dead_icon_count
+    bne !next+
+    // Display error if no icons have been killed.
+    lda #STRING_ICONS_ALL_ALIVE
+    jmp revive_error
+    //
+!next:
+    // Set screen and color memory pointers for displaying the dead icon list.
+    lda #(CHARS_PER_SCREEN_ROW*3)
+    ldy game.state.flag__is_light_turn
+    bpl !next+
+    lda #(CHARS_PER_SCREEN_ROW*3+CHARS_PER_SCREEN_ROW-4)
+!next:
+    sta FREEZP+2 // Screen memory pointer
+    sta VARPNT // Color memory pointer
+    sta dead_icon_screen_offset
+    lda #>SCNMEM
+    sta FREEZP+3
+    lda #>COLRAM
+    sta VARPNT+1
+    // Display the dead icons.
+    lda #$00
+    sta main.temp.data__temp_store_1
+!loop:
+    ldy main.temp.data__temp_store_1
+    lda curr_dead_icon_offsets,y
+    pha
+    asl
+    asl
+    sta main.temp.data__temp_store
+    pla
+    asl
+    clc
+    adc main.temp.data__temp_store
+    sta main.temp.data__temp_store
+    jsr display_dead_icon
+    inc main.temp.data__temp_store_1
+    lda main.temp.data__temp_store_1
+    cmp main.temp.data__dead_icon_count
+    bcc !loop-
+    // Calculate starting position and display the selection square.
+    lda #$FE // 2 columns to the left of board for light player
+    ldx game.curr_player_offset
+    beq !next+
+    lda #$0A // Or 2 columns to the right of board for dark player
+!next:
+    sta main.temp.data__curr_board_col
+    ldy #$08
+    sty main.temp.data__curr_board_row
+    ldx #$04
+    jsr board.convert_coord_sprite_pos
+    sec
+    sbc #$02
+    sta common.sprite.curr_x_pos+1
+    tya
+    sec
+    sbc #$01
+    sta common.sprite.curr_y_pos+1
+    jsr board.render_sprite
+    // Allow user to select a dead icon.
+    lda #STRING_REVIVE_WHICH
+    sta game.message_id
+    jsr game.display_message
+    lda #$00
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_REVIVE_ICON
+    jsr spell_select_destination
+    // Display selected icon sprite and allow user to select the destination.
+    lda main.temp.data__curr_board_col
+    ldy main.temp.data__curr_board_row
+    ldx #$00
+    jsr board.convert_coord_sprite_pos
+    ldy main.temp.data__curr_board_row
+    lda curr_dead_icon_offsets,y
+    sta board.icon.offset
+    lda curr_dead_icon_types,y
+    sta board.icon.type
+    tax
+    lda #STRING_CHARMED_WHERE
+    sta game.message_id
+    sta temp_message_id_store
+    jsr game.display_message
+    ldy board.icon.offset
+    lda board.icon.init_strength,y
+    sta game.curr_icon_strength,x // Restore icon health
+    ldx #$00
+    stx main.temp.data__curr_sprite_ptr
+    jsr board.get_sound_for_icon
+    jsr board.sprite_initialize
+    jsr board.add_sprite_set_to_graphics
+    jsr board.render_sprite
+    jsr clear_dead_icons_from_screen
+    lda #(ICON_CAN_FLY+$0F)
+    sta game.curr_icon_total_moves
+    lda #ACTION_SELECT_CHARMED_SQUARE
+    jsr spell_select_destination
+    rts
+
+// 6A67
+// Draw an icon piece on the screen uisng character dot data. A pice is 3 characters wide and 2 characters high.
+display_dead_icon:
+    lda #$02 // 2 rows high
+    sta main.temp.data__counter
+!loop:
+    ldy #$00
+    ldx #$03 // 3 characters wide
+!loop:
+    lda main.temp.data__temp_store
+    sta (FREEZP+2),y
+    lda (VARPNT),y
+    ora #$08 // Derive color
+    sta (VARPNT),y
+    iny
+    inc main.temp.data__temp_store
+    dex
+    bne !loop-
+    lda FREEZP+2
+    clc
+    adc #CHARS_PER_SCREEN_ROW
+    sta FREEZP+2
+    sta VARPNT
+    bcc !next+
+    inc FREEZP+3
+    inc VARPNT+1
+!next:
+    dec main.temp.data__counter
+    bne !loop--
+    rts
+
+// 6A97
+// Remove dead characters from the screen.
+clear_dead_icons_from_screen:
+    lda dead_icon_screen_offset
+    sta FREEZP+2
+    lda #>SCNMEM
+    sta FREEZP+3
+    ldx #$10 // 16 rows of character data (up to 8 icons)
+!loop:
+    ldy #$02 // 3 characters per row (zero offset)
+!loop:
+    lda #$00
+    sta (FREEZP+2),y
+    dey
+    bpl !loop-
+    lda FREEZP+2
+    clc
+    adc #CHARS_PER_SCREEN_ROW
+    sta FREEZP+2
+    bcc !next+
+    inc FREEZP+3
+!next:
+    dex
+    bne !loop--
     rts
 
 // 6ABA
@@ -591,7 +795,7 @@ count_used_spells:
 // 87BC
 // Allows the player to select a square or icon to cast the spell on to. Some spells (eg transport) require multiple
 // selections. Others require selection of current player icon (eg heal), opposing player icon (eg imprison) or
-// any icon (eg exchange) or location (eg transport destination). 
+// any icon (eg exchange) or location (eg transport destination).
 // After the action is completed, the selected icon type will be added to the stack or $80 if empty square selected.
 spell_select:
     pha
@@ -614,7 +818,7 @@ spell_select:
     // - 00: means return immediately after selection (eg heal spell)
     // - 8F: means icon can be placed anwwhere on the board and will be moved in to that location (eg exchange spell).
     //       This will use the fly action (eg $80 means fly and $0F means move up to 15 squares).
-    // - CF: means icon can be placed anwwhere on the board and will be transported to that location (eg transport 
+    // - CF: means icon can be placed anwwhere on the board and will be transported to that location (eg transport
     //       spell). This will use the transport animation (eg $80 means fly, $40 means transport and $0f means move up
     //       to 15 squares).
 check_valid_square:
@@ -763,7 +967,7 @@ spell_select_revive_icon:
     ldy main.temp.data__curr_board_row
     cpy #$08 // Max 8 icons in dead icon list
     bcs !return-
-    lda curr_dead_icons,y
+    lda curr_dead_icon_offsets,y
     cmp #DEAD_ICON_SLOT_UNUSED
     beq !return-
     sta board.icon.type
@@ -826,7 +1030,10 @@ temp_column_store: .byte $00 // Temporary current column row storage
 temp_message_id_store: .byte $00 // Temporary message ID storage
 
 // BE7F
-curr_dead_icons: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon types.
+curr_dead_icon_offsets: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon offsets.
+
+// BE87
+curr_dead_icon_types: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon types.
 
 // BEFA
 // Flags used to keep track of spells used by light player.
@@ -840,3 +1047,6 @@ flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
 
 // BF2E
 temp_selected_icon_store: .byte $00 // Temporary storage for selected icon
+
+// BF43
+dead_icon_screen_offset: .byte $00 // Screen offset for start of graphical memory for dead icon list display

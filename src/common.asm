@@ -99,7 +99,7 @@ advance_intro_state:
     cli
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
-    lda #$12
+    lda #%0001_0010
     sta VMCSB
     //
     lda #$FF // Go straight to options page
