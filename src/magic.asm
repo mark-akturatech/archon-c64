@@ -1008,14 +1008,17 @@ spell_select_revive_icon:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
+// Data in this area are not cleared on state change.
+.segment Data
+
+// 6AFD
+used_elemental_id: .byte $00 // ID of used elemental. Used to ensure opposing player will generate a unique elemental.
+
 //---------------------------------------------------------------------------------------------------------------------
 // Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
 // of the data area.
 //
 .segment DynamicData
-
-// 6AFD
-used_elemental_id: .byte $00 // ID of used elemental. Used to ensure opposing player will generate a unique elemental.
 
 // BD0E
 curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell

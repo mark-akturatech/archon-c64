@@ -1010,24 +1010,6 @@ clear_last_text_row:
     bpl !loop-
     rts
 
-// 931F
-// Description:
-// - Clear sprite position 24 in graphics memory.
-// Sets:
-// - Clears the 24th sprite position graphical memory (with 00).
-clear_mem_sprite_24:
-    lda main.sprite.mem_ptr_24
-    sta FREEZP+2
-    lda main.sprite.mem_ptr_24+1
-    sta FREEZP+3
-    ldy #(BYTES_PER_SPRITE - 1)
-    lda #$00
-!loop:
-    sta (FREEZP+2),y
-    dey
-    bpl !loop-
-    rts
-
 // A0B1
 // Description:
 // - Plays an icon movement or shot sound.
@@ -1143,7 +1125,7 @@ interrupt_handler__play_music:
     .const ROWS_PER_SQUARE = 2
 
     // 0B5D
-    .enum { DARK = $00, LITE = $60, VARY = $E0 }
+    .enum { DARK = BOARD_DARK_SQUARE, LITE = BOARD_LIGHT_SQUARE, VARY = BOARD_VARY_SQUARE }
     square_color: // Board square colors
         .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
         .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK

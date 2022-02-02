@@ -227,6 +227,60 @@ wait_for_key:
     beq !loop-
     jmp stop_sound
 
+// 91E7
+// Description:
+// - Clear sprite position 56 and 57 in graphics memory.
+// Sets:
+// - Clears the 56th and 57th sprite position graphical memory (with 00).
+clear_mem_sprite_56_57:
+    lda main.sprite.mem_ptr_56
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_56+1
+    sta FREEZP+3
+    lda #$00
+    ldy #(BYTES_PER_SPRITE*2)
+!loop:
+    sta (FREEZP+2),y
+    dey
+    bpl !loop-
+    rts
+
+// 92A7
+// Description:
+// - Clear sprite position 48 in graphics memory.
+// Sets:
+// - Clears the 48th sprite position graphical memory (with 00).
+clear_mem_sprite_48:
+    lda main.sprite.mem_ptr_48
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_48+1
+    sta FREEZP+3
+    ldy #(BYTES_PER_SPRITE-1)
+    lda #$00
+!loop:
+    sta (FREEZP+2),y
+    dey
+    bpl !loop-
+    rts
+
+// 931F
+// Description:
+// - Clear sprite position 24 in graphics memory.
+// Sets:
+// - Clears the 24th sprite position graphical memory (with 00).
+clear_mem_sprite_24:
+    lda main.sprite.mem_ptr_24
+    sta FREEZP+2
+    lda main.sprite.mem_ptr_24+1
+    sta FREEZP+3
+    ldy #(BYTES_PER_SPRITE - 1)
+    lda #$00
+!loop:
+    sta (FREEZP+2),y
+    dey
+    bpl !loop-
+    rts
+
 // 9333
 // Description:
 // - Clear the character graphical area.

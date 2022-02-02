@@ -1,1 +1,292 @@
 
+
+
+    //
+    sei
+    lda #<main.play_challenge
+    sta main.interrupt.system_fn_ptr
+    lda #>main.play_challenge
+    sta main.interrupt.system_fn_ptr+1
+    cli
+    // Configure sprites.
+    lda #%0000_1111
+    sta SPTMEM+1
+    sta SPTMEM+2
+    sta SPTMEM+3
+    sta SPTMEM+7
+    jsr common.clear_mem_sprite_24
+    jsr common.clear_mem_sprite_48
+    jsr common.clear_mem_sprite_56_57
+    lda #%000_0011
+    sta SPMC
+    lda XXPAND
+    and #%1111_1100
+    sta XXPAND
+    lda #%0000_0000
+    sta YXPAND
+    // Get the color of the square being challenged. This will be used to set the strength of the challenging
+    // pieces. The logic below will generate a number from 0 to 7, where 0 is if square is black, 7 if square is
+    // white and 2 to 6 depending on the current phase (with 2 being darkest phase and 6 being the lightest phase).
+    // The number is then added to the strength of the piece as follows:
+    // - Dark piece: Adds 7-strength (so if on white it adds 0, if on black adds 7)
+    // - Light piece: Adds strength (so if on white it adds 7, black it adds 0)
+    // Therefore a pieces strength will increase by up to 7 depending upon the color or phase of the challenged square.
+    ldy main.temp.data__curr_board_row
+    sty main.temp.data__curr_icon_row
+    lda board.data.row_color_offset_lo_ptr,y
+    sta CURLIN
+    lda board.data.row_color_offset_hi_ptr,y
+    sta CURLIN+1
+    ldy main.temp.data__curr_board_col
+    sty main.temp.data__curr_icon_col
+    lda (CURLIN),y
+    sta curr_square_color // Color of the sqauare
+    beq dark_square
+    bmi vary_square
+    // Get the board phase and a number between 0 and 7. 0 is strongest on black, 7 is strongest on white.
+    ldy #$07
+    lda board.data.square_colors__square+1 // White
+    bne !next+
+dark_square:
+    ldy #$00
+    lda board.data.square_colors__square // Black
+    beq !next+
+vary_square:
+    lda main.state.curr_cycle+3
+    lsr
+    tay
+    lda board.curr_color_phase // Phase color
+!next:
+7B48  8D F2 BC   sta game_curr_debounce_count // color
+7B4B  98        tya
+7B4C  0A        asl
+// 7B4D  8D 41 BF   sta WBF41 // ....0 to 14 strength adjustment WHY?
+7B50  8C 12 BD   sty WBD12 // ....0 to 7 strength adjustment WHY?
+7B53  C8        iny
+// 7B54  8C 36 BF   sty temp_data__light_piece_count // ....1 to 8 strength adjustment WHY?
+    // Set A with light piece and Y with dark piece.
+    lda board.icon.type
+    ldy game.curr_challenge_icon_type
+    bit game.state.flag__is_light_turn
+    bpl !next
+    ldy board.icon_type
+    lda game.curr_challenge_icon_type
+!next:
+7B68  8D 2D BF   sta board_icon_type
+7B6B  AA        tax
+7B6C  BD FF 8A   lda board_icon_init_matrix,x
+7B6F  8D 29 BF   sta board_icon_offset
+7B72  8C 2E BF   sty game_temp_selected_icon_store
+7B75  B9 FF 8A   lda board_icon_init_matrix,y
+7B78  A8        tay
+7B79  C0 0C      cpy #$0C // elelental?
+7B7B  D0 03      bne W7B80
+7B7D  AC 29 BF   ldy board_icon_offset
+W7B80:
+7B80  8C 2A BF   sty board_icon_offset+1
+// do this for each peice...
+7B83  A2 01      ldx #$01
+// create sprites at original coordinates on board. this will allow us to do the animation where the sprites slide
+// in to battle position
+W7B85:
+7B85  20 4D 64   jsr board_sprite_initialize
+7B88  A9 36      lda #$36
+7B8A  8D DF BC   sta board_sprite_copy_length
+7B8D  20 DE 8B   jsr board_add_sprite_set_to_graphics
+7B90  AD 28 BF   lda main.temp.data__curr_board_col
+7B93  AC 26 BF   ldy main.temp.data__curr_board_row
+7B96  20 22 64   jsr board_convert_coord_sprite_pos
+7B99  BC 29 BF   ldy board_icon_offset,x
+7B9C  B9 8B 8A   lda W8A8B,y
+7B9F  9D 01 BD   sta WBD01,x
+7BA2  B9 9F 8A   lda W8A9F,y
+7BA5  9D 07 BD   sta WBD07,x
+7BA8  98        tya
+7BA9  0A        asl
+7BAA  A8        tay
+7BAB  B9 4F 8B   lda W8B4F,y
+7BAE  9D D6 BC   sta board_sprite_copy_source_lo_ptr+2,x
+7BB1  B9 50 8B   lda W8B50,y
+7BB4  9D DA BC   sta board_sprite_copy_source_hi_ptr+2,x
+
+// set strength
+7BB7  BC 2D BF   ldy board_icon_type,x
+7BBA  B9 FF 8A   lda board_icon_init_matrix,y
+7BBD  C9 0C      cmp #$0C
+7BBF  D0 0E      bne W7BCF
+// elemental
+7BC1  AC 29 BF   ldy board_icon_offset
+7BC4  C0 10      cpy #$10
+7BC6  90 02      bcc W7BCA
+7BC8  A0 0C      ldy #$0C
+W7BCA:
+7BCA  B9 B3 8A   lda board_character_initial_strength,y
+7BCD  D0 0B      bne W7BDA
+// piece
+W7BCF:
+7BCF  B9 FD BD   lda board_character_strength_data,y
+7BD2  C0 24      cpy #$24
+7BD4  B0 19      bcs W7BEF
+7BD6  E0 01      cpx #$01
+7BD8  D0 0A      bne W7BE4
+W7BDA:
+// here we add 7-strength for black or +strength for white piece
+7BDA  18        clc
+7BDB  69 07      adc #$07
+7BDD  38        sec
+7BDE  ED 12 BD   sbc WBD12 // strength adjustment due to color
+7BE1  4C E8 7B   jmp W7BE8
+W7BE4:
+7BE4  18        clc
+7BE5  6D 12 BD   adc WBD12
+
+// strength of piece will go down if fighting on opposite
+// spell castors initial square base don the number of spells
+// left to cast. wtf!
+W7BE8:
+7BE8  20 05 7F   jsr W7F05
+7BEB  38        sec
+7BEC  ED 23 BF   sbc data__used_spell_count
+
+
+W7BEF:
+7BEF  9D 05 BD   sta WBD05,x
+7BF2  BC 29 BF   ldy board_icon_offset,x
+7BF5  C0 06      cpy #$06
+7BF7  D0 0E      bne W7C07
+7BF9  AD 1C D0   lda SPMC
+7BFC  1D B1 98   ora W98B1,x
+7BFF  8D 1C D0   sta SPMC
+7C02  BD 6F 90   lda board_sprite_character_color,x
+7C05  10 03      bpl W7C0A
+W7C07:
+7C07  B9 EB 8A   lda W8AEB,y
+W7C0A:
+7C0A  9D 29 D0   sta SP2COL,x
+7C0D  A9 00      lda #$00
+7C0F  8D 70 BD   sta game_curr_stalemate_count
+7C12  9D 03 BD   sta WBD03,x
+W7C15:
+7C15  9D 09 BD   sta game_curr_icon_move_speed,x
+7C18  9D 21 BD   sta WBD21,x
+7C1B  BD 29 BF   lda board_icon_offset,x
+7C1E  C9 12      cmp #$12
+7C20  F0 06      beq W7C28
+7C22  29 17      and #$17
+7C24  C9 03      cmp #$03
+7C26  D0 05      bne W7C2D
+W7C28:
+7C28  A9 40      lda #$40
+7C2A  9D 09 BD   sta game_curr_icon_move_speed,x
+W7C2D:
+7C2D  20 EB 62   jsr board_get_sound_for_piece
+7C30  BC 29 BF   ldy board_icon_offset,x
+7C33  B9 AA 8B   lda board_sound_shoot_phrase,y
+7C36  A8        tay
+7C37  B9 94 8B   lda board_sound_phrase_ptr,y
+W7C3A:
+7C3A  9D 0E BF   sta WBF0E,x
+7C3D  B9 95 8B   lda board_sound_phrase_ptr+1,y
+7C40  9D 10 BF   sta WBF10,x
+7C43  20 6E 8D   jsr board_render_sprite
+7C46  CA        dex
+7C47  30 03      bmi W7C4C
+7C49  4C 85 7B   jmp W7B85
+
+
+
+
+W7C4C:
+7C4C  A9 11      lda #$11
+7C4E  8D E4 BC   sta common_sprite_init_animation_frame+1
+7C51  A9 00      lda #$00
+7C53  8D D3 BC   sta main_state_flag_update_on_interrupt
+7C56  A2 02      ldx #$02
+W7C58:
+7C58  A9 08      lda #$08
+7C5A  8D DF BC   sta board_sprite_copy_length
+7C5D  20 DE 8B   jsr board_add_sprite_set_to_graphics
+W7C60:
+7C60  E8        inx
+7C61  E0 04      cpx #$04
+7C63  90 F3      bcc W7C58
+7C65  A9 0F      lda #$0F
+7C67  0D 15 D0   ora SPENA
+7C6A  8D 15 D0   sta SPENA
+7C6D  AD F1 8A   lda W8AF1
+7C70  8D 26 D0   sta SPMC1
+7C73  20 67 93   jsr W9367
+7C76  20 33 93   jsr common_clear_screen
+7C79  20 63 7F   jsr W7F63
+7C7C  A9 19      lda #$19
+W7C7E:
+7C7E  8D 17 BD   sta main_temp_data__sprite_final_x_pos
+7C81  A9 7B      lda #$7B
+7C83  8D 18 BD   sta WBD18
+7C86  A9 58      lda #$58
+7C88  8D 15 BD   sta intro_sprite_final_y_pos
+7C8B  A9 68      lda #$68
+7C8D  8D 16 BD   sta intro_sprite_final_y_pos+1
+7C90  20 9D 64   jsr W649D
+7C93  A2 30      ldx #$30
+7C95  20 90 64   jsr common_wait_for_jiffy
+7C98  20 33 93   jsr common_clear_screen
+//
+7C9B  A9 00      lda #$00
+7C9D  8D 21 D0   sta BGCOL0
+7CA0  A9 18      lda #$18
+7CA2  8D 18 D0   sta VMCSB
+7CA5  A9 00      lda #$00
+7CA7  85 FD      sta FREEZP+2
+7CA9  A9 44      lda #$44
+7CAB  85 FE      sta FREEZP+3
+7CAD  A2 02      ldx #$02
+W7CAF:
+7CAF  A0 27      ldy #$27
+W7CB1:
+7CB1  A9 05      lda #$05
+7CB3  91 FD      sta (FREEZP+2),y
+7CB5  88        dey
+7CB6  10 F9      bpl W7CB1
+7CB8  CA        dex
+7CB9  30 1B      bmi W7CD6
+7CBB  F0 0E      beq W7CCB
+7CBD  A5 FD      lda FREEZP+2
+7CBF  18        clc
+7CC0  69 28      adc #$28
+7CC2  85 FD      sta FREEZP+2
+7CC4  90 E9      bcc W7CAF
+7CC6  E6 FE      inc FREEZP+3
+7CC8  4C AF 7C   jmp W7CAF
+
+
+
+
+
+
+
+
+// if chellenging a piece on the casters square then that
+// piece will get bonus strength based on the number of spells
+// cast??? even if teh caster is dead. what?
+W7F05:
+7F05  48         pha                        
+7F06  A0 00      ldy  #$00                  
+7F08  8C 23 BF   sty  data__used_spell_count 
+7F0B  AD 26 BF   lda  temp_data__curr_board_row 
+7F0E  C9 04      cmp  #$04                  
+7F10  D0 13      bne  W7F25                 
+7F12  E0 00      cpx  #$00                  
+7F14  F0 02      beq  W7F18                 
+7F16  A0 08      ldy  #$08                  
+W7F18:
+7F18  CC 28 BF   cpy  temp_data__curr_board_col 
+7F1B  D0 08      bne  W7F25                 
+7F1D  C0 08      cpy  #$08                  
+7F1F  D0 01      bne  W7F22                 
+7F21  88         dey                        
+W7F22:
+7F22  20 05 72   jsr  game_count_used_spells 
+W7F25:
+7F25  68         pla                        
+7F26  60         rts   

@@ -178,6 +178,9 @@
 .const BOARD_NUM_PLAYER_ICONS = BOARD_NUM_COLS*2
 .const BOARD_TOTAL_NUM_ICONS = BOARD_NUM_PLAYER_ICONS*2
 .const BOARD_EMPTY_SQUARE = FLAG_ENABLE
+.const BOARD_DARK_SQUARE = $00
+.const BOARD_LIGHT_SQUARE = $60
+.const BOARD_VARY_SQUARE = $E0
 
 //---------------------------------------------------------------------------------------------------------------------
 // Spell constants

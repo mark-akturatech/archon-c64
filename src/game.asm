@@ -1317,7 +1317,7 @@ transport_icon:
     lda #%0000_1111
     sta SPTMEM
     sta SPTMEM+1
-    jsr board.clear_mem_sprite_24
+    jsr common.clear_mem_sprite_24
     lda SPMC
     ora #%000_0011
     sta SPMC

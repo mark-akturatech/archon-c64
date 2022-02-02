@@ -198,10 +198,10 @@ scroll_up:
 state__draw_freefall_logo:
     lda #FLAG_ENABLE
     sta main.temp.flag__string_pos_ctl
-    // Remove sprites 4 to 7 (Freefall logo).
+    // Enable sprites 4 to 7 (Freefall logo).
     // The sprites are replaced with text character dot data after the animation has completed.
     ldx #$04
-    lda #$0F
+    lda #%0000_1111
 !loop:
     sta SPTMEM,x
     inx
