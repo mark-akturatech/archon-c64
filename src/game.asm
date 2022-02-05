@@ -81,9 +81,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<main.play_game
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>main.play_game
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     cli
     // Check and see if the same player is occupying all of the magic squares. If so, the game is ended and that player
     // wins.
@@ -605,9 +605,9 @@ game_over__show_winner:
     sta main.state.counter
     sei
     lda #<board.interrupt_handler
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>board.interrupt_handler
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     lda #<board.interrupt_handler__play_music
     sta main.state.curr_fn_ptr
     lda #>board.interrupt_handler__play_music
@@ -712,7 +712,7 @@ interrupt_handler:
     sta main.temp.data__dark_icon_count
     sta main.temp.data__light_icon_count
     sta flag__icon_selected
-    sta curr_debounce_count
+    sta main.temp.curr_debounce_count
     // Configure new player turn sound.
     tax
     ldy state.flag__is_light_turn
@@ -770,9 +770,9 @@ new_player_sound:
     beq joystick_icon_select
     // Fire button debounce delay countdown to stop accidental selection of piece while moving directly after selecting
     // a piece.
-    lda curr_debounce_count
+    lda main.temp.curr_debounce_count
     beq !next+
-    dec curr_debounce_count
+    dec main.temp.curr_debounce_count
     jmp move_sprite_to_square
 !next:
     sta flag__icon_selected
@@ -798,7 +798,7 @@ joystick_icon_select:
     lda #FLAG_ENABLE
     sta flag__icon_selected
     lda #$10 // Wait 10 interrupts before allowing icon destination square selection
-    sta curr_debounce_count
+    sta main.temp.curr_debounce_count
     jsr select_or_move_icon
     lda main.temp.flag__icon_destination_valid
     bmi !next+
@@ -1390,9 +1390,9 @@ transport_icon:
     // Set interrupt handler for transport animation.
     sei
     lda #<transport_icon_interrupt
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>transport_icon_interrupt
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     cli
     // Wait for animation to completee.
     jsr wait_for_state_change
@@ -1514,9 +1514,6 @@ flag__round_complete: .byte $00 // Toggles after each play so is high after both
 
 // BCDE
 curr_player_offset: .byte $00 // Is 0 for player 1 and 1 for player 2. Used mostly as a memory offset index.
-
-// BCF2
-curr_debounce_count: .byte $00 // Current debounce counter (used when debouncing fire button presses)
 
 // BCF3
 delay_before_turn: .byte $00 // Delay before start of each turn can commence

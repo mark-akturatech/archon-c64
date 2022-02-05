@@ -29,9 +29,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<interrupt_handler
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>interrupt_handler
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     cli
     // Black border and background.
     lda #$00

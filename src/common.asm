@@ -93,9 +93,9 @@ advance_intro_state:
     // Remove intro interrupt handler.
     sei
     lda #<complete_interrupt
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>complete_interrupt
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     cli
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).

@@ -21,9 +21,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     // Why no SEI and CLI wrapping it?
     lda #<interrupt_handler
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.raster_fn_ptr
     lda #>interrupt_handler
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.raster_fn_ptr+1
     // Set sprite second colour to black; exand all spites except 7 in X direction and expand only sprite 7 in y
     // direction.
     lda #$00

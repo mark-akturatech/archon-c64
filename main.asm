@@ -96,28 +96,33 @@ BasicUpstart2(entry)
 
 // 6100
 entry:
+    // Configure defaults.
     lda #FLAG_DISABLE
-    sta game.state.flag__ai_player_ctl
-    sta common.options.temp__ai_player_ctl
+    sta game.state.flag__ai_player_ctl // Two player
+    sta common.options.temp__ai_player_ctl // AI player dark if one player selected
     sta common.options.flag__ai_player_ctl
-    lda #$55 // Set light as first player
-    sta game.state.flag__is_first_player_light
+    lda #$55 // Light player ($AA for dark)
+    sta game.state.flag__is_first_player_light // Light player first
     tsx
     stx stack_ptr_store
     lda #FLAG_ENABLE
-    sta flag__enable_intro // Non zero to play intro, $00 to skip
-    sta curr_pre_game_progress // Flag used by keycheck routine to test for run/stop or Q (if set)
-    lda #$03 // Set default number of large jiffies (~12s as each tick is ~4s)
+    sta flag__enable_intro // Play intro
+    sta curr_pre_game_progress // Pregame state ($80 is intro)
+    lda #$03 // Set number of large jiffies before game auto plays after intro (~12s as each tick is ~4s)
     sta board.countdown_timer
+
     lda flag__is_initialized
     bmi skip_prep
     jsr prep
 skip_prep:
     jsr init
+
 restart_game_loop:
+    // Ensure each game state starts with cleared sound, clean graphics and 00's in all dynamic variables.
     ldx stack_ptr_store
     txs
     jsr common.stop_sound
+
     // Clears variable storage area.
     lda #<dynamic_data_start
     sta FREEZP+2
@@ -133,9 +138,10 @@ restart_game_loop:
     inc FREEZP+3
     dex
     bne !loop-
-    //
+    
     jsr common.clear_screen
     jsr common.clear_sprites
+    
     // Set the initial strength of each icon.
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
@@ -144,31 +150,39 @@ restart_game_loop:
     sta game.curr_icon_strength,x
     dex
     bpl !loop-
+    
     // skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
     // tile color scheme or row occupancy. we have instead included these as constants using compiler directives as it
     // is much more readable.
+    
     lda #FLAG_ENABLE
     sta interrupt.flag__enable
+
     // Clear board square occupancy data.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
     sta game.curr_square_occupancy,x
     dex
     bpl !loop-
+
     sta game.imprisoned_icon_id
     sta game.imprisoned_icon_id+1
     lda game.state.flag__is_first_player_light
     sta game.state.flag__is_light_turn
+
     // Set default board phase color.
-    ldy #$03
+    ldy #$03 // There are 8 phases (0 to 7) with 0 being the darked and 7 the lighted. $03 is in the middle.
     lda board.data.color_phase,y
     sta game.curr_color_phase
+
 #if INCLUDE_INTRO
+    // Display the game intro (bouncing Archon).
     lda flag__enable_intro
     beq skip_intro
     jsr play_intro
 #endif
 skip_intro:
+
     // Configure SID for main game.
     lda #$08
     sta PWHI1
@@ -181,6 +195,8 @@ skip_intro:
     sta VCREG3
     lda #%1000_1111 // Turn off voice 3 and keep full volume on other voices
     sta SIGVOL
+
+    // Configure graphics.
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
     lda #%0001_0010
@@ -189,8 +205,9 @@ skip_intro:
     lda SCROLX
     ora #%0001_0000
     sta SCROLX
-    //
+
 #if INCLUDE_INTRO
+    // Display the board intro (walking icons).
     lda flag__enable_intro
     beq skip_board_walk
     jsr board_walk.entry
@@ -199,12 +216,14 @@ skip_intro:
     sta SPENA
 #endif
 skip_board_walk:
+
     lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
     lda #FLAG_DISABLE
-    sta flag__enable_intro
+    sta flag__enable_intro // Display game options
     lda TIME+1
-    sta state.last_stored_time // Large jiffy (increments 256 jiffies aka ~ 4 seconds)
+    sta state.last_stored_time // Store time - used to start game if timeout on options page
+
     // Clear used spell flags.
     ldx #$0D // 7 spells per size (14 total - zero based)
     lda #SPELL_UNUSED
@@ -212,7 +231,7 @@ skip_board_walk:
     sta magic.flag__light_used_spells,x
     dex
     bpl !loop-
-    //
+
     // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
     // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
@@ -247,13 +266,19 @@ board_setup_player_2_loop:
     bne board_setup_player_2_loop
     cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
     bcc board_setup_row_loop
-    //
+
+    // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), the we cannot
+    // select a true "middle" starting point for the game. Instead, we chose the phase on the darker side if light is
+    // first (06) or the lighter side if dark is first (08). This should reduce any advantage that the first player
+    // has. 
+    // Furthermore, the phas edirection (from light to dark or vice versa) starts in the favor of the second player.
+    // so starts in the direction of light to dark if light is first and dark to light if dark is first.
     lda game.state.flag__is_first_player_light
     eor #$FF
-    sta state.curr_phase // Phase state and direction
+    sta state.curr_phase // Phase state and direction (towards light if dark first, towards darker if light first)
     sta game.state.flag__is_light_turn // Set current player
     // Set starting board color.
-    lda #$06
+    lda #$06 
     ldy game.state.flag__is_light_turn
     bpl !next+
     clc
@@ -265,6 +290,8 @@ board_setup_player_2_loop:
     lda board.data.color_phase,y
     sta game.curr_color_phase
     jsr common.clear_screen
+
+    // Let's play!
     jmp game.entry
 
 // 4700
@@ -272,25 +299,20 @@ prep:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #FLAG_ENABLE
     sta flag__is_initialized
-    // Store system interrupt handler pointer so we can call it from our own interrupt handler.
+    // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
+    // we can call whenever a non-raster interrupt occurs.
     lda CINV
-    sta interrupt.raster_fn_ptr
+    sta interrupt.system_fn_ptr
     lda CINV+1
-    sta interrupt.raster_fn_ptr+1
-    // skip 4711-4765 - moves stuff around. we'll just set any intiial values in our assets segment.
-    // Configure game state function handlers.
-    ldx #$05
-!loop:
-    lda state.game_fn_ptr,x
-    sta state.curr_game_fn_ptr,x
-    dex
-    bpl !loop-
+    sta interrupt.system_fn_ptr+1
+
+    // skip 4711-4770 - moves stuff around. we'll just set any intial values in our assets segment.
     rts
 
 // 632D
 init:
     // Not sure why yet - allows writing of ATTN and TXD on serial port.
-    // I think this is done to allow us to use the serial port zero page registers for creating zero page loops maybe.
+    // I think this is done for remote debugging or similar during development maybe.
     lda C2DDRA
     ora #%0000_0011
     sta C2DDRA
@@ -340,16 +362,19 @@ init:
     sta R6510
 
     // Configure interrupt handler routines
-    // The interrupt handler calls the standard system interrupt if a raster interrupt is detected. this is used to
-    // draw the screen. otherwise it calls a minimlaist interrupt routine presumably for optimization.
+    // The interrupt handler calls the standard system interrupt if a non-raster interrupt is detected. If a raster
+    // interrupt occurs, we will initially calls a minimalist interrupt routine. This routine will be replaced with
+    // other function specific routines throughout the application runtime (eg to handle joystick input, animations)
+    // etc. We use the raster interrupt as this allows us to trigger at the same time interval as the display is
+    // updated at a regular and consistent interval.
     // To set the interrupts, we need to disable interrupts, configure the interrupt call pointers, stop raster scan
     // interrupts and then point the interrupt handler away from the system handler to our new handler. We can then
     // re-enable scan interupts and exit.
     sei
     lda #<common.complete_interrupt
-    sta interrupt.system_fn_ptr
+    sta interrupt.raster_fn_ptr
     lda #>common.complete_interrupt
-    sta interrupt.system_fn_ptr+1
+    sta interrupt.raster_fn_ptr+1
     lda IRQMASK
     and #%0111_1110
     sta IRQMASK
@@ -375,28 +400,29 @@ init:
     rts
 
 // 637E
-// Call our interrupt handlers.
-// We call a different handler if the interrupt was triggered by a raster line compare event.
+// Check if the raster interrupt has occurred and call the appropriate interrupt handlers.
 interrupt_interceptor:
     lda VICIRQ
     and #%0000_0001
-    beq !next+
-    sta VICIRQ
-    jmp (interrupt.system_fn_ptr)
-!next:
+    beq !next+ // Non-raster?
+    sta VICIRQ // Indicate that we have handled the interrupt
     jmp (interrupt.raster_fn_ptr)
+!next:
+    jmp (interrupt.system_fn_ptr)
 
 // 8010
 play_game:
-    jmp (state.curr_game_fn_ptr)
+    jmp (state.game_fn_ptr)
 
 // 8013
 play_challenge:
-    jmp (state.curr_game_fn_ptr+2)
+    jmp (state.game_fn_ptr+2)
 
 // 8016
+#if INCLUDE_INTRO
 play_intro:
-    jmp (state.curr_game_fn_ptr+4)
+    jmp (state.game_fn_ptr+4)
+#endif
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -419,8 +445,6 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
         .word challenge.interrupt_handler
 #if INCLUDE_INTRO
         .word intro.entry
-#else
-        .word $0000
 #endif
 }
 
@@ -492,19 +516,20 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 
 .namespace interrupt {
     // BCCC
-    system_fn_ptr: .word $0000 // System interrupt handler function pointer
+    // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
+    // background functions such as animations, detection of joystick inputs, delays and so on.
+    raster_fn_ptr: .word $0000
 
     // BCCE
-    raster_fn_ptr: .word $0000 // Raster interrupt handler function pointer
+    // System interrupt handler function pointer. This pointer is calls a minimalist handler that really does nothing
+    // and is used to ensure the game runs at optimum speed.
+    system_fn_ptr: .word $0000
 
     // BCD0
     flag__enable: .byte $00 // Is set to $80 to indicate that the game state should be changed to the next state
 }
 
 .namespace state {
-    // 0334
-    curr_game_fn_ptr: .word $0000, $0000, $0000 // Pointers used to jump to various game states (intro, board, play)
-
     // BCC7
     counter: // State counters
         .byte $00
@@ -535,7 +560,8 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     curr_fn_ptr: .word $0000 // Pointer to code that will run in the current state
 
     // BF3D
-    curr_cycle: .byte $00, $00, $00, $00 // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C)
+    // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C)
+    curr_cycle: .byte $00, $00, $00, $00
 }
 
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
@@ -545,6 +571,11 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
     data__curr_frame_adv_count: // Counter used to advance animation frame (every 4 pixels)
         .byte $00
+
+    // BCF2
+    curr_debounce_count: // Current debounce counter (used when debouncing fire button presses)
+    curr_battle_square_color: // Current color of square in which a battle is being faught
+        .byte $00 
 
     // BCFE
     data__curr_count: // Current counter value

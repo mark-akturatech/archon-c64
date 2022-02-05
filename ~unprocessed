@@ -1,79 +1,9 @@
 
+7B68
 
 
-    //
-    sei
-    lda #<main.play_challenge
-    sta main.interrupt.system_fn_ptr
-    lda #>main.play_challenge
-    sta main.interrupt.system_fn_ptr+1
-    cli
-    // Configure sprites.
-    lda #%0000_1111
-    sta SPTMEM+1
-    sta SPTMEM+2
-    sta SPTMEM+3
-    sta SPTMEM+7
-    jsr common.clear_mem_sprite_24
-    jsr common.clear_mem_sprite_48
-    jsr common.clear_mem_sprite_56_57
-    lda #%000_0011
-    sta SPMC
-    lda XXPAND
-    and #%1111_1100
-    sta XXPAND
-    lda #%0000_0000
-    sta YXPAND
-    // Get the color of the square being challenged. This will be used to set the strength of the challenging
-    // pieces. The logic below will generate a number from 0 to 7, where 0 is if square is black, 7 if square is
-    // white and 2 to 6 depending on the current phase (with 2 being darkest phase and 6 being the lightest phase).
-    // The number is then added to the strength of the piece as follows:
-    // - Dark piece: Adds 7-strength (so if on white it adds 0, if on black adds 7)
-    // - Light piece: Adds strength (so if on white it adds 7, black it adds 0)
-    // Therefore a pieces strength will increase by up to 7 depending upon the color or phase of the challenged square.
-    ldy main.temp.data__curr_board_row
-    sty main.temp.data__curr_icon_row
-    lda board.data.row_color_offset_lo_ptr,y
-    sta CURLIN
-    lda board.data.row_color_offset_hi_ptr,y
-    sta CURLIN+1
-    ldy main.temp.data__curr_board_col
-    sty main.temp.data__curr_icon_col
-    lda (CURLIN),y
-    sta curr_square_color // Color of the sqauare
-    beq dark_square
-    bmi vary_square
-    // Get the board phase and a number between 0 and 7. 0 is strongest on black, 7 is strongest on white.
-    ldy #$07
-    lda board.data.square_colors__square+1 // White
-    bne !next+
-dark_square:
-    ldy #$00
-    lda board.data.square_colors__square // Black
-    beq !next+
-vary_square:
-    lda main.state.curr_cycle+3
-    lsr
-    tay
-    lda board.curr_color_phase // Phase color
-!next:
-7B48  8D F2 BC   sta game_curr_debounce_count // color
-7B4B  98        tya
-7B4C  0A        asl
-// 7B4D  8D 41 BF   sta WBF41 // ....0 to 14 strength adjustment WHY?
-7B50  8C 12 BD   sty WBD12 // ....0 to 7 strength adjustment WHY?
-7B53  C8        iny
-// 7B54  8C 36 BF   sty temp_data__light_piece_count // ....1 to 8 strength adjustment WHY?
-    // Set A with light piece and Y with dark piece.
-    lda board.icon.type
-    ldy game.curr_challenge_icon_type
-    bit game.state.flag__is_light_turn
-    bpl !next
-    ldy board.icon_type
-    lda game.curr_challenge_icon_type
-!next:
-7B68  8D 2D BF   sta board_icon_type
-7B6B  AA        tax
+    sta board.icon.type
+    tax
 7B6C  BD FF 8A   lda board_icon_init_matrix,x
 7B6F  8D 29 BF   sta board_icon_offset
 7B72  8C 2E BF   sty game_temp_selected_icon_store
