@@ -17,15 +17,14 @@
 //   memory locations. Original memory locations are provided as comments above each variable, constant or method
 //   for reference.
 // - The source does not include any original logic that moves code or data around. The code below has been
-//   developed so that it all loads entirely in place. This is to aide radability and also alows easy addition or
-//   modification of code.
-// - The source uses screen memory bank at $4000 and has logic to move code and data from this area. Here we use
-//   the $8000 bank so that the code can all remain in place. However, to make enough room, we have hard coded the
-//   character dot data to load directly in to the required memory location.
-// - The source uses the same data memory addresses for different purposes. For example `BF24` may store the current
+//   developed so that any code remians in place. This is to aide radability and also alows easy addition or
+//   modification of code. We do need to move around some sprite resources though to fit within memory.
+// - The source uses the same data memory addresses for different purposes. For example `$BF24` may store the current
 //   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we have
 //   added multiple lables to the same memory address.
 //   TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// - TODO: MAKE THE FILE SIZE SMALLER WHEN DONE. MOVE STUF IN TO WATSED $4400-$4800 and ~$5A00 to $5FFF!!!! It needs
+//   to be copied away though, so make it stuff like strings or music or whatever as to not relocate code. 
 
 //---------------------------------------------------------------------------------------------------------------------
 // Memory map
