@@ -299,6 +299,7 @@ prep:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #FLAG_ENABLE
     sta flag__is_initialized
+
     // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
     // we can call whenever a non-raster interrupt occurs.
     lda CINV

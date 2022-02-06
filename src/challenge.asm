@@ -77,10 +77,10 @@ vary_square:
     sta main.temp.curr_battle_square_color // Square color used to set battle arena border
     tya
     asl
-    sta square_strength_adjx2 // Not used?
+    sta square_strength_adjx2 // ??? Not used?
     sty square_strength_adj
     iny
-    sty main.temp.data__light_icon_count // Not used?
+    sty main.temp.data__light_icon_count // ??? Not used?
     // Set A with light piece and Y with dark piece.
     lda board.icon.type
     ldy game.curr_challenge_icon_type
@@ -89,8 +89,36 @@ vary_square:
     ldy board.icon.type
     lda game.curr_challenge_icon_type
 !next:
-    
+    // Configure battle pieces
+    sta board.icon.type
+    tax
+    lda board.icon.init_matrix,x
+    sta board.icon.offset
+    sty magic.temp_selected_icon_store // ??? Not used?
+    lda board.icon.init_matrix,y
+    tay
+    cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
+    bne !next+
+    ldy board.icon.offset // 
+!next:
+    sty board.icon.offset+1
+    //
+    // Do this for both the light and dark icons...    
+    ldx #$01
+    // Create sprites at original coordinates on board. This will allow us to do the animation where the sprites slide
+    // in to battle position.
+!loop:
+    // Create sprite group.
+    jsr board.sprite_initialize
+    lda #BYTERS_PER_STORED_SPRITE
+    sta board.sprite.copy_length
+    jsr board.add_sprite_set_to_graphics
+    // Place the sprite at the challenge square.
+    lda main.temp.data__curr_board_col
+    ldy main.temp.data__curr_board_row
+    jsr board.convert_coord_sprite_pos
 
+!next:
     rts // TODO remove
 
 

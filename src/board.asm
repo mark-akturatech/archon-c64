@@ -1222,6 +1222,15 @@ interrupt_handler__play_music:
     // 92E6
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
 
+// TODO: start at 095d
+// TODO: load at start:
+//  -  up to 4000,
+//  -  then load charmap 1 at 4000, 
+//  -  then load 4400 - 47ff 
+//  -  then load 4800 - end.
+// - stuff ay 4400 - 4800 and 5000-6000 to be moved else where
+// - how about this... load after start, then 
+
     // BAE-3D3F and AE23-BACA
     // Icon sprites. Note that sprites are not 64 bytes in length like normal sprites. Archon sprites are smaller so
     // that they can fit on a board sqare and therefore do not need to take up 64 bytes. Instead, sprites consume 54

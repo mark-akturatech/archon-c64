@@ -1,32 +1,11 @@
 
-7B68
+
+7B99
 
 
-    sta board.icon.type
-    tax
-7B6C  BD FF 8A   lda board_icon_init_matrix,x
-7B6F  8D 29 BF   sta board_icon_offset
-7B72  8C 2E BF   sty game_temp_selected_icon_store
-7B75  B9 FF 8A   lda board_icon_init_matrix,y
-7B78  A8        tay
-7B79  C0 0C      cpy #$0C // elelental?
-7B7B  D0 03      bne W7B80
-7B7D  AC 29 BF   ldy board_icon_offset
-W7B80:
-7B80  8C 2A BF   sty board_icon_offset+1
-// do this for each peice...
-7B83  A2 01      ldx #$01
-// create sprites at original coordinates on board. this will allow us to do the animation where the sprites slide
-// in to battle position
-W7B85:
-7B85  20 4D 64   jsr board_sprite_initialize
-7B88  A9 36      lda #$36
-7B8A  8D DF BC   sta board_sprite_copy_length
-7B8D  20 DE 8B   jsr board_add_sprite_set_to_graphics
-7B90  AD 28 BF   lda main.temp.data__curr_board_col
-7B93  AC 26 BF   ldy main.temp.data__curr_board_row
-7B96  20 22 64   jsr board_convert_coord_sprite_pos
-7B99  BC 29 BF   ldy board_icon_offset,x
+
+    // Copy sprite shot sprites
+7B99  BC 29 BF   ldy board.icon.offset,x
 7B9C  B9 8B 8A   lda W8A8B,y
 7B9F  9D 01 BD   sta WBD01,x
 7BA2  B9 9F 8A   lda W8A9F,y
@@ -41,11 +20,11 @@ W7B85:
 
 // set strength
 7BB7  BC 2D BF   ldy board_icon_type,x
-7BBA  B9 FF 8A   lda board_icon_init_matrix,y
-7BBD  C9 0C      cmp #$0C
+7BBA  B9 FF 8A   lda board.icon.init_matrix,y
+7BBD  C9 0C      cmp #SHAPESHIFTER_OFFSET
 7BBF  D0 0E      bne W7BCF
 // elemental
-7BC1  AC 29 BF   ldy board_icon_offset
+7BC1  AC 29 BF   ldy board.icon.offset
 7BC4  C0 10      cpy #$10
 7BC6  90 02      bcc W7BCA
 7BC8  A0 0C      ldy #$0C
@@ -81,11 +60,11 @@ W7BE8:
 
 W7BEF:
 7BEF  9D 05 BD   sta WBD05,x
-7BF2  BC 29 BF   ldy board_icon_offset,x
+7BF2  BC 29 BF   ldy board.icon.offset,x
 7BF5  C0 06      cpy #$06
 7BF7  D0 0E      bne W7C07
 7BF9  AD 1C D0   lda SPMC
-7BFC  1D B1 98   ora W98B1,x
+7BFC  1D B1 98   ora W98B1,x  // 04, 08 ?? why??
 7BFF  8D 1C D0   sta SPMC
 7C02  BD 6F 90   lda board_sprite_character_color,x
 7C05  10 03      bpl W7C0A
@@ -99,7 +78,7 @@ W7C0A:
 W7C15:
 7C15  9D 09 BD   sta game_curr_icon_move_speed,x
 7C18  9D 21 BD   sta WBD21,x
-7C1B  BD 29 BF   lda board_icon_offset,x
+7C1B  BD 29 BF   lda board.icon.offset,x
 7C1E  C9 12      cmp #$12
 7C20  F0 06      beq W7C28
 7C22  29 17      and #$17
@@ -110,7 +89,7 @@ W7C28:
 7C2A  9D 09 BD   sta game_curr_icon_move_speed,x
 W7C2D:
 7C2D  20 EB 62   jsr board_get_sound_for_piece
-7C30  BC 29 BF   ldy board_icon_offset,x
+7C30  BC 29 BF   ldy board.icon.offset,x
 7C33  B9 AA 8B   lda board_sound_shoot_phrase,y
 7C36  A8        tay
 7C37  B9 94 8B   lda board_sound_phrase_ptr,y
@@ -120,13 +99,13 @@ W7C3A:
 7C40  9D 10 BF   sta WBF10,x
 7C43  20 6E 8D   jsr board_render_sprite
 7C46  CA        dex
-7C47  30 03      bmi W7C4C
-7C49  4C 85 7B   jmp W7B85
+7C47  30 03      bmi !next+
+7C49  4C 85 7B   jmp !loop
 
 
 
 
-W7C4C:
+!next:
 7C4C  A9 11      lda #$11
 7C4E  8D E4 BC   sta common_sprite_init_animation_frame+1
 7C51  A9 00      lda #$00
@@ -220,3 +199,47 @@ W7F22:
 W7F25:
 7F25  68         pla                        
 7F26  60         rts   
+
+
+
+// Weapon type
+// 0-7 = speed. interesting: can go up to 1f but speed is done by adding pixels so 1f can jump over the opponent
+// 20 = non projectile directional weapon
+// 40 = non projectile, surround weapon
+// 00 = shapeshifter - it gets speed of opponent
+W8A8B:
+    .byte $07, $05, $04, $03, $03, $05, $40, $20 
+    .byte $07, $06, $03, $03, $00, $04, $40, $20 
+    .byte $04, $05, $03, $03          
+
+07, 05, 04, 03, 03, 04, 64, 32
+07, 06, 03, 03, 00, 04, 64, 32
+04, 05, 03, 03
+
+// Damage.
+// 00 = shapeshifter - it gets damage of opponent
+W8A9F:
+    .byte $07, $0A, $05, $0A, $07, $06, $02, $05 
+    .byte $09, $08, $04, $0A, $00, $0B, $01, $05 
+    .byte $05, $09, $09, $06
+
+07, 10, 05, 10, 07, 06, 02, 05
+09, 08, 04, 10, 00, 11, 01, 05
+05, 09, 09, 06
+
+
+// shot animation sprite offsets
+// 20C6 = phonex icon ($1EAA) + $21C
+// 3908 = banshee icon ($36EC) + $21C
+
+// dif: $20
+W8B4F:
+    .byte <$095D
+W8B50:
+    .byte >$095D, <$097D, >$097D, <$099D, >$099D, <$09BD, >$09BD, <$09DD 
+    .byte >$09DD, <$09FD, >$09FD, <$20C6, >$20C6, <$0A3D, >$0A3D, <$0A5D 
+    .byte >$0A5D, <$0A7D, >$0A7D, <$0A9D, >$0A9D, <$09BD, >$09BD, <$0ADD 
+    .byte >$0ADD, <$0AFD, >$0AFD, <$3908, >$3908, <$0B3D, >$0B3D, <$09FD 
+    .byte >$09FD, <$0ADD, >$0ADD, <$09BD, >$09BD, <$0ADD, >$0ADD 
+
+

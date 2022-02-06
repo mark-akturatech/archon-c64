@@ -32,13 +32,29 @@
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
   09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
   ```
-  The addresses can be modifed without any issues.
+  The addresses can be modifed however values above 17 can cause display issues.
 - The number of moves of each icon is shown below (address `$8AC7`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
-  04, c3, 03, 03, 83, 84, 85, 03, 03, c3, 03, 03, 85, 84, 83, 03
+  04, C3, 03, 03, 83, 84, 85, 03, 03, C3, 03, 03, 85, 84, 83, 03
   ```
   +$80 is added if icon can fly; +$40 is added if icon can cast spells (if $c0 means can fly and cast).
+  The addresses can be modifed however it cannot be increased above 5 as it will cause a buffer overrun.
+- The damage caused by each icon is shown below (address `$8A9F`):
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+  07, 10, 05, 10, 07, 06, 02, 05, 09, 08, 04, 10, 00, 11, 01, 05, 05, 09, 09, 06
+  ```
+  $00 is for shapeshifter as it inherits opponent damage.
+  The addresses can be modifed without issue up to $FF.
+- The speed of an icon's projectile is shown below (address `$8A8B`):
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+  07, 05, 04, 03, 03, 04, 64, 32, 07, 06, 03, 03, 00, 04, 64, 32, 04, 05, 03, 03
+  ```
+  $20 (32) is a non projectile directional weapon; $40 (64) is a non projectile non-directional weapon; 0-7 is speed
+  $00 is for shapeshifter as it inherits opponent damage.
+  The addresses can be modifed however high speeds may skip too many pixels and could jump over the opponent.
 - Icons regenerate 1 lost hit point when on strogest board color (eg light on white and dark on black).
 - Icons on magic squares regenerate 1 lost hitpoint after each round.
 - It looks like the game was initially designed to have two additional colors in the board phases, but logic was
