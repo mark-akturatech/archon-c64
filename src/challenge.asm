@@ -131,7 +131,7 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 // Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
 // of the data area.
-.segment DynamicDataStart
+.segment DynamicData
 
 // BD12
 square_strength_adj: .byte $00 // Calculated strength adjustment based on color of the challenge square.

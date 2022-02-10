@@ -1180,11 +1180,14 @@ interrupt_handler__play_music:
     .const BYTES_PER_CHAR_SPRITE = 54;
     icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, source+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 13, main.res__sprites_icon+i*BYTES_PER_CHAR_SPRITE*15
         // DG
-        .fillword 1, source+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
-        // BS, GB, AE, FE, EE, WE
-        .fillword 6, source+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 1, main.res__sprites_icon+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        // BS, GB
+        .fillword 2, main.res__sprites_icon+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+
+        // AE, FE, EE, WE
+        .fillword 4, main.res__sprites_elemental+i*BYTES_PER_CHAR_SPRITE*15
 
     // 8BDA
     elemental_color: // Color of each elemental (air, fire, earth, water)
@@ -1221,26 +1224,6 @@ interrupt_handler__play_music:
 
     // 92E6
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
-
-// TODO: start at 095d
-// TODO: load at start:
-//  -  up to 4000,
-//  -  then load charmap 1 at 4000, 
-//  -  then load 4400 - 47ff 
-//  -  then load 4800 - end.
-// - stuff ay 4400 - 4800 and 5000-6000 to be moved else where
-// - how about this... load after start, then 
-
-    // BAE-3D3F and AE23-BACA
-    // Icon sprites. Note that sprites are not 64 bytes in length like normal sprites. Archon sprites are smaller so
-    // that they can fit on a board sqare and therefore do not need to take up 64 bytes. Instead, sprites consume 54
-    // bytes only. The positive of this is that we use less memory for each sprite. The negative is that we can't just
-    // load the raw sprite binary file in to a sprite editor.
-    // Anyway, there are LOTS of sprites. Generally 15 sprites for each icon. This includes fram animations in each
-    // direction, shoot animations and projectiles. NOTE that spearate frames for left moving and right moving
-    // animations. Instead, the routine used to load sprites in to graphical memory has a function that allows
-    // sprites to be mirrored when copied.
-    source: .import binary "/assets/sprites-game.bin"
 }
 
 .namespace icon {

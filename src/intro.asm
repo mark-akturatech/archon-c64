@@ -594,14 +594,8 @@ state__end_intro:
     // ADBE
     icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites
 
-    // BACB
-    logo_source_ptr: .word source // Pointer to intro page logo sprites
-
-    // Sprites used by title page
-    // Sprites are contained in the following order:
-    // - 0-3: Archon logo (in 3 parts)
-    // - 4-6: Freefall logo (in 2 parts)
-    source: .import binary "/assets/sprites-intro.bin"
+    // 8B27
+    logo_source_ptr: .word main.res__sprites_logo // Pointer to intro page logo sprites
 }
 
 .namespace screen {

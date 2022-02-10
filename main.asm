@@ -16,41 +16,42 @@
 // - This is not a byte for byte memory replication. The code is fully relocatable and pays no heed to original
 //   memory locations. Original memory locations are provided as comments above each variable, constant or method
 //   for reference.
-// - The source does not include any original logic that moves code or data around. The code below has been
-//   developed so that any code remians in place. This is to aide radability and also alows easy addition or
-//   modification of code. We do need to move around some sprite resources though to fit within memory.
+// - The source does not include any original logic that moves code around. The code below has been developed so that
+//   all code remians in place. This is to aide readability and also alows easy addition or modification of code.
+//   We do need to move around some sprite resources though to fit within memory. See `Resources` section below.
 // - The source uses the same data memory addresses for different purposes. For example `$BF24` may store the current
 //   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we have
 //   added multiple lables to the same memory address.
 //   TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// - TODO: MAKE THE FILE SIZE SMALLER WHEN DONE. MOVE STUF IN TO WATSED $4400-$4800 and ~$5A00 to $5FFF!!!! It needs
-//   to be copied away though, so make it stuff like strings or music or whatever as to not relocate code. 
 
 //---------------------------------------------------------------------------------------------------------------------
 // Memory map
 //---------------------------------------------------------------------------------------------------------------------
-// Starts at $0801
-
+//
 .segmentdef Upstart
-.segmentdef Main [startAfter="Upstart"]
+//
+.segmentdef Resources [startAfter="Upstart", align=$100]
+//
+.segmentdef Main [start=$6000]
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
 .segmentdef Game [startAfter="Intro"]
-.segmentdef Assets [startAfter="Game", max=$7FFF]
 //
-.segmentdef ScreenMemory [start=$8000, max=$BFFF] // Graphic bank 2
+.segmentdef Assets [startAfter="Game"]
+.segmentdef RelocatedResources [startAfter="Assets", virtual]
 //
-.segmentdef Data [start=$C000, virtual] // Data set once on game initialization
+.segmentdef Data [start=$c000, virtual] // Data set once on game initialization
 .segmentdef DynamicDataStart [startAfter="Data", virtual] // Data that is reset on each game state change
 .segmentdef DynamicData [startAfter="DynamicDataStart", virtual]
-.segmentdef DynamicDataEnd [startAfter="DynamicData", max=$CFFF, virtual]
+.segmentdef DynamicDataEnd [startAfter="DynamicData", virtual]
+//
 
 //---------------------------------------------------------------------------------------------------------------------
 // Output File
 //---------------------------------------------------------------------------------------------------------------------
 // Save all segments to a prg file except the virtual data segments.
 
-.file [name="main.prg", segments="Upstart, Main, Common, Intro, Game, Assets, ScreenMemory"]
+.file [name="main.prg", segments="Upstart, Resources, Main, Common, Intro, Game, Assets"]
 
 //---------------------------------------------------------------------------------------------------------------------
 // Source Files
@@ -87,6 +88,94 @@
 .segment Upstart
 
 BasicUpstart2(entry)
+
+//---------------------------------------------------------------------------------------------------------------------
+// Resources
+//---------------------------------------------------------------------------------------------------------------------
+// OK this is a little bit special. Archon loads a single file including all resources. The resources have a large
+// number of sprites for the various movement and battle animations. Memory managament is therefore quite complex.
+// 
+// Archon requires 2 character maps and screen in the first 4k of graphics memory (there are lots of characters for
+// each icon and logos etc) and spites in the second 4k (there are lots of sprites - enough for 2 characters to battle
+// and throw projectiles and animate 4 directions and animate firing). Anyway, so this means we need 8k.
+//
+// We have limited options for placing graphics memory...VICII allows bank 0 ($0000), bank 1 ($4000), bank 2 ($8000)
+// and bank 3 ($C000)...
+// - We can use bank 0 however this is a little messy as we'd need to relocate the code that loads at $0801 onwards as
+//   the graphics will take up to $3000.
+// - We can use bank 1 however this requires us to either leave a big part of memory blank when we load the game (as the
+//   game loads at $0801 and continues through to a little over $8000) or relocate code after the game loads.
+// - We can use bank 2 however the code game loads past this point, so we'd need to relocate some code or assets in
+//   this area to $C000+.
+// - We can't use $C000 as this will take up $C000-$DFFF - we need registers in $D000 range to control graphics and
+//   sound.
+// 
+// The simplest solution here is to use bank 2 then locate sprite assets at the end of the application and relocate
+// after application load. HOWEVER, the original source uses bank 1, so for consistency we will do the same.
+// 
+// The original source loads sprites in to memory just after $0801 up to $4000. It then loads the character maps in
+// place ($4000-$43ff and $4800-$4fff), and has the remaining sprites (and some music data) from $5000 to $5fff. 
+// The data between $5000 to $5fff is relocated to memory under basic ROM after the application starts using code
+// fitted between $4400 and $47ff. $4400-$47ff and $5000-$5fff is then cleared.
+//
+// So even though we are not trying to generate a byte for byte replication of the original source locations, we'll do
+// something similar here as well for consistency.
+//
+// Our memory map will look like this...
+//  - sprites - logo: start: $0900; length: $1c0; end: $0ac0
+//  - sprites - projectile: length: $251; end: $0d11
+//  - Sprites - icons: length: $3191; end: $3ea2
+//  - charset - intro: start: $4000; length: $3ff; end: $4400
+//  - charset - game: start: $4800; length: $7ff; end: $4fff
+//  - sprites - elemetals; start: $5000; length: $ca7; end: $5ca7
+.segment Resources
+
+// BACB
+// Sprites used by title page.
+// Sprites are contained in the following order:
+// - 0-3: Archon logo (in 3 parts)
+// - 4-6: Freefall logo (in 2 parts)
+res__sprites_logo: .import binary "/assets/sprites-logos.bin"
+
+// BACB
+// Sprites used by icons as projectiles within the battle arena.
+// The projectiles are only small and consume 32 bytes each. There is not a projectile sprite per icon as may
+// icons reuse the same projectile.
+res__sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
+
+// BAE-3D3F
+// Icon sprites. Note that sprites are not 64 bytes in length like normal sprites. Archon sprites are smaller so
+// that they can fit on a board sqare and therefore do not need to take up 64 bytes. Instead, sprites consume 54
+// bytes only. The positive of this is that we use less memory for each sprite. The negative is that we can't just
+// load the raw sprite binary file in to a sprite editor.
+// Anyway, there are LOTS of sprites. Generally 15 sprites for each icon. This includes fram animations in each
+// direction, shoot animations and projectiles. NOTE that spearate frames for left moving and right moving
+// animations. Instead, the routine used to load sprites in to graphical memory has a function that allows
+// sprites to be mirrored when copied.
+res__sprites_icon: .import binary "/assets/sprites-icons.bin"
+
+// Embed character map in place
+*=CHRMEM1 "Character set 1"
+#if INCLUDE_INTRO
+    .import binary "/assets/charset-intro.bin"
+#endif
+*=CHRMEM2 "Character set 2"
+.import binary "/assets/charset-game.bin"
+
+//---------------------------------------------------------------------------------------------------------------------
+// All resources stored at this point will need to be relocated after the game has loaded.
+// Logic will copy all data from `relocated_resource_source_start` up until `relocated_resource_source_end` to
+// destination `relocated_resource_destination_start`.
+// The pseudo operator below will ensure that references to any labels within this section will point to destination
+// address.
+*=GRPMEM "=Relocated="
+relocated_resource_source_start:
+.pseudopc relocated_resource_destination_start {
+    // AE23-BACA
+    // Icon sprites for the 4 summonable elementals. The sprites are arranged the same as `res__sprites_icon`.
+    res__sprites_elemental: .import binary "/assets/sprites-elementals.bin"
+}
+relocated_resource_source_end:
 
 //---------------------------------------------------------------------------------------------------------------------
 // Entry
@@ -137,10 +226,10 @@ restart_game_loop:
     inc FREEZP+3
     dex
     bne !loop-
-    
+
     jsr common.clear_screen
     jsr common.clear_sprites
-    
+
     // Set the initial strength of each icon.
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
@@ -306,30 +395,51 @@ prep:
     lda CINV+1
     sta interrupt.system_fn_ptr+1
 
-    // skip 4711-4770 - moves stuff around. we'll just set any intial values in our assets segment.
+    // move resources out of graphics memory to the end of the application
+    lda #<relocated_resource_source_start
+    sta FREEZP
+    lda #>relocated_resource_source_start
+    sta FREEZP+1
+    lda #<relocated_resource_destination_start
+    sta FREEZP+2
+    lda #>relocated_resource_destination_start
+    sta FREEZP+3
+    // copy chunks of $ff bytes
+    ldy #$00
+    ldx #>(relocated_resource_source_end - relocated_resource_source_start)
+!loop:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    bne !loop-
+    inc FREEZP+1
+    inc FREEZP+3
+    dex
+    bne !loop-
+    // copy remaining bytes
+!loop:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    cpy #<(relocated_resource_source_end - relocated_resource_source_start)
+    bcc !loop-
     rts
 
 // 632D
 init:
-    // Not sure why yet - allows writing of ATTN and TXD on serial port.
-    // I think this is done for remote debugging or similar during development maybe.
-    lda C2DDRA
-    ora #%0000_0011
-    sta C2DDRA
-
     // Set VIC memory bank.
-    // Original code uses Bank #1 ($4000-$7FFF).
+    // Original code uses the furst 8kb of Bank #1 ($4000-$5FFF)
     //
-    // Graphic assets are stores as follows (offsets shown):
+    // Graphic assets are stored as follows (offsets shown from start of bank address):
     //
     //   0000 -+- intro character set
     //   ...   |
     //   ...   |   0400 -+- screen memory
     //   ...   |   ...   |
-    //   ...   |   07ef7 +
-    //   ...   |   07ef8 +- sprite location memory
+    //   ...   |   07e7 -+
+    //   ...   |   07e8 -+- sprite location memory
     //   ...   |   ...   |
-    //   07ff -+   07eff +
+    //   07ff -+   07ff -+
     //   0800 -+- board character set
     //   ...   |
     //   ...   |
@@ -339,13 +449,15 @@ init:
     //   ...   |
     //   2000 -+
     //
-    // As can be seen, the screen memory overlaps the first character set. this is OK as the first character set
-    // contains lower case only characters and therefore occupies only half of the memory of a full character set.
-    //
-    // NOTE:
-    // Set the `videoBank` register in the `const.asm` file to set the source video bank. For this relacatable source,
-    // we have choses Bank #2 as this gives us more room to store code in the basic area so that we don't need to
-    // move code around after load.
+    // As can be seen, the screen memory overlaps the first character set. This is OK as the first character set
+    // contains upper case only characters and therefore occupies only half of the memory of a full character set.
+
+    // Enable data direction bits for setting VICII memory bank.
+    lda C2DDRA
+    ora #%0000_0011
+    sta C2DDRA
+
+    // Set memory bank.
     lda CI2PRA
     and #%1111_1100
     ora #VICBANK
@@ -484,20 +596,6 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Assets
-//---------------------------------------------------------------------------------------------------------------------
-// Load the character set directly in to graphic memory bank 2.
-.segment ScreenMemory
-
-#if INCLUDE_INTRO
-    * = CHRMEM1
-    .import binary "/assets/charset-intro.bin"
-#endif
-
-* = CHRMEM2
-.import binary "/assets/charset-game.bin"
-
-//---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -538,6 +636,11 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     curr_phase:
         .byte $00
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+// Resources from $5000 to $5fff will be relocated here.
+.segment RelocatedResources
+    relocated_resource_destination_start:
 
 //---------------------------------------------------------------------------------------------------------------------
 // Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end

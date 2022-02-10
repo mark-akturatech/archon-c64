@@ -19,7 +19,7 @@
 // Bank 1 - configuration: %10; memory offset: $4000
 // Bank 2 - configuration: %01; memory offset: $8000
 // Bank 3 - configuration: %00; memory offset: $C000
-.const videoBank = 2;
+.const videoBank = 1;
 .const VICBANK = videoBankCode.get(videoBank)
 .const VICMEM = videoBankAddress.get(videoBank)
 .const VICGOFF = videoBankGrphMemOffset.get(videoBank);
