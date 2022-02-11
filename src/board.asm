@@ -24,11 +24,11 @@
 // - X
 get_sound_for_icon:
     ldy icon.offset,x
-    lda sound.icon_pattern,y
+    lda resource.sound.icon_pattern,y
     tay
-    lda sound.pattern_ptr,y
+    lda resource.sound.icon_pattern_ptr,y
     sta sound.pattern_lo_ptr,x
-    lda sound.pattern_ptr+1,y
+    lda resource.sound.icon_pattern_ptr+1,y
     sta sound.pattern_hi_ptr,x
     rts
 
@@ -1180,14 +1180,14 @@ interrupt_handler__play_music:
     .const BYTES_PER_CHAR_SPRITE = 54;
     icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, main.res__sprites_icon+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 13, resource.sprites_icon+i*BYTES_PER_CHAR_SPRITE*15
         // DG
-        .fillword 1, main.res__sprites_icon+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 1, resource.sprites_icon+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
         // BS, GB
-        .fillword 2, main.res__sprites_icon+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 2, resource.sprites_icon+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
 
         // AE, FE, EE, WE
-        .fillword 4, main.res__sprites_elemental+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 4, resource.sprites_elemental+i*BYTES_PER_CHAR_SPRITE*15
 
     // 8BDA
     elemental_color: // Color of each elemental (air, fire, earth, water)
@@ -1267,85 +1267,6 @@ interrupt_handler__play_music:
     string_id:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
         .byte 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
-}
-
-.namespace sound {
-    // 8B94
-    pattern_ptr:
-        .word pattern_walk_large   // 00
-        .word pattern_fly_01       // 02
-        .word pattern_fly_02       // 04
-        .word pattern_walk_quad    // 06
-        .word pattern_fly_03       // 08
-        .word pattern_fly_large    // 10
-        .word pattern_fire_01      // 12
-        .word pattern_fire_02      // 14
-        .word pattern_fire_03      // 16
-        .word pattern_fire_04      // 18
-        .word pattern_walk_slither // 20
-
-    // 8BAA
-    fire_pattern:
-    // Sound pattern used for shot sound of each icon type. The data is an index to the icon sound pointer array.
-        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-        .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
-
-    // 8BBE
-    // Sound pattern used for each icon type. The data is an index to the icon sound pointer array. Uses icon
-    // offset as index.
-    icon_pattern:
-        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-        .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
-
-    // A15E
-    pattern_walk_large:
-        .byte SOUND_CMD_NO_NOTE, $08, $34, SOUND_CMD_NO_NOTE, $20, $03, $81, SOUND_CMD_NO_NOTE, $08, $34
-        .byte SOUND_CMD_NO_NOTE, $20, $01, $81
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fly_01:
-        .byte SOUND_CMD_NO_NOTE, $04, SOUND_CMD_NO_NOTE, $40, $60, $08, $81, $04, SOUND_CMD_NO_NOTE, $40, $60
-        .byte $0A, $81
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fly_02:
-        .byte SOUND_CMD_NO_NOTE, $08, $70, SOUND_CMD_NO_NOTE, $E2, $04, $21, $08, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_walk_slither:
-        .byte SOUND_CMD_NO_NOTE, $08, $70, SOUND_CMD_NO_NOTE, $C0, $07, $21, $08, $70, SOUND_CMD_NO_NOTE, $C0, $07
-        .byte SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_walk_quad:
-        .byte $04, $01, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $02, $81, SOUND_CMD_NO_NOTE, $04, $01
-        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $03, $81, SOUND_CMD_NO_NOTE, $04, $01, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NO_NOTE, $04, $81, SOUND_CMD_NO_NOTE, $04, $01, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fly_03:
-        .byte SOUND_CMD_NO_NOTE, $04, $12, SOUND_CMD_NO_NOTE, $20, $03, $81, $04, $12, SOUND_CMD_NO_NOTE, $20, $03
-        .byte SOUND_CMD_NO_NOTE, $04, $12, SOUND_CMD_NO_NOTE, $20, $02, $81, $04, $12, SOUND_CMD_NO_NOTE, $20, $02
-        .byte SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fire_03:
-        .byte SOUND_CMD_NO_NOTE, $32, $A9, SOUND_CMD_NO_NOTE, $EF, $31, $81, SOUND_CMD_END
-    pattern_hit_player_dark:
-        .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $C4, $07, $41, SOUND_CMD_END
-    pattern_hit_player_light:
-        .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $D0, $3B, $43, SOUND_CMD_END
-    pattern_fire_04:
-        .byte SOUND_CMD_NO_NOTE, $28, $99, SOUND_CMD_NO_NOTE, $6A, $6A, $21, SOUND_CMD_END
-    pattern_fly_large:
-        .byte SOUND_CMD_NO_NOTE, $10, $84, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $06, $81
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fire_01:
-        .byte SOUND_CMD_NO_NOTE, $80, $4B, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $21, $81, SOUND_CMD_END
-    pattern_fire_02:
-        .byte SOUND_CMD_NO_NOTE, $10, $86, SOUND_CMD_NO_NOTE, $F0, $F0, $81, SOUND_CMD_END
-    pattern_player_light_turn:
-        .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $3E, $2A, $11, SOUND_CMD_END
-    pattern_player_dark_turn:
-        .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $1F, $16, $11, SOUND_CMD_END
-    pattern_transport:
-        .byte SOUND_CMD_NO_NOTE, $80, $03, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $23, $11, SOUND_CMD_END
 }
 
 .namespace screen {

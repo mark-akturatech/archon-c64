@@ -726,9 +726,9 @@ interrupt_handler:
     txa
     asl
     tay
-    lda sound.pattern_ptr+4,y
+    lda resource.sound.board_pattern_ptr+4,y
     sta OLDTXT
-    lda sound.pattern_ptr+5,y
+    lda resource.sound.board_pattern_ptr+5,y
     sta OLDTXT+1
 new_player_sound:
     jsr board.play_icon_sound
@@ -1371,11 +1371,11 @@ transport_icon:
     ldx #$00
     stx common.sound.new_note_delay
     //
-    lda #<board.sound.pattern_transport
+    lda #<resource.sound.pattern_transport
     sta OLDTXT
-    lda #>board.sound.pattern_transport
+    lda #>resource.sound.pattern_transport
     sta OLDTXT+1
-    lda board.sound.pattern_transport+5 // This note increases in patch as animation runs
+    lda resource.sound.pattern_transport+5 // This note increases in patch as animation runs
     sta main.temp.data__temp_note_store
     jsr board.play_icon_sound
     // Configure sprite source and destination pointers (for line by line copy)
@@ -1451,15 +1451,6 @@ transport_icon_interrupt:
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
-
-.namespace sound {
-    // 95f4
-    pattern_ptr:
-        .word board.sound.pattern_hit_player_light   // 00
-        .word board.sound.pattern_hit_player_dark    // 02
-        .word board.sound.pattern_player_light_turn  // 04
-        .word board.sound.pattern_player_dark_turn   // 06
-}
 
 .namespace data {
     // 8B77

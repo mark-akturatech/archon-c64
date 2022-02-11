@@ -548,16 +548,16 @@ initialize_music:
 !loop:
     lda sound.flag__play_outro
     bpl intro_music
-    lda music.outro_pattern_ptr,y
+    lda resource.music.outro_pattern_ptr,y
     jmp !next+
 intro_music:
 #if INCLUDE_INTRO
-    lda music.intro_pattern_ptr,y
+    lda resource.music.intro_pattern_ptr,y
 #endif
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial pattern on all 3 voices.
-    lda music.init_pattern_list_ptr,y
+    lda resource.music.init_pattern_list_ptr,y
     sta OLDTXT,y
     dey
     bpl !loop-
@@ -610,150 +610,6 @@ intro_music:
     // AD7D
     pattern_data_fn_ptr: // Pointer to function to get pattern and incremement note pointer for each voice
         .word get_pattern_V1, get_pattern_V2, get_pattern_V3
-}
-
-// 3D40
-.namespace music {
-    // Music configuration.
-    // Music is played by playing notes pointed to by `init_pattern_list_ptr` on each voice.
-    // When the voice pattern list finishes, the music will look at the intro or outro pattern list pointers (
-    // `intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played. This list will then tell the
-    // player which pattern to play next.
-    // When the pattern finishes, it looks at the next pattern in the list and continues until a FE command is reached.
-#if INCLUDE_INTRO
-    intro_pattern_ptr: // Pointers for intro music pattern list for each voice
-        .word intro_pattern_V1_ptr, intro_pattern_V2_ptr, intro_pattern_V3_ptr
-#endif
-    init_pattern_list_ptr: // Initial patterns for both intro and outro music
-        .word pattern_1, pattern_2, pattern_3
-    outro_pattern_ptr: // Pointers for outro music pattern list for each voice
-        .word outro_pattern_V1_ptr, outro_pattern_V2_ptr, outro_pattern_V3_ptr
-
-    // Music notes and commands.
-    pattern_1: // Notes (00 to FA) and commands (FB to FF) for music pattern
-        .byte SOUND_CMD_SET_DELAY, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2
-        .byte $0E, $EF, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $13, $EF, $15, $1F, $16, $60
-        .byte $17, $B5
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_2:
-        .byte SOUND_CMD_SET_DELAY, $38, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
-        .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_3:
-        .byte SOUND_CMD_SET_DELAY, $1C, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
-        .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68, $08, $E1, $08, $61, $07, $E9, $07, $77
-        .byte SOUND_CMD_NEXT_PATTERN
-#if INCLUDE_INTRO
-    pattern_4:
-        .byte SOUND_CMD_NEXT_STATE, SOUND_CMD_SET_DELAY, $70, $19, $1E, SOUND_CMD_SET_DELAY, $38, $12, $D1
-        .byte SOUND_CMD_SET_DELAY, $1C, $15, $1F, SOUND_CMD_SET_DELAY, $09, $12, $D1, $11, $C3, SOUND_CMD_SET_DELAY
-        .byte $0A, $0E, $18, SOUND_CMD_SET_DELAY, $E0, $1C, $31
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_5:
-        .byte SOUND_CMD_SET_DELAY, $70, $19, $3E, SOUND_CMD_SET_DELAY, $38, $12, $E9, SOUND_CMD_SET_DELAY, $1C, $15
-        .byte $3A, SOUND_CMD_SET_DELAY, $09, $12, $E9, $11, $D9, SOUND_CMD_SET_DELAY, $0A, $0E, $2A
-        .byte SOUND_CMD_SET_DELAY, $E0, $1C, $55
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_6:
-        .byte SOUND_CMD_SET_DELAY, $07
-    pattern_7:
-        .byte $07, $0C, SOUND_CMD_RELEASE_NOTE, $0A, $8F, SOUND_CMD_RELEASE_NOTE, $0E, $18, SOUND_CMD_RELEASE_NOTE
-        .byte $0A, $8F, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_8:
-        .byte $09, $68, SOUND_CMD_RELEASE_NOTE, $0E, $18, SOUND_CMD_RELEASE_NOTE, $12, $D1, SOUND_CMD_RELEASE_NOTE
-        .byte $0E, $18, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_9:
-        .byte $06, $47, SOUND_CMD_RELEASE_NOTE, $09, $68, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE
-        .byte $09, $68, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NEXT_PATTERN
-    pattern_10:
-        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
-        .byte $1C, $31, SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE
-        .byte $1F, $A5, SOUND_CMD_RELEASE_NOTE, $1C, $31, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
-        .byte $1F, $A5, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE, $1C, $31, SOUND_CMD_RELEASE_NOTE
-        .byte $17, $B5, SOUND_CMD_RELEASE_NOTE, $11, $C3, SOUND_CMD_RELEASE_NOTE, $17, $B5, SOUND_CMD_RELEASE_NOTE
-        .byte $0B, $DA, SOUND_CMD_RELEASE_NOTE, $11, $C3, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NO_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $23, $86
-        .byte SOUND_CMD_RELEASE_NOTE, $25, $A2, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE, $1F, $A5
-        .byte SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $23, $86, SOUND_CMD_RELEASE_NOTE, $19, $1E
-        .byte SOUND_CMD_RELEASE_NOTE, $1F, $A5, SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $12, $D1
-        .byte SOUND_CMD_RELEASE_NOTE, $19, $1E, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE, $12, $D1
-        .byte SOUND_CMD_RELEASE_NOTE
-    pattern_11:
-        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $10, $C3, $11, $C3, $1C, $31, $1A, $9C, $16, $60, $17, $B5
-        .byte $1A, $9C, $1C, $31, $1F, $A5, $21, $87, $23, $86, $1C, $31, SOUND_CMD_SET_DELAY, $0E, $17, $B5
-        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NEXT_STATE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_12:
-        .byte SOUND_CMD_SET_DELAY, $07, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
-        .byte $1C, $55, SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE
-        .byte $1F, $CD, SOUND_CMD_RELEASE_NOTE, $1C, $55, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
-        .byte $1F, $CD, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE, $1C, $55, SOUND_CMD_RELEASE_NOTE
-        .byte $17, $D3, SOUND_CMD_RELEASE_NOTE, $11, $D9, SOUND_CMD_RELEASE_NOTE, $17, $D3, SOUND_CMD_RELEASE_NOTE
-        .byte $0B, $E9, SOUND_CMD_RELEASE_NOTE, $11, $D9, SOUND_CMD_RELEASE_NOTE, SOUND_CMD_NO_NOTE
-        .byte SOUND_CMD_NO_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $23, $B3
-        .byte SOUND_CMD_RELEASE_NOTE, $25, $D2, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE, $1F, $CD
-        .byte SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $23, $B3, SOUND_CMD_RELEASE_NOTE, $19, $3E
-        .byte SOUND_CMD_RELEASE_NOTE, $1F, $CD, SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $12, $E9
-        .byte SOUND_CMD_RELEASE_NOTE, $19, $3E, SOUND_CMD_RELEASE_NOTE, $0C, $9F, SOUND_CMD_RELEASE_NOTE, $12, $E9
-        .byte SOUND_CMD_RELEASE_NOTE
-    pattern_13:
-        .byte SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $10, $D8, $11, $D9, $1C, $55, $1A, $BE, $16, $7C, $17, $D3
-        .byte $1A, $BE, $1C, $55, $1F, $CD, $21, $B1, $23, $86, $1C, $55, SOUND_CMD_SET_DELAY, $0E, $17, $D3
-        .byte SOUND_CMD_SET_DELAY, $07
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_14:
-        .byte SOUND_CMD_SET_DELAY, $07
-    pattern_15:
-        .byte $05, $ED, SOUND_CMD_RELEASE_NOTE, $08, $E1, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE
-        .byte $08, $E1, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_16:
-        .byte $06, $47, SOUND_CMD_RELEASE_NOTE, $09, $68, SOUND_CMD_RELEASE_NOTE, $0C, $8F, SOUND_CMD_RELEASE_NOTE
-        .byte $09, $68, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_17:
-        .byte $05, $ED, SOUND_CMD_RELEASE_NOTE, $08, $E1, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE
-        .byte $08, $E1, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-    pattern_18:
-        .byte $07, $E9, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE, $0F, $D2, SOUND_CMD_RELEASE_NOTE
-        .byte $0B, $DA, SOUND_CMD_RELEASE_NOTE
-        .byte SOUND_CMD_NEXT_PATTERN
-#endif
-    pattern_19:
-        .byte SOUND_CMD_SET_DELAY, $70, $19, $1E
-        .byte SOUND_CMD_END
-    pattern_20:
-        .byte SOUND_CMD_SET_DELAY, $70, $0A, $8F, SOUND_CMD_NEXT_STATE
-        .byte SOUND_CMD_END
-    pattern_21:
-        .byte SOUND_CMD_SET_DELAY, $70, $07, $0C
-        .byte SOUND_CMD_END
-
-    // Music patternology.
-#if INCLUDE_INTRO
-    intro_pattern_V1_ptr: // Intro music voice 1 pattern list
-        .word pattern_4, pattern_4, pattern_10, pattern_11, pattern_1
-#endif
-    outro_pattern_V1_ptr:
-        .word pattern_19 // Outro music voice 1 pattern list
-#if INCLUDE_INTRO
-    intro_pattern_V2_ptr: // Intro music voice 2 pattern list
-        .word pattern_5, pattern_5, pattern_12, pattern_13, pattern_2
-#endif
-    outro_pattern_V2_ptr:
-        .word pattern_21 // Outro music voice 2 pattern list
-#if INCLUDE_INTRO
-    intro_pattern_V3_ptr: // Intro music voice 3 pattern list
-        .word pattern_6, pattern_7, pattern_7, pattern_7, pattern_8, pattern_8, pattern_9, pattern_9
-        .word pattern_6, pattern_7, pattern_7, pattern_7, pattern_8, pattern_8, pattern_9, pattern_9
-        .word pattern_14, pattern_15, pattern_15, pattern_15, pattern_16, pattern_16, pattern_16, pattern_16
-        .word pattern_17, pattern_17, pattern_18, pattern_18, pattern_3
-#endif
-    outro_pattern_V3_ptr:
-        .word pattern_20 // Outro music voice 3 pattern list
 }
 
 //---------------------------------------------------------------------------------------------------------------------

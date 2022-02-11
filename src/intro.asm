@@ -595,7 +595,7 @@ state__end_intro:
     icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites
 
     // 8B27
-    logo_source_ptr: .word main.res__sprites_logo // Pointer to intro page logo sprites
+    logo_source_ptr: .word resource.sprites_logo // Pointer to intro page logo sprites
 }
 
 .namespace screen {
