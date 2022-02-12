@@ -36,31 +36,31 @@ get_sound_for_icon:
 // Description:
 // - Detects if the selected square is a magic sqaure.
 // Prerequisites:
-// - `main.temp.data__curr_row`: row of the square to test.
-// - `main.temp.data__curr_column`: column of the square to test.
+// - `data__curr_row`: row of the square to test.
+// - `data__curr_column`: column of the square to test.
 // Sets:
-// - `main.temp.flag__icon_destination_valid`: is $80 if selected square is a magic square.
+// - `flag__icon_destination_valid`: is $80 if selected square is a magic square.
 // Preserves:
 // - X, Y
 test_magic_square_selected:
     tya
     pha
     lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-    sta main.temp.flag__icon_destination_valid
+    sta game.flag__icon_destination_valid
     ldy #$04 // 5 magic squares (zero based)
 !loop:
-    lda board.data.magic_square_col,y
-    cmp main.temp.data__curr_row
+    lda data.magic_square_col,y
+    cmp data__curr_row
     bne !next+
-    lda board.data.magic_square_row,y
-    cmp main.temp.data__curr_column
+    lda data.magic_square_row,y
+    cmp data__curr_column
     beq magic_square_selected
 !next:
     dey
     bpl !loop-
     bmi no_magic_square_selected
 magic_square_selected:
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
 no_magic_square_selected:
     pla
     tay
@@ -237,8 +237,8 @@ display_two_player:
 // Description:
 // - Fills an array of rows and columns with the coordinates of the squares surrounding the current square.
 // Prerequisites:
-// - `main.temp.data__curr_icon_row`: row of source square
-// - `main.temp.data__curr_icon_col`: column of source square
+// - `data__curr_icon_row`: row of source square
+// - `data__curr_icon_col`: column of source square
 // Sets:
 // - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
 // - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
@@ -247,25 +247,25 @@ display_two_player:
 // - Rows and columns may be out of bounds if the source square is on a board edge.
 surrounding_squares_coords:
     ldx #$08 // 9 squares (0 offset)
-    ldy main.temp.data__curr_icon_row
+    ldy data__curr_icon_row
     iny
-    sty main.temp.data__curr_row
+    sty data__curr_row
 !row_loop:
-    ldy main.temp.data__curr_icon_col
+    ldy data__curr_icon_col
     iny
-    sty main.temp.data__curr_column
+    sty data__curr_column
     ldy #$03
 !column_loop:
-    lda main.temp.data__curr_row
+    lda data__curr_row
     sta surrounding_square_row,x
-    lda main.temp.data__curr_column
+    lda data__curr_column
     sta surrounding_square_column,x
     dex
     bmi !return+
-    dec main.temp.data__curr_column
+    dec data__curr_column
     dey
     bne !column_loop-
-    dec main.temp.data__curr_row
+    dec data__curr_row
     jmp !row_loop-
 !return:
     rts
@@ -274,19 +274,19 @@ surrounding_squares_coords:
 // Description:
 // - Adds an icon to the board matrix.
 // Prerequisites:
-// - `main.temp.data__curr_board_row`: Row offset of board square.
-// - `main.temp.data__curr_board_col`: Column offset of board square.
+// - `data__curr_board_row`: Row offset of board square.
+// - `data__curr_board_col`: Column offset of board square.
 // - `icon.type`: Type of icon to add to the square.
 // Sets:
 // - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 add_icon_to_matrix:
-    ldy main.temp.data__curr_board_row
+    ldy data__curr_board_row
     lda game.data.row_occupancy_lo_ptr,y
     sta OLDLIN
     lda game.data.row_occupancy_hi_ptr,y
     sta OLDLIN+1
     //
-    ldy main.temp.data__curr_board_col
+    ldy data__curr_board_col
     lda icon.type
     sta (OLDLIN),y
     rts
@@ -339,29 +339,29 @@ add_sprite_set_to_graphics:
     cmp #$06
     bne add_projectile_frames_to_graphics // Banshee/Phoenix?
     lda #$00
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
     jmp add_sprite_to_graphics // Add special full height projectile frames for Banshee and Phoneix icons.
 // Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
 add_projectile_frames_to_graphics:
     lda #$11
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
     bne add_individual_frame_to_graphics
 // Copies projectile frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,
 // $02+$80, $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
 add_icon_frames_to_graphics:
     lda #$00
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
 add_individual_frame_to_graphics:
     jsr add_sprite_to_graphics
-    inc main.temp.data__icon_set_sprite_frame
+    inc data__icon_set_sprite_frame
     cpx #$02
     bcs check_projectile_frames
-    lda main.temp.data__icon_set_sprite_frame
+    lda data__icon_set_sprite_frame
     bmi check_inverted_icon_frames
     cmp #$11
     bcc add_next_frame_to_graphics
     lda #$80 // Jump from frame 10 to 80 (skip 11 to 7f)
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
     bmi add_next_frame_to_graphics
 check_inverted_icon_frames:
     cmp #$84
@@ -371,12 +371,12 @@ check_inverted_icon_frames:
     bcc add_next_frame_to_graphics
     rts // End after copying frame 8f
 check_projectile_frames:
-    lda main.temp.data__icon_set_sprite_frame
+    lda data__icon_set_sprite_frame
     bmi check_inverted_projectile_frames
     cmp #$15
     bcc add_next_frame_to_graphics
     lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
     bmi add_next_frame_to_graphics
 check_inverted_projectile_frames:
     cmp #$95
@@ -385,11 +385,11 @@ check_inverted_projectile_frames:
 !next:
     cmp #$92
     bne add_next_frame_to_graphics
-    inc main.temp.data__icon_set_sprite_frame // Skip frame 92
+    inc data__icon_set_sprite_frame // Skip frame 92
     jmp add_next_frame_to_graphics
 skip_frames_84_to_8C:
     lda #$8D
-    sta main.temp.data__icon_set_sprite_frame
+    sta data__icon_set_sprite_frame
 add_next_frame_to_graphics:
     // Incremement frame grpahics pointer to point to next sprite memory location.
     lda data__curr_sprite_mem_lo_ptr
@@ -405,7 +405,7 @@ add_next_frame_to_graphics:
 // Copies a sprite frame in to graphical memory.
 // Also includes additional functionality to add a mirrored sprite to graphics memory.
 add_sprite_to_graphics:
-    lda main.temp.data__icon_set_sprite_frame
+    lda data__icon_set_sprite_frame
     and #$7F // The offset has #$80 if the sprite frame should be inverted on copy
     // Get frame source memory address.
     // This is done by first reading the sprite source offset of the icon set and then adding the frame offset.
@@ -439,17 +439,17 @@ add_sprite_to_graphics:
     // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
     ldy #$00
 !loop:
-    lda main.temp.data__icon_set_sprite_frame
+    lda data__icon_set_sprite_frame
     bpl no_invert_attack_frame // +$80 to invert attack frame
     // Inversts 8 bits. eg 1000110 becomes 0110001
     lda #$08
-    sta main.temp.data__temp_store
+    sta data__temp_storage
     lda (FREEZP),y
-    sta main.temp.ptr__sprite
+    sta data__temp_storage+1
 rotate_loop:
-    ror main.temp.ptr__sprite
+    ror data__temp_storage+1
     rol
-    dec main.temp.data__temp_store
+    dec data__temp_storage
     bne rotate_loop
     beq !next+
 no_invert_attack_frame:
@@ -464,7 +464,7 @@ no_invert_attack_frame:
     rts
 move_sprite:
     ldy #$00
-    lda main.temp.data__icon_set_sprite_frame
+    lda data__icon_set_sprite_frame
     bmi move_sprite_and_invert
 !loop:
     lda (FREEZP),y
@@ -476,22 +476,22 @@ move_sprite:
 // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
 move_sprite_and_invert:
     lda #$0A
-    sta main.temp.data__temp_store // Sprite is inverted in 10 blocks
+    sta data__temp_storage // Sprite is inverted in 10 blocks
     tya
     clc
     adc #$02
     tay
     lda (FREEZP),y
-    sta main.temp.data__temp_store+3
+    sta data__temp_storage+3
     dey
     lda (FREEZP),y
-    sta main.temp.data__temp_store+2
+    sta data__temp_storage+2
     dey
     lda (FREEZP),y
-    sta main.temp.data__temp_store+1
+    sta data__temp_storage+1
     lda #$00
-    sta main.temp.data__temp_store+4
-    sta main.temp.data__temp_store+5
+    sta data__temp_storage+4
+    sta data__temp_storage+5
 !loop:
     jsr invert_bytes
     jsr invert_bytes
@@ -506,26 +506,26 @@ move_sprite_and_invert:
 !next:
     pla
 !next:
-    dec main.temp.data__temp_store
+    dec data__temp_storage
     bne !loop-
     sta (FREEZP+2),y
     iny
-    lda main.temp.data__temp_store+4
+    lda data__temp_storage+4
     sta (FREEZP+2),y
     iny
-    lda main.temp.data__temp_store+5
+    lda data__temp_storage+5
     sta (FREEZP+2),y
     iny
     cpy sprite.copy_length
     bcc move_sprite_and_invert
     rts
 invert_bytes:
-    rol main.temp.data__temp_store+3
-    rol main.temp.data__temp_store+2
-    rol main.temp.data__temp_store+1
+    rol data__temp_storage+3
+    rol data__temp_storage+2
+    rol data__temp_storage+1
     ror
-    ror main.temp.data__temp_store+4
-    ror main.temp.data__temp_store+5
+    ror data__temp_storage+4
+    ror data__temp_storage+5
     rts
 
 // 8D6E
@@ -630,12 +630,12 @@ draw_board:
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
-    sta main.temp.data__curr_row
+    sta data__curr_row
     // Draw each board row.
 draw_row:
     lda #(BOARD_NUM_COLS-1) // Number of columns (0 based, so 9)
-    sta main.temp.data__curr_column
-    ldy main.temp.data__curr_row
+    sta data__curr_column
+    ldy data__curr_row
     //
     lda data.row_screen_offset_lo_ptr,y
     sta FREEZP+2 // Screen offset
@@ -657,18 +657,18 @@ draw_row:
     sta CURLIN+1
     //
 draw_square:
-    ldy main.temp.data__curr_column
+    ldy data__curr_column
     bit flag__render_square_ctl
     bvs render_square // Disable icon render
     bpl render_icon
     // Only render icon for a given row and coloumn.
     lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
     sta render_square_icon_offset
-    lda main.temp.data__curr_board_col
-    cmp main.temp.data__curr_column
+    lda data__curr_board_col
+    cmp data__curr_column
     bne draw_empty_square
-    lda main.temp.data__curr_board_row
-    cmp main.temp.data__curr_line
+    lda data__curr_board_row
+    cmp data__curr_row
     bne draw_empty_square
 render_icon:
     lda (FREEZP),y
@@ -710,23 +710,23 @@ render_square:
 !skip:
     ora #$08 // Derive square color
     sta data__curr_square_color_code
-    lda main.temp.data__curr_column
+    lda data__curr_column
     asl
     clc
-    adc main.temp.data__curr_column
+    adc data__curr_column
     tay
     jsr draw_square_part
-    lda main.temp.data__curr_column
+    lda data__curr_column
     asl
     clc
-    adc main.temp.data__curr_column
+    adc data__curr_column
     adc #CHARS_PER_SCREEN_ROW
     tay
     jsr draw_square_part
     //
-    dec main.temp.data__curr_column
+    dec data__curr_column
     bpl draw_square
-    dec main.temp.data__curr_row
+    dec data__curr_row
     bmi !return+
     jmp draw_row
 !return:
@@ -832,12 +832,12 @@ draw_border:
 create_logo:
     lda common.sprite.mem_ptr_56
     sta FREEZP+2 // Sprite location
-    sta main.temp.data__temp_store
-    sta main.temp.data__temp_store+1
+    sta data__temp_storage
+    sta data__temp_storage+1
     lda common.sprite.mem_ptr_56+1
     sta FREEZP+3
     lda #$03 // Number of letters per sprite
-    sta main.temp.data__temp_store+2
+    sta data__temp_storage+2
     ldx #$00
 convert_logo_character:
     lda sprite.logo_string,x // Get logo letter
@@ -861,19 +861,19 @@ copy_character_to_sprite:
     cpy #$08
     bcc copy_character_to_sprite
     // Set next letter.
-    inc main.temp.data__temp_store
-    lda main.temp.data__temp_store
+    inc data__temp_storage
+    lda data__temp_storage
     sta FREEZP+2
-    dec main.temp.data__temp_store+2
+    dec data__temp_storage+2
     bne !next+
     // Sprite full - Move to next sprite.
     lda #$03
-    sta main.temp.data__temp_store+2
-    lda main.temp.data__temp_store+1
+    sta data__temp_storage+2
+    lda data__temp_storage+1
     clc
     adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta main.temp.data__temp_store
+    sta data__temp_storage
     bne !next+
     inc FREEZP+3
 !next:
@@ -1043,9 +1043,9 @@ configure_voice:
     asl
     tay
     lda common.sound.note_data_fn_ptr,y
-    sta common.voice_note_fn_ptr
+    sta common.sound.voice_note_fn_ptr
     lda common.sound.note_data_fn_ptr+1,y
-    sta common.voice_note_fn_ptr+1
+    sta common.sound.voice_note_fn_ptr+1
     lda common.sound.voice_io_addr,y
     sta FREEZP+2 // SID voice address
     lda common.sound.voice_io_addr+1,y
@@ -1639,21 +1639,17 @@ interrupt_handler__play_music:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
+// Data
 //---------------------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------------------
-// Data in this area are not cleared on state change.
-//
 .segment Data
 
 // BCCB
 countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate actions after timer expires (eg start game)
 
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
-//
-.segment DynamicData
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Variables
 
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
@@ -1711,6 +1707,10 @@ data__curr_square_color_code: .byte $00
 // Index to character dot data for current board icon part (icons are 6 caharcters).
 data__board_icon_char_offset: .byte $00
 
+// BF1A
+// Temporary storage of interim calculation used to convert a board position to a sprite location.
+data__temp_sprite_x_calc_store: .byte $00
+
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
 // bytes) when adding chasing icon sprites.
@@ -1728,6 +1728,34 @@ data__temp_sprite_y_store: .byte $00
 // Temporary storage of calculated initial X position of a newly places sprite.
 data__temp_sprite_x_store: .byte $00
 
+// BF24
+// Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
+data__icon_set_sprite_frame: .byte $00
+
 // BF1A
-// Temporary storage of interim calculation used to convert a board position to a sprite location.
-data__temp_sprite_x_calc_store: .byte $00
+// Temporary data storage area used for sprite manipulation.
+data__temp_storage: .byte $00, $00, $00, $00, $00, $00
+
+// BF25
+data__curr_icon_row: // Intitial board row of selected icon
+    .byte $00
+
+// BF26
+data__curr_board_row: // Board row offset for rendered icon
+    .byte $00
+
+// BF27
+data__curr_icon_col: // Intitial board column of selected icon
+    .byte $00
+
+// BF28
+data__curr_board_col: // Board column for rendered icon
+    .byte $00
+
+// BF30
+data__curr_row: // Current board row
+    .byte $00
+
+// BF31
+data__curr_column: // Current board column
+    .byte $00

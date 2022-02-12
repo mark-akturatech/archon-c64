@@ -72,7 +72,7 @@ import_sprite_icon_set:
     sta board.icon.offset,x
     jsr board.sprite_initialize
     lda sprite.flag__is_icon_mirrored,x // Invert frames for icons pointing left
-    sta main.temp.data__icon_set_sprite_frame
+    sta board.data__icon_set_sprite_frame
     lda #$04 // Copy 4 frames for each icon
     sta common.sprite.init_animation_frame
 import_sprite_frame:
@@ -85,7 +85,7 @@ import_sprite_frame:
     bcc !next+
     inc FREEZP+3
 !next:
-    inc main.temp.data__icon_set_sprite_frame
+    inc board.data__icon_set_sprite_frame
     dec common.sprite.init_animation_frame
     bne import_sprite_frame
     dex
@@ -117,15 +117,15 @@ import_sprite_frame:
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
     lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES
-    sta main.temp.ptr__sprite
+    sta data__curr_sprite_ptr
     ldx #NUM_SPRITES
 !loop:
     txa
     asl
     tay
-    lda main.temp.ptr__sprite
+    lda data__curr_sprite_ptr
     sta SPTMEM,x
-    dec main.temp.ptr__sprite
+    dec data__curr_sprite_ptr
     lda sprite.logo_color,x
     sta SP0COL,x
     lda sprite.logo_x_pos,x
@@ -150,7 +150,7 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda main.interrupt.flag__set_new_state
+    lda main.state.flag__set_new
     sta main.state.flag__enable_next
     jsr common.play_music
     jmp (main.state.curr_fn_ptr)
@@ -216,9 +216,9 @@ state__draw_freefall_logo:
     ldy #$08
     sty data__msg_offset
 !loop:
-    stx main.temp.data__curr_line
+    stx data__curr_line
     jsr screen_draw_text
-    ldx main.temp.data__curr_line
+    ldx data__curr_line
     dex
     dec data__msg_offset
     ldy data__msg_offset
@@ -664,7 +664,7 @@ state__end_intro:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment DynamicData
+.segment Variables
 
 // BD3A
 // Offset of current message being rendered in into page.
@@ -687,6 +687,10 @@ data__sprite_x_pos: .byte $00
 // bytes) when adding chasing icon sprites.
 data__curr_sprite_mem_lo_ptr: .byte $00
 
+// BF1B
+// Current sprite location pointer.
+data__curr_sprite_ptr: .byte $00
+
 // BD0D
 // Is positive number for right direction, negative for left direction.
 flag__sprite_x_direction: .byte $00
@@ -698,6 +702,10 @@ flag__sprite_y_direction: .byte $00
 // BF22
 // Is TRUE if intro icon sprites are initialized.
 flag__are_sprites_initialized: .byte $00
+
+// BF30
+// Current screen line used while rendering repeated strings in into page.
+data__curr_line: .byte $00
 
 // BF3C
 // Used to control string rendering ($00 = read row/column fro first bytes of string, $80 = row supplied in x, $C0 =

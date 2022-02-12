@@ -333,10 +333,10 @@ relocated_resource_source_end:
 // Move resouces from temporary load location to the end of the application to free up space for the graphics
 // display area.
 * = $4700 "Relocation logic"
-move:
+relocate:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #FLAG_ENABLE
-    sta main.flag__is_initialized
+    sta flag__is_relocated
     //
     // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
     // we can call whenever a non-raster interrupt occurs.
@@ -379,3 +379,12 @@ move:
 // Resources from $5000 to $5fff will be relocated here.
 .segment RelocatedResources
     relocated_resource_destination_start:
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// Data
+//---------------------------------------------------------------------------------------------------------------------
+.segment Assets
+
+// 02A7
+flag__is_relocated: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized

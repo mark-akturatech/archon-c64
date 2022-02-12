@@ -24,6 +24,29 @@ Additional documentation is provided in the following files:
 
 Source code was replicated entirely within Visual Studio Code using the `KickAss (C64)` extension.
 
+## Conventions
+
+### Variable Labels 
+
+Variable lables will be prefixed with the following:
+- data__ : Calculated or derived results or data stored for use later.
+- flag__ : Used to specifically for conditional logic.
+- ptr__ : Pointer to a memory address location.
+- index__ : Index to an item within a block of memory (or array).
+- pos__ : Data used specifically for positioning a sprite or screen data.
+- counter__ : A value that is incremented within a loop. Typically from 0. Is different to index__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
+- temp__ : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
+
+### Code Labels
+
+Lables used to identify code addresses will be named to appropriately describe the functionality of the proceeding code.
+
+Multilables will be used specifically for the following:
+- !skip : only when logic is being skipped as part of a condition check
+- !loop : loops
+- !next : breaking out of a loop
+- !return : exiting from a subroutine
+
 ## Build
 
 Build using Kick Assembler V5.24.

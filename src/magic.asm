@@ -11,9 +11,9 @@
 // 67B4
 select_spell:
     // Store current piece location to restore location if the spell is aborted.
-    lda main.temp.data__curr_icon_row
+    lda board.data__curr_icon_row
     sta temp_row_store
-    lda main.temp.data__curr_icon_col
+    lda board.data__curr_icon_col
     sta temp_column_store
     lda game.state.flag__ai_player_ctl
     cmp game.state.flag__is_light_turn
@@ -119,18 +119,18 @@ spell_select_teleport:
     sta game.message_id
     jsr game.display_message
 skip_teleport_message:
-    ldy main.temp.data__curr_board_row
-    sty main.temp.data__curr_icon_row
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_icon_col
+    ldy board.data__curr_board_row
+    sty board.data__curr_icon_row
+    lda board.data__curr_board_col
+    sta board.data__curr_icon_col
     lda #(ICON_CAN_FLY+ICON_CAN_CAST+$0F) // Allow selected icon to move anywhere usin the teleport animation
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_SQUARE
     jsr spell_select_destination
     //
     ldx #BOARD_EMPTY_SQUARE
-    ldy main.temp.data__curr_icon_row
-    lda main.temp.data__curr_icon_col
+    ldy board.data__curr_icon_row
+    lda board.data__curr_icon_col
     jsr set_occupied_square
     rts
 
@@ -177,10 +177,10 @@ spell_select_exchange:
     lda #ACTION_SELECT_ICON
     jsr spell_select_destination
     //
-    lda main.temp.data__curr_board_row
-    sta main.temp.data__curr_icon_row
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_icon_col
+    lda board.data__curr_board_row
+    sta board.data__curr_icon_row
+    lda board.data__curr_board_col
+    sta board.data__curr_icon_col
     lda board.icon.type
     sta temp_selected_icon_store // First selected icon
     lda #STRING_EXCHANGE_WHICH
@@ -192,22 +192,22 @@ spell_select_exchange:
     jsr board.clear_text_area
     // Swap icons.
     ldx #BOARD_EMPTY_SQUARE
-    ldy main.temp.data__curr_board_row
-    lda main.temp.data__curr_board_col
+    ldy board.data__curr_board_row
+    lda board.data__curr_board_col
     jsr set_occupied_square
-    lda main.temp.data__curr_icon_col
-    ldy main.temp.data__curr_icon_row
+    lda board.data__curr_icon_col
+    ldy board.data__curr_icon_row
     jsr set_occupied_square
     jsr board.draw_board
     ldx #$30 // ~0.75 seconds
     jsr common.wait_for_jiffy
     ldx board.icon.type
-    ldy main.temp.data__curr_icon_row
-    lda main.temp.data__curr_icon_col
+    ldy board.data__curr_icon_row
+    lda board.data__curr_icon_col
     jsr set_occupied_square
     ldx temp_selected_icon_store
-    ldy main.temp.data__curr_board_row
-    lda main.temp.data__curr_board_col
+    ldy board.data__curr_board_row
+    lda board.data__curr_board_col
     jsr set_occupied_square
     rts
 
@@ -223,15 +223,15 @@ spell_select_elemental:
     ldx #(BOARD_SIZE-1)
     ldy #$04 // Number magic sqaures (0 offset)
     lda game.data.magic_sqaure_occupancy_index+4
-    sta main.temp.data__temp_store
+    sta temp__data_store
 !loop:
-    cpx main.temp.data__temp_store // Up to next magic square?
+    cpx temp__data_store // Up to next magic square?
     bne !next+
     dey
     bmi check_next_square // No more magic squares
     // Store next magic square location.
     lda game.data.magic_sqaure_occupancy_index,y
-    sta main.temp.data__temp_store
+    sta temp__data_store
     jmp check_next_square
 !next:
     // Check if square has opposing player icon
@@ -263,9 +263,9 @@ allow_summon_elemental:
     beq !next+
     lda #$0A // Or 2 columns to the right of board for dark player
 !next:
-    sta main.temp.data__curr_board_col
+    sta board.data__curr_board_col
     lda #$04 // Middle row
-    sta main.temp.data__curr_board_row
+    sta board.data__curr_board_row
 !loop:
     // Create random elemental type.
     lda RANDOM
@@ -294,10 +294,10 @@ allow_summon_elemental:
     jsr board.write_text
     // Configure sprite and sound.
     ldx #$00
-    stx main.temp.data__curr_sprite_ptr
+    stx game.flag__selected_sprite
     jsr board.get_sound_for_icon
-    lda main.temp.data__curr_board_col
-    ldy main.temp.data__curr_board_row
+    lda board.data__curr_board_col
+    ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     jsr board.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
@@ -357,7 +357,7 @@ revive_error:
     bpl !loop-
     // Populate dead icon list.
     lda #BOARD_NUM_PLAYER_ICONS
-    sta main.temp.data__temp_store
+    sta temp__data_store
 !loop:
     lda game.curr_icon_strength,x
     bne !next+
@@ -380,7 +380,7 @@ check_dead_type_loop:
     beq !next++
 !next:
     inx
-    dec main.temp.data__temp_store
+    dec temp__data_store
     bne !loop-
 !next:
     lda data__number_dead_icons
@@ -412,12 +412,12 @@ check_dead_type_loop:
     pha
     asl
     asl
-    sta main.temp.data__temp_store
+    sta temp__data_store
     pla
     asl
     clc
-    adc main.temp.data__temp_store
-    sta main.temp.data__temp_store
+    adc temp__data_store
+    sta temp__data_store
     jsr display_dead_icon
     inc data__dead_icon_index
     lda data__dead_icon_index
@@ -429,9 +429,9 @@ check_dead_type_loop:
     beq !next+
     lda #$0A // Or 2 columns to the right of board for dark player
 !next:
-    sta main.temp.data__curr_board_col
+    sta board.data__curr_board_col
     ldy #$08
-    sty main.temp.data__curr_board_row
+    sty board.data__curr_board_row
     ldx #$04
     jsr board.convert_coord_sprite_pos
     sec
@@ -451,11 +451,11 @@ check_dead_type_loop:
     lda #ACTION_SELECT_REVIVE_ICON
     jsr spell_select_destination
     // Display selected icon sprite and allow user to select the destination.
-    lda main.temp.data__curr_board_col
-    ldy main.temp.data__curr_board_row
+    lda board.data__curr_board_col
+    ldy board.data__curr_board_row
     ldx #$00
     jsr board.convert_coord_sprite_pos
-    ldy main.temp.data__curr_board_row
+    ldy board.data__curr_board_row
     lda curr_dead_icon_offsets,y
     sta board.icon.offset
     lda curr_dead_icon_types,y
@@ -469,7 +469,7 @@ check_dead_type_loop:
     lda board.icon.init_strength,y
     sta game.curr_icon_strength,x // Restore icon health
     ldx #$00
-    stx main.temp.data__curr_sprite_ptr
+    stx game.flag__selected_sprite
     jsr board.get_sound_for_icon
     jsr board.sprite_initialize
     jsr board.add_sprite_set_to_graphics
@@ -490,13 +490,13 @@ display_dead_icon:
     ldy #$00
     ldx #$03 // 3 characters wide
 !loop:
-    lda main.temp.data__temp_store
+    lda temp__data_store
     sta (FREEZP+2),y
     lda (VARPNT),y
     ora #$08 // Derive color
     sta (VARPNT),y
     iny
-    inc main.temp.data__temp_store
+    inc temp__data_store
     dex
     bne !loop-
     lda FREEZP+2
@@ -547,9 +547,9 @@ spell_select_imprison:
     bmi !next+
     ldy #$00
 !next:
-    sty main.temp.data__temp_store
+    sty temp__data_store
     lda main.state.curr_cycle+3
-    cmp main.temp.data__temp_store
+    cmp temp__data_store
     beq display_spell_wasted
     //
     lda #STRING_IMPRISON_WHICH
@@ -581,7 +581,7 @@ display_spell_wasted:
 // - Y: Spell ID
 get_selected_spell:
     lda #$00
-    sta main.temp.data__temp_store // Selected spell
+    sta temp__data_store // Selected spell
     sta data__hold_delay_count
     jsr set_selected_spell
     lda game.curr_player_offset
@@ -601,7 +601,7 @@ spell_selection_loop:
     bne !next+
     // Select spell.
     sta data__hold_delay_count
-    ldy main.temp.data__temp_store
+    ldy temp__data_store
     rts
 !next:
     lda CIAPRA,x
@@ -629,13 +629,13 @@ select_previous_spell:
     and #$0F
     bne !return+
 get_previous_spell:
-    lda main.temp.data__temp_store
+    lda temp__data_store
     sec
     sbc #$01
     bpl !next+
     lda #$07 // Wrap back to last spell
 !next:
-    sta main.temp.data__temp_store
+    sta temp__data_store
     tay
     cpy #SPELL_ID_CEASE
     beq display_spell // Don't check if spell is used if cease casting option selected
@@ -652,7 +652,7 @@ select_next_spell:
     cmp #$0F
     bne !return-
 get_next_spell:
-    lda main.temp.data__temp_store
+    lda temp__data_store
     clc
     adc #$01
 set_selected_spell:
@@ -660,7 +660,7 @@ set_selected_spell:
     bcc !next+
     lda #$00 // Wrap back to first spell
 !next:
-    sta main.temp.data__temp_store
+    sta temp__data_store
     tay
     cpy #SPELL_ID_CEASE // Cease casting?
     beq display_spell // Don't check if spell is used if cease casting option selected
@@ -678,7 +678,7 @@ display_spell:
     bcc !loop-
     // Display the name of the spell.
     ldx #(CHARS_PER_SCREEN_ROW+10)
-    ldy main.temp.data__temp_store
+    ldy temp__data_store
     lda data.spell_string_id,y
     jsr board.write_text
     rts
@@ -702,9 +702,9 @@ spell_complete:
     lda #STRING_SPELL_CANCELED
     jsr board.write_text
     lda temp_row_store
-    sta main.temp.data__curr_icon_row
+    sta board.data__curr_icon_row
     lda temp_column_store
-    sta main.temp.data__curr_icon_col
+    sta board.data__curr_icon_col
     ldx #$40 // ~1 sec
     jsr common.wait_for_jiffy
     jmp select_spell_start
@@ -822,18 +822,18 @@ spell_select:
     //       spell). This will use the transport animation (eg $80 means fly, $40 means transport and $0f means move up
     //       to 15 squares).
 check_valid_square:
-    lda main.temp.data__curr_board_row
-    sta main.temp.data__curr_row
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_column
+    lda board.data__curr_board_row
+    sta board.data__curr_row
+    lda board.data__curr_board_col
+    sta board.data__curr_column
     jsr board.test_magic_square_selected
-    lda main.temp.flag__icon_destination_valid
+    lda game.flag__icon_destination_valid
     bmi spell_abort_magic_square
 !next:
     jmp (prt__spell_fn)
 spell_abort_magic_square:
     pla
-    lsr main.temp.flag__icon_destination_valid // Invalid selection
+    lsr game.flag__icon_destination_valid // Invalid selection
     lda #(FLAG_ENABLE+STRING_CHARMED_PROOF)
     bmi spell_end_turn
 
@@ -851,7 +851,7 @@ spell_check_icon_is_free:
     beq !next+
     cmp game.imprisoned_icon_id+1
     beq !next+
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
 !return:
     rts
 !next:
@@ -882,7 +882,7 @@ spell_select_player_icon:
     eor game.state.flag__is_light_turn
     and #$08
     bne !return- // Not current player icon
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
     rts
 
 // 8833
@@ -900,31 +900,31 @@ spell_select_charmed_square:
     pla
     bpl !return- // Occupied square selected
     // Check if selected square is immediately above or below the spell caster.
-    ldy main.temp.data__curr_board_row
-    cpy main.temp.data__curr_icon_row
+    ldy board.data__curr_board_row
+    cpy board.data__curr_icon_row
     beq !next+
     dey
-    cpy main.temp.data__curr_icon_row
+    cpy board.data__curr_icon_row
     beq !next+
     iny
     iny
-    cpy main.temp.data__curr_icon_row
+    cpy board.data__curr_icon_row
     bne !return+
 !next:
     // Check if selected square is immediately to the left or right of the spell caster.
-    ldy main.temp.data__curr_board_col
-    cpy main.temp.data__curr_icon_col
+    ldy board.data__curr_board_col
+    cpy board.data__curr_icon_col
     beq !next+
     dey
-    cpy main.temp.data__curr_icon_col
+    cpy board.data__curr_icon_col
     beq !next+
     iny
     iny
-    cpy main.temp.data__curr_icon_col
+    cpy board.data__curr_icon_col
     bne !return+
 !next:
     jsr board.add_icon_to_matrix
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
 !return:
     rts
 
@@ -940,7 +940,7 @@ spell_select_opposing_icon:
     eor game.state.flag__is_light_turn
     and #$08
     beq !return- // Not opposing player icon
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
 !return:
     rts
 
@@ -964,14 +964,14 @@ spell_select_free_player_icon:
 // Action command: `ACTION_SELECT_REVIVE_ICON` ($87)
 spell_select_revive_icon:
     pla
-    ldy main.temp.data__curr_board_row
+    ldy board.data__curr_board_row
     cpy #$08 // Max 8 icons in dead icon list
     bcs !return-
     lda curr_dead_icon_offsets,y
     cmp #DEAD_ICON_SLOT_UNUSED
     beq !return-
     sta board.icon.type
-    asl main.temp.flag__icon_destination_valid
+    asl game.flag__icon_destination_valid
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1006,19 +1006,17 @@ spell_select_revive_icon:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
+// Data
 //---------------------------------------------------------------------------------------------------------------------
-// Data in this area are not cleared on state change.
 .segment Data
 
 // 6AFD
 used_elemental_id: .byte $00 // ID of used elemental. Used to ensure opposing player will generate a unique elemental.
 
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
-//
-.segment DynamicData
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Variables
 
 // BD0E
 curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell
@@ -1082,3 +1080,11 @@ data__curr_count: .byte $00
 // BD66
 // Pointer to function to execute selected spell logic.
 prt__spell_fn: .word $0000
+
+// BCFE
+// Is set if the selected square is a magic square.
+flag__sqaure_is_magic: .byte $00
+
+// BF1A
+// Generic temporary data storage area
+temp__data_store: .byte $00

@@ -65,9 +65,9 @@ add_icon:
     lda icon.data+1,x
     sta data__num_icons
     lda icon.data+2,x
-    sta main.temp.data__curr_board_col
+    sta board.data__curr_board_col
     lda icon.data+3,x
-    sta main.temp.data__curr_board_row
+    sta board.data__curr_board_row
     jsr animate_icon
     lda data__icon_offset
     clc
@@ -87,8 +87,8 @@ add_icon:
 // Description:
 // - Adds an icon to the board.
 // Prerequisites:
-// - `main.temp.data__curr_board_col`: Destination column of piece
-// - `main.temp.data__curr_board_row`: Starting destination row of piece
+// - `board.data__curr_board_col`: Destination column of piece
+// - `board.data__curr_board_row`: Starting destination row of piece
 // - `board.icon.type`: Type of piece to animation in to destination square
 // - `data__num_icons`: Number of icons to add to board
 // Notes:
@@ -97,18 +97,18 @@ add_icon:
 // - If number of icons is set to 7, the destination row is incremented for each piece added.
 animate_icon:
     ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
-    lda main.temp.data__curr_board_col
-    ldy main.temp.data__curr_board_row
+    lda board.data__curr_board_col
+    ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     sta data__sprite_final_x_pos
     sty data__sprite_final_y_pos
     lda data__num_icons
     cmp #$07 // Adding 7 icons (knights, goblins)?
     bne !next+
-    sta main.temp.data__curr_board_row // Start at row 7
+    sta board.data__curr_board_row // Start at row 7
 add_7_icons:
     jsr board.add_icon_to_matrix
-    dec main.temp.data__curr_board_row
+    dec board.data__curr_board_row
     bne add_7_icons
     lda #$01 // Unused code?
     ldx #$10
@@ -120,16 +120,16 @@ add_7_icons:
     cmp #$02 // Adding 2 icons?
     bcc add_icon_to_board
     // Add 2 icons.
-    lda main.temp.data__curr_board_row
-    sta main.temp.data__curr_line
+    lda board.data__curr_board_row
+    sta board.data__curr_row
     lda #$08
     sec
-    sbc main.temp.data__curr_board_row
-    sta main.temp.data__curr_board_row
+    sbc board.data__curr_board_row
+    sta board.data__curr_board_row
     jsr board.add_icon_to_matrix
-    lda main.temp.data__curr_line
+    lda board.data__curr_row
     sec
-    sbc main.temp.data__curr_board_row
+    sbc board.data__curr_board_row
     bcs !next+
     eor #$FF
     adc #$01
@@ -141,6 +141,7 @@ add_7_icons:
     eor #$FF
     adc #$01
     sta data__sprite_y_offset
+    // BF11
 add_icon_to_board:
     // Creates sprites for each icon and animates them walking/flying in to the board position.
     lda #$00 // Starting X position
@@ -154,7 +155,7 @@ add_icon_to_board:
     sta data__sprite_x_pos
     ldx data__num_icons
     dex
-    stx main.temp.data__curr_sprite_ptr
+    stx data__curr_sprite_ptr
 !loop:
     lda data__sprite_x_pos
     sta common.sprite.curr_x_pos,x
@@ -190,7 +191,7 @@ add_icon_to_board:
     lda #BLACK // Set multicolor background color to black
     sta SPMC0
     // Calculate starting Y position and color of each sprite.
-    ldx main.temp.data__curr_sprite_ptr
+    ldx data__curr_sprite_ptr
 !loop:
     lda SP0COL
     sta SP0COL,x
@@ -205,7 +206,7 @@ add_icon_to_board:
     lda #FLAG_ENABLE
     sta board.sprite.flag__copy_animation_group
     and game.state.flag__is_light_turn
-    sta main.temp.data__icon_set_sprite_frame
+    sta board.data__icon_set_sprite_frame
     lda #$04
     sta common.sprite.init_animation_frame
     lda common.sprite.mem_ptr_00
@@ -224,7 +225,7 @@ add_icon_to_board:
     bcc !next+
     inc FREEZP+3
 !next:
-    inc main.temp.data__icon_set_sprite_frame
+    inc board.data__icon_set_sprite_frame
     dec common.sprite.init_animation_frame
     bne !loop-
     // Display icon name.
@@ -271,7 +272,7 @@ update_sprite:
     ldy #$FF
 !next:
     sty data__sprite_x_adj // Set direction
-    ldx main.temp.data__curr_sprite_ptr
+    ldx data__curr_sprite_ptr
     lda flag__sprite_direction
     eor #$FF
     sta flag__sprite_direction
@@ -299,7 +300,7 @@ update_sprite_pos:
 next_sprite:
     dex
     bpl check_sprite // Set additional sprites
-    ldx main.temp.data__curr_sprite_ptr
+    ldx data__curr_sprite_ptr
     cpx data__curr_count
     bne !next+
     //
@@ -339,7 +340,7 @@ next_sprite:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-.segment DynamicData
+.segment Variables
 
 // BD3A
 // Offset of current icon being rendered on to the board.
@@ -380,6 +381,10 @@ flag__update_sprite_pos: .byte $00
 // BCEF
 // Alternating icon direction (icons walk one one type at a time, alternating between sides).
 flag__sprite_direction: .byte $00
+
+// BD26
+// Current sprite location pointer.
+data__curr_sprite_ptr: .byte $00
 
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64

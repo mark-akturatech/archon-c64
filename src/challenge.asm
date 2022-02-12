@@ -47,14 +47,14 @@ entry:
     // - Dark piece: Adds 7-strength (so if on white it adds 0, if on black adds 7)
     // - Light piece: Adds strength (so if on white it adds 7, black it adds 0)
     // Therefore a pieces strength will increase by up to 7 depending upon the color or phase of the challenged square.
-    ldy main.temp.data__curr_board_row
-    sty main.temp.data__curr_icon_row
+    ldy board.data__curr_board_row
+    sty board.data__curr_icon_row
     lda board.data.row_color_offset_lo_ptr,y
     sta CURLIN
     lda board.data.row_color_offset_hi_ptr,y
     sta CURLIN+1
-    ldy main.temp.data__curr_board_col
-    sty main.temp.data__curr_icon_col
+    ldy board.data__curr_board_col
+    sty board.data__curr_icon_col
     lda (CURLIN),y
     sta curr_square_color // Color of the sqauare - I don't think this is used anywhere
     // Get the battle sqauer color (a) and a number between 0 and 7 (y). 0 is strongest on black, 7 is strongest on
@@ -114,8 +114,8 @@ vary_square:
     sta board.sprite.copy_length
     jsr board.add_sprite_set_to_graphics
     // Place the sprite at the challenge square.
-    lda main.temp.data__curr_board_col
-    ldy main.temp.data__curr_board_row
+    lda board.data__curr_board_col
+    ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
 
 !next:
@@ -129,9 +129,7 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
-.segment DynamicData
+.segment Variables
 
 // BD12
 // Calculated strength adjustment based on color of the challenge square.

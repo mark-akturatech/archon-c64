@@ -53,9 +53,9 @@ entry:
     bpl !next+
     lda #$0A // Or 2 columns to the right of board for dark player
 !next:
-    sta main.temp.data__curr_board_col
+    sta board.data__curr_board_col
     ldy #$04 // row
-    sty main.temp.data__curr_board_row
+    sty board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     sec
     sbc #$02
@@ -259,7 +259,7 @@ check_game_state:
     //
 play_turn:
     lda #$01 // Each turn can have up to 2 icons enabled - 00=icon sprite, and 01=square selection sprite
-    sta main.temp.data__curr_sprite_ptr
+    sta flag__selected_sprite
     lda #$00
     sta curr_icon_move_speed
     sta game.state.flag__is_turn_started
@@ -291,11 +291,11 @@ play_turn:
     ldx #$0A
     jsr board.write_text
     // Configure icon initial location.
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_icon_col
+    lda board.data__curr_board_col
+    sta board.data__curr_icon_col
     sta icon_move_col_buffer
-    ldy main.temp.data__curr_board_row
-    sty main.temp.data__curr_icon_row
+    ldy board.data__curr_board_row
+    sty board.data__curr_icon_row
     sty icon_move_row_buffer
     // Copy sprite animation set for selected icon in to graphical memory.
     ldx #$00
@@ -348,7 +348,7 @@ select_icon:
     bvs set_icon_speed // Don't remove piece from board if selected icon can teleport
     jsr board.draw_board
     lda #$00 // 00 for moving select icon (01 for moving selection square)
-    sta main.temp.data__curr_sprite_ptr
+    sta flag__selected_sprite
     // Configure and enable selected icon sprite.
     lda SPMC
     ora #%0000_0001
@@ -449,7 +449,7 @@ regenerate_hitpoints:
     txa
     sec
     sbc #BOARD_NUM_PLAYER_ICONS
-    sta main.temp.data__temp_store // First player icon (offset by 1)
+    sta data__icon_counter // First player icon (offset by 1)
 !loop:
     lda curr_icon_strength,x
     beq !next+ // Icon is dead
@@ -459,7 +459,7 @@ regenerate_hitpoints:
     inc curr_icon_strength,x
 !next:
     dex
-    cpx main.temp.data__temp_store
+    cpx data__icon_counter
     bne !loop-
     rts
 
@@ -640,12 +640,12 @@ game_over__show_winner:
 !next:
     jmp !loop-
 
-// 7906
+// 7912
 // Description:
 // - Checks if any of the squares surrounding the current square is empty and non-magical.
 // Prerequisites:
-// - `main.temp.data__curr_icon_row`: row of source square
-// - `main.temp.data__curr_icon_col`: column of source square
+// - `board.data__curr_icon_row`: row of source square
+// - `board.data__curr_icon_col`: column of source square
 // Sets:
 // - `game.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
 // - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
@@ -663,16 +663,16 @@ check_empty_non_magic_surrounding_square:
     cmp #$09 // Only test columns 0-8
     bcs !next+
     tay
-    sty main.temp.data__curr_row
+    sty board.data__curr_row
     lda board.surrounding_square_column,x
     bmi !next+
     cmp #$09 // Only test rows 0-8
     bcs !next+
-    sta main.temp.data__curr_column
+    sta board.data__curr_column
     jsr get_square_occupancy
     bpl !next+
     jsr board.test_magic_square_selected
-    lda main.temp.flag__icon_destination_valid
+    lda game.flag__icon_destination_valid
     bmi !next+
     // Empty non-magical square found.
     lda state.flag__is_light_turn
@@ -782,7 +782,7 @@ joystick_icon_select:
     cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq !next+
     // Ensure selected column is within bounds.
-    lda main.temp.data__curr_board_col
+    lda board.data__curr_board_col
     bmi move_sprite_to_square
     cmp #$09
     bcs move_sprite_to_square
@@ -800,7 +800,7 @@ joystick_icon_select:
     lda #$10 // Wait 10 interrupts before allowing icon destination square selection
     sta curr_debounce_count
     jsr select_or_move_icon
-    lda main.temp.flag__icon_destination_valid
+    lda game.flag__icon_destination_valid
     bmi !next+
     lda flag__new_square_selected
     bpl move_sprite_to_square
@@ -880,7 +880,7 @@ check_joystick_up_down:
     bpl set_sprite_square_pos
     jsr display_message
 set_sprite_square_pos:
-    ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
+    ldx flag__selected_sprite // 01 if moving selection square, 00 if moving icon
     lda data__board_sprite_move_x_count // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
     bmi check_move_sprite_left
@@ -957,55 +957,55 @@ render_selected_sprite:
 
 // 861E
 set_square_right:
-    lda main.temp.data__curr_board_col
+    lda board.data__curr_board_col
     bmi !next+
     cmp #$08 // Already on last column?
     bcs !return+
     tay
     iny
-    sty main.temp.data__curr_column
-    lda main.temp.data__curr_board_row
-    sta main.temp.data__curr_line
+    sty board.data__curr_column
+    lda board.data__curr_board_row
+    sta board.data__curr_row
     lda #$00 // Stating animation frame 0
     sta icon_dir_frame_offset
     jsr verify_valid_move
 !next:
     lda #$0C // Move 12 pixels to the right
     sta data__board_sprite_move_x_count
-    inc main.temp.data__curr_board_col
+    inc board.data__curr_board_col
     inc flag__new_square_selected
 !return:
     rts
 
 // 8646
 set_square_left:
-    lda main.temp.data__curr_board_col
+    lda board.data__curr_board_col
     bmi !return+
     beq !return+ // Already on first column?
     tay
     dey
-    sty main.temp.data__curr_column
-    lda main.temp.data__curr_board_row
-    sta main.temp.data__curr_line
+    sty board.data__curr_column
+    lda board.data__curr_board_row
+    sta board.data__curr_row
     lda #$11 // Left facing icon
     sta icon_dir_frame_offset
     jsr verify_valid_move
     lda #$8C // Move 12 pixels to the left
     sta data__board_sprite_move_x_count
-    dec main.temp.data__curr_board_col
+    dec board.data__curr_board_col
     inc flag__new_square_selected
 !return:
     rts
 
 // 866C
 set_square_up:
-    lda main.temp.data__curr_board_row
+    lda board.data__curr_board_row
     beq !return+ // Already on first row?
     tay
     dey
-    sty main.temp.data__curr_line
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_column
+    sty board.data__curr_row
+    lda board.data__curr_board_col
+    sta board.data__curr_column
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -1015,7 +1015,7 @@ set_square_up:
     jsr verify_valid_move
     lda #$90 // Move 16 pixels up
     sta data__board_sprite_move_y_count
-    dec main.temp.data__curr_board_row
+    dec board.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
 !return:
@@ -1023,14 +1023,14 @@ set_square_up:
 
 // 8699
 set_square_down:
-    lda main.temp.data__curr_board_row
+    lda board.data__curr_board_row
     cmp #$08 // Already on last row?
     bcs !return+
     tay
     iny
-    sty main.temp.data__curr_line
-    lda main.temp.data__curr_board_col
-    sta main.temp.data__curr_column
+    sty board.data__curr_row
+    lda board.data__curr_board_col
+    sta board.data__curr_column
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -1040,7 +1040,7 @@ set_square_down:
     jsr verify_valid_move
     lda #$10 // Move down 16 pixels
     sta data__board_sprite_move_y_count
-    inc main.temp.data__curr_board_row
+    inc board.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
 !return:
@@ -1054,8 +1054,8 @@ set_square_down:
 // the RTS will return from the calling subroutine. The calling subroutine calls this sub just before adding to the
 // X or Y movement counters, so this stops the icon or square from moving.
 // Prerequisites:
-// - Selected square column must be stored in `main.temp.data__curr_column`
-// - Selected square row must be stored in `main.temp.data__curr_row`
+// - Selected square column must be stored in `board.data__curr_column`
+// - Selected square row must be stored in `board.data__curr_row`
 // - Current number of moves held in `curr_icon_move_count`
 // - Total number of moves held in `curr_icon_total_moves`
 // - Path of previous moves stored in `icon_move_col_buffer` and `icon_move_row_buffer`
@@ -1068,10 +1068,10 @@ verify_valid_move:
     beq check_occupied_on_move
     dey
     lda icon_move_col_buffer,y
-    cmp main.temp.data__curr_column
+    cmp board.data__curr_column
     bne check_occupied_on_move
     lda icon_move_row_buffer,y
-    cmp main.temp.data__curr_row
+    cmp board.data__curr_row
     bne check_occupied_on_move
     dec curr_icon_move_count
     rts
@@ -1082,9 +1082,9 @@ check_occupied_on_move:
     // Store the move so that we can check the move path to calculate the total number of moves.
     inc curr_icon_move_count
     ldy curr_icon_move_count
-    lda main.temp.data__curr_row
+    lda board.data__curr_row
     sta icon_move_row_buffer,y
-    lda main.temp.data__curr_column
+    lda board.data__curr_column
     sta icon_move_col_buffer,y
     rts
 check_move_limit:
@@ -1099,9 +1099,9 @@ check_move_limit:
 // This method also detects double fire on a spell caster and activates spell selection.
 select_or_move_icon:
     lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-    sta main.temp.flag__icon_destination_valid
-    ldy main.temp.data__curr_board_row
-    lda main.temp.data__curr_board_col
+    sta game.flag__icon_destination_valid
+    ldy board.data__curr_board_row
+    lda board.data__curr_board_col
     jsr get_square_occupancy
     ldx magic.curr_spell_cast_selection // Magic caster selected
     beq !next+
@@ -1120,7 +1120,7 @@ check_icon_destination:
     and #$08
     beq !return+ // Do nothing if click on occupied square of same color
     lda #FLAG_ENABLE // Valid action
-    sta main.temp.flag__icon_destination_valid
+    sta game.flag__icon_destination_valid
     sta flag__is_challenge_required
     // Set flag if icon transports instead of moves. Used to determine if should show icon moving between squares or
     // keep the current square selection icon.
@@ -1132,11 +1132,11 @@ check_icon_destination:
     rts
     //
 select_icon_destination:
-    lda main.temp.data__curr_board_col
-    cmp main.temp.data__curr_icon_col
+    lda board.data__curr_board_col
+    cmp board.data__curr_icon_col
     bne set_icon_destination
-    lda main.temp.data__curr_board_row
-    cmp main.temp.data__curr_icon_row
+    lda board.data__curr_board_row
+    cmp board.data__curr_icon_row
     bne set_icon_destination
     bit curr_icon_total_moves
     bvc !return+ // Don't allow drop on selected piece source square if not a spell caster
@@ -1155,7 +1155,7 @@ add_icon_to_destination:
     lda board.icon.type
     sta (FREEZP),y
 !next:
-    asl main.temp.flag__icon_destination_valid // Set valid move
+    asl game.flag__icon_destination_valid // Set valid move
 !return:
     rts
     //
@@ -1177,7 +1177,7 @@ select_icon_to_move:
     beq !next+
     // Accept destination.
     lda #FLAG_ENABLE
-    sta main.temp.flag__icon_destination_valid
+    sta game.flag__icon_destination_valid
     ldx magic.curr_spell_cast_selection // Don't clear square if selected a magic caster as they teleport instead of moving
     bmi !return-
     sta (FREEZP),y // Clears current square as piece is now moving
@@ -1204,8 +1204,8 @@ get_square_occupancy:
 // Challenge warning is only shown if try to move off a square occupied by the other player. The player must either
 // challenge or move to the previous square they were in to continue moving.
 warn_on_challenge:
-    ldy main.temp.data__curr_board_row
-    lda main.temp.data__curr_board_col
+    ldy board.data__curr_board_row
+    lda board.data__curr_board_col
     jsr get_square_occupancy
     cmp #BOARD_EMPTY_SQUARE
     beq !return+
@@ -1226,8 +1226,8 @@ warn_on_challenge:
 // 88E1
 // Detect if the destination square is already occupied by an icon for the same player. Abort the move it is is.
 warn_on_occupied_square:
-    ldy main.temp.data__curr_row
-    lda main.temp.data__curr_column
+    ldy board.data__curr_row
+    lda board.data__curr_column
     jsr get_square_occupancy
     cmp #BOARD_EMPTY_SQUARE
     beq !return+
@@ -1248,17 +1248,17 @@ warn_on_occupied_square:
 // 8903
 // Calculate if diagonal move limit exceeded.
 warn_on_diagonal_move_exceeded:
-    lda main.temp.data__curr_column
+    lda board.data__curr_column
     sec
-    sbc main.temp.data__curr_icon_col
+    sbc board.data__curr_icon_col
     bcs !next+
     eor #$FF
     adc #$01
 !next:
     sta data__temp_col_calc_store
-    lda main.temp.data__curr_row
+    lda board.data__curr_row
     sec
-    sbc main.temp.data__curr_icon_row
+    sbc board.data__curr_icon_row
     bcs !next+
     eor #$FF
     adc #$01
@@ -1327,8 +1327,8 @@ transport_icon:
     // Configure source icon.
     lda #(BYTERS_PER_STORED_SPRITE-1)
     sta data__sprite_byte_count
-    lda main.temp.data__curr_icon_col
-    ldy main.temp.data__curr_icon_row
+    lda board.data__curr_icon_col
+    ldy board.data__curr_icon_row
     jsr board.convert_coord_sprite_pos
     ldy board.icon.type
     lda board.icon.init_matrix,y
@@ -1345,7 +1345,7 @@ transport_icon:
     beq !next+
     lda #FLAG_ENABLE // Invert sprite
 !next:
-    sta main.temp.data__icon_set_sprite_frame
+    sta board.data__icon_set_sprite_frame
     jsr board.add_sprite_to_graphics
     //
     ldx #$01
@@ -1361,8 +1361,8 @@ transport_icon:
     jsr board.draw_board
     // Configure destination icon.
     ldx #$01
-    lda main.temp.data__curr_board_col
-    ldy main.temp.data__curr_board_row
+    lda board.data__curr_board_col
+    ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     jsr board.render_sprite
     // Configure transport sound effect.
@@ -1470,10 +1470,8 @@ transport_icon_interrupt:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
+// Data
 //---------------------------------------------------------------------------------------------------------------------
-// Data in this area are not cleared on state change.
-//
 .segment Data
 
 .namespace state {
@@ -1492,10 +1490,9 @@ transport_icon_interrupt:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
-//
-.segment DynamicData
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Variables
 
 // BCEB
 icon_dir_frame_offset: .byte $00 // Icon direction initial sprite frame offset
@@ -1625,6 +1622,18 @@ data__temp_row_calc_store: .byte $00
 // Temporary counter storage.
 data__curr_count: .byte $00
 
+// BCFE
+// Is set if the selected square is a valid selection.
+flag__icon_destination_valid: .byte $00
+
 // BF22
-// is TRUE if a surrounding square is valid for movement or magical spell
+// Is TRUE if a surrounding square is valid for movement or magical spell.
 flag__is_valid_square: .byte $00
+
+// BD26
+// Sprite selection flag. Is used to determine if moving selection square ($01) or selected icon ($00).
+flag__selected_sprite: .byte $00
+
+// BF1A
+// Icon loop counter.
+data__icon_counter: .byte $00

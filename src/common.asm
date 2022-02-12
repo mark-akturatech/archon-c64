@@ -107,7 +107,7 @@ advance_intro_state:
     // Skip intro.
     lda #FLAG_DISABLE
     sta main.state.flag__enable_intro
-    sta main.interrupt.flag__set_new_state
+    sta main.state.flag__set_new
     rts
 
 // 6490
@@ -133,7 +133,7 @@ wait_for_jiffy:
 // Description:
 // - Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `main.interrupt.flag__set_new_state` is toggled if RUN/STOP pressed.
+// - `main.state.flag__set_new` is toggled if RUN/STOP pressed.
 // Notes:
 // - Game is reset if Q key is pressed.
 // - Subroutine waits for key to be released before exiting.
@@ -151,9 +151,9 @@ check_stop_keypess:
     jsr advance_intro_state
     jmp main.restart_game_loop
 !next:
-    lda main.interrupt.flag__set_new_state
+    lda main.state.flag__set_new
     eor #$FF
-    sta main.interrupt.flag__set_new_state
+    sta main.state.flag__set_new
 !loop:
     jsr STOP
     beq !loop-
@@ -333,9 +333,9 @@ play_music:
     asl
     tay
     lda sound.note_data_fn_ptr,y
-    sta voice_note_fn_ptr
+    sta sound.voice_note_fn_ptr
     lda sound.note_data_fn_ptr+1,y
-    sta voice_note_fn_ptr+1
+    sta sound.voice_note_fn_ptr+1
     lda sound.voice_io_addr,y
     sta FREEZP+2
     lda sound.voice_io_addr+1,y
@@ -442,7 +442,7 @@ set_note:
 // Read note from current music loop and increment the note pointer.
 get_note: // Get note for current voice and increment note pointer
     ldy #$00
-    jmp (voice_note_fn_ptr)
+    jmp (sound.voice_note_fn_ptr)
 
 // A143
 get_note_V1: // Get note for voice 1 and increment note pointer
@@ -653,7 +653,7 @@ intro_music:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
+// Data
 //---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
 //
@@ -671,10 +671,9 @@ intro_music:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
-//
-.segment DynamicData
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment Variables
 
 .namespace sprite {
     // BCE3
@@ -717,8 +716,8 @@ intro_music:
 
     // BF50
     flag__play_outro: .byte $00 // Is 00 for title music and 80 for game end music
-}
 
-// BD66
-// Function pointer to retrieve a note for the current voice. 
-voice_note_fn_ptr: .word $0000
+    // BD66
+    // Function pointer to retrieve a note for the current voice. 
+    voice_note_fn_ptr: .word $0000
+}

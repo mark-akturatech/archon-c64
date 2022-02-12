@@ -14,9 +14,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 // See README.md file for additional information.
 
-// TODO:
-// - Standardise data label naming
-
 //---------------------------------------------------------------------------------------------------------------------
 // Memory map
 //---------------------------------------------------------------------------------------------------------------------
@@ -35,10 +32,9 @@
 .segmentdef RelocatedResources [startAfter="Assets", virtual, hide]
 //
 .segmentdef Data [start=$c000, virtual] // Data set once on game initialization
-.segmentdef DynamicDataStart [startAfter="Data", virtual, hide] // Data that is reset on each game state change
-.segmentdef DynamicData [startAfter="DynamicDataStart", virtual]
-.segmentdef DynamicDataEnd [startAfter="DynamicData", virtual, hide]
-//
+.segmentdef VariablesStart [startAfter="Data", virtual, hide] // Data that is reset on each game state change
+.segmentdef Variables [startAfter="VariablesStart", virtual]
+.segmentdef VariablesEnd [startAfter="Variables", virtual, hide]
 
 //---------------------------------------------------------------------------------------------------------------------
 // Output File
@@ -53,7 +49,7 @@
 // The source code is split in to the following files:
 // - `main`: Main game loop.
 // - `resources`: Game resources such as sprites, character sets and music phraseology.
-// - `common`: Library of subroutines and assets used by two or more source code files.
+// - `common`: Library of subroutines and assets used by both the intro and game states.
 // - `board`: Subroutines and assets used to render the game board.
 // - `intro`: Subroutines and assets used by the intro page (eg the dancing logo page).
 // - `board_walk`: Subroutines and assets used during the introduction to walk icons on to the board.
@@ -106,10 +102,10 @@ entry:
     lda #$03 // Set number of large jiffies before game auto plays after intro (~12s as each tick is ~4s)
     sta board.countdown_timer
     //
-    lda flag__is_initialized
-    bmi skip_move
-    jsr resource.move
-skip_move:
+    lda resource.flag__is_relocated
+    bmi !skip+
+    jsr resource.relocate
+!skip:
     jsr init
     //
 restart_game_loop:
@@ -119,11 +115,14 @@ restart_game_loop:
     jsr common.stop_sound
     //
     // Clears variable storage area.
-    lda #<dynamic_data_start
+    // Note that the logic below will clear past the end of the storage area up to #$ff. This is probably done as it
+    // may be more efficient to clear a little bit of extra memory instead of having additional logic to clear the
+    // exact number of bytes.
+    lda #<variables_start
     sta FREEZP+2
-    lda #>dynamic_data_start
+    lda #>variables_start
     sta FREEZP+3
-    ldx #>((dynamic_data_end+$0100)-dynamic_data_start) // Number of blocks to clear + 1
+    ldx #>(variables_end-variables_start+1) // Number of blocks to clear + 1
     lda #$00
     tay
 !loop:
@@ -173,10 +172,10 @@ restart_game_loop:
 #if INCLUDE_INTRO
     // Display the game intro (bouncing Archon).
     lda state.flag__enable_intro
-    beq skip_intro
+    beq !skip+
     jsr play_intro
 #endif
-skip_intro:
+!skip:
     //
     // Configure SID for main game.
     lda #$08
@@ -204,13 +203,13 @@ skip_intro:
 #if INCLUDE_INTRO
     // Display the board intro (walking icons).
     lda state.flag__enable_intro
-    beq skip_board_walk
+    beq !skip+
     jsr board_walk.entry
 #else
     lda #%1111_1111 // Enable all sprites
     sta SPENA
 #endif
-skip_board_walk:
+!skip:
     //
     lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
@@ -220,7 +219,8 @@ skip_board_walk:
     sta state.last_stored_time // Store time - used to start game if timeout on options page
     //
     // Clear used spell flags.
-    ldx #$0D // 7 spells per size (14 total - zero based)
+    .const NUMBER_SPELLS = 7
+    ldx #(NUMBER_SPELLS*2-1) // Total spells (14 total - zero based)
     lda #SPELL_UNUSED
 !loop:
     sta magic.flag__light_used_spells,x
@@ -231,34 +231,37 @@ skip_board_walk:
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
     // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
     lda #BOARD_NUM_PLAYER_ICONS
-    sta temp.data__temp_store // Player 2 icon matrix offset
+    sta data__dark_icon_matrix_offset
     lda #$00
-    sta temp.data__temp_store+1 // Player 1 icon matrix offset
+    sta data__light_icon_matrix_offset
     tax
 board_setup_row_loop:
+    // Light icons.
     ldy #$02
-board_setup_player_1_loop:
-    lda temp.data__temp_store+1
+!loop:
+    lda data__light_icon_matrix_offset
     sta game.curr_square_occupancy,x
-    inc temp.data__temp_store+1
+    inc data__light_icon_matrix_offset
     inx
     dey
-    bne board_setup_player_1_loop
+    bne !loop-
+    // Empty squares.
     ldy #$05
     lda #BOARD_EMPTY_SQUARE
-board_setup_empty_col_loop:
+!loop:
     sta game.curr_square_occupancy,x
     inx
     dey
-    bne board_setup_empty_col_loop
+    bne !loop-
+    // Dark icons.
     ldy #$02
-board_setup_player_2_loop:
-    lda temp.data__temp_store
+!loop:
+    lda data__dark_icon_matrix_offset
     sta game.curr_square_occupancy,x
-    inc temp.data__temp_store
+    inc data__dark_icon_matrix_offset
     inx
     dey
-    bne board_setup_player_2_loop
+    bne !loop-
     cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
     bcc board_setup_row_loop
     //
@@ -402,11 +405,8 @@ play_intro:
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
 //---------------------------------------------------------------------------------------------------------------------
-// Assets are constant data, initialized variables and resources that are included in the prg file.
+// Assets are constant data. Assets are permanent and will not change during the program lifetime.
 .segment Assets
-
-// 02A7
-flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized
 
 .namespace state {
     // 4760
@@ -467,20 +467,21 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
+// Variable data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
 // of the data area.
-.segment DynamicDataStart
-    dynamic_data_start:
-
-.segment DynamicData
-
-.namespace interrupt {
-    // BCD3
-    // Is set to non zero if the game state should be updated after interrupt ha completed.
-    flag__set_new_state: .byte $00
-}
+//
+// The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
+// calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the
+// start of each game loop.
+.segment VariablesStart
+    variables_start:
+.segment Variables
 
 .namespace state {
+    // BCD3
+    // Is set to non zero if the game state should be updated after interrupt ha completed.
+    flag__set_new: .byte $00
+    
     // BD27
     // Last recorded major jiffy clock counter (256 jiffy counter).
     last_stored_time: .byte $00
@@ -494,57 +495,12 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
     curr_cycle: .byte $00, $00, $00, $00
 }
 
-// Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
-// readbility.
-.namespace temp {
-    // BCFE
-    flag__icon_destination_valid: // Action on icon square drop selection
-        .byte $00
+// BF1A
+// Offset of the current light icon type.
+data__dark_icon_matrix_offset: .byte $00
 
-    // BD26
-    data__curr_sprite_ptr: // Current sprite counter
-        .byte $00
+// BF1B
+data__light_icon_matrix_offset: .byte $00
 
-    // BF1A
-    data__temp_store: // Temporary data storage area
-        .byte $00
-    // BF1B
-    ptr__sprite: // Intro sprite data pointer
-        .byte $00 // data__temp_store+1
-        .byte $00 // data__temp_store+2
-        .byte $00 // data__temp_store+3
-        .byte $00 // data__temp_store+4
-        .byte $00 // data__temp_store+5
-
-    // BF25
-    data__curr_icon_row: // Intitial board row of selected icon
-        .byte $00
-
-    // BF26
-    data__curr_board_row: // Board row offset for rendered icon
-        .byte $00
-
-    // BF27
-    data__curr_icon_col: // Intitial board column of selected icon
-        .byte $00
-
-    // BF28
-    data__curr_board_col: // Board column for rendered icon
-        .byte $00
-
-    // BF30
-    data__curr_line: // Current screen line used while rendering repeated strings in into page
-    data__curr_row: // Current board row
-        .byte $00
-
-    // BF31
-    data__curr_column: // Current board column
-        .byte $00
-    
-    // BF24
-    data__icon_set_sprite_frame: // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
-        .byte $00
-}
-
-.segment DynamicDataEnd
-    dynamic_data_end:
+.segment VariablesEnd
+    variables_end:
