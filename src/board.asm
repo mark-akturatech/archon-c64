@@ -152,7 +152,7 @@ sprite_initialize:
     lda sprite.icon_color,y
 intialize_enable_sprite:
     sta SP0COL,x
-    lda main.math.pow2,x
+    lda common.math.pow2,x
     ora SPENA
     sta SPENA
     lda icon.offset,x
@@ -297,8 +297,8 @@ add_icon_to_matrix:
 // Prerequisites:
 // - X Register = 0 to copy light player icon frames
 // - X Register = 1 to copy dark player icon frames
-// - X Register = 2 to copy light player shot frames
-// - X Register = 3 to copy dark player shot frames
+// - X Register = 2 to copy light player projectile frames
+// - X Register = 3 to copy dark player projectile frames
 // Notes:
 // - Icon frames add 24 sprites as follows:
 //  - 4 x East facing icons (4 animation frames)
@@ -307,14 +307,15 @@ add_icon_to_matrix:
 //  - 5 x Attack frames (north, north east, east, south east, south facing)
 //  - 4 x West facing icon frames (mirrored representation of east facing icons)
 //  - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
-// - Shot frames are frames used to animate the players projectile (or scream/fire). There are 7 sprites as follows:
-//  - 1 x East direction shot
-//  - 1 x North/south direction shot (same sprite is used for both directions)
-//  - 1 x North east direction shot
-//  - 1 x South east direction shot
-//  - 1 x East direction shot (mirrored copy of east)
-//  - 1 x North west direction shot (mirrored copy of north east)
-//  - 1 x South west direction shot (mirrored copy of south east)
+// - Projectile frames are frames used to animate the players projectile (or scream/thrust). There are 7 sprites as
+//   follows:
+//  - 1 x East direction projectile
+//  - 1 x North/south direction projectile (same sprite is used for both directions)
+//  - 1 x North east direction projectile
+//  - 1 x South east direction projectile
+//  - 1 x East direction projectile (mirrored copy of east)
+//  - 1 x North west direction projectile (mirrored copy of north east)
+//  - 1 x South west direction projectile (mirrored copy of south east)
 // - Special player pieces Phoneix and Banshee only copy 4 sprites (east, south, north, west).
 // - Mirrored sprite sources are not represented in memory. Instead the sprite uses the original version and logic is
 //   used to create a mirrored copy.
@@ -322,31 +323,31 @@ add_sprite_set_to_graphics:
     txa
     asl
     tay
-    lda main.sprite.mem_ptr_00,y
+    lda common.sprite.mem_ptr_00,y
     sta FREEZP+2
     sta main.temp.data__temp_store_1
-    lda main.sprite.mem_ptr_00+1,y
+    lda common.sprite.mem_ptr_00+1,y
     sta FREEZP+3
     cpx #$02
-    bcc add_icon_frames_to_graphics // Copy icon or shot frames?
-    // Shot frames.
+    bcc add_icon_frames_to_graphics // Copy icon or projectile frames?
+    // Projectile frames.
     txa
     and #$01
     tay
     lda icon.offset,y
     and #$07
     cmp #$06
-    bne add_shot_frames_to_graphics // Banshee/Phoenix?
+    bne add_projectile_frames_to_graphics // Banshee/Phoenix?
     lda #$00
     sta main.temp.data__icon_set_sprite_frame
-    jmp add_sprite_to_graphics // Add special full height shot frames for Banshee and Phoneix icons.
-// Copies shot frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
-add_shot_frames_to_graphics:
+    jmp add_sprite_to_graphics // Add special full height projectile frames for Banshee and Phoneix icons.
+// Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
+add_projectile_frames_to_graphics:
     lda #$11
     sta main.temp.data__icon_set_sprite_frame
     bne add_individual_frame_to_graphics
-// Copies shot frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,$02+$80,
-// $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
+// Copies projectile frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,
+// $02+$80, $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
 add_icon_frames_to_graphics:
     lda #$00
     sta main.temp.data__icon_set_sprite_frame
@@ -354,7 +355,7 @@ add_individual_frame_to_graphics:
     jsr add_sprite_to_graphics
     inc main.temp.data__icon_set_sprite_frame
     cpx #$02
-    bcs check_shot_frames
+    bcs check_projectile_frames
     lda main.temp.data__icon_set_sprite_frame
     bmi check_inverted_icon_frames
     cmp #$11
@@ -369,15 +370,15 @@ check_inverted_icon_frames:
     cmp #$90
     bcc add_next_frame_to_graphics
     rts // End after copying frame 8f
-check_shot_frames:
+check_projectile_frames:
     lda main.temp.data__icon_set_sprite_frame
-    bmi check_inverted_shot_frames
+    bmi check_inverted_projectile_frames
     cmp #$15
     bcc add_next_frame_to_graphics
     lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
     sta main.temp.data__icon_set_sprite_frame
     bmi add_next_frame_to_graphics
-check_inverted_shot_frames:
+check_inverted_projectile_frames:
     cmp #$95
     bcc !next+
     rts // End after copying frame 94
@@ -548,7 +549,7 @@ render_sprite:
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
     adc common.sprite.init_animation_frame,x
-    adc main.sprite.offset_00,x
+    adc common.sprite.offset_00,x
     sta SPTMEM,x
 
 // 8D80
@@ -584,11 +585,11 @@ render_sprite_preconf:
     adc #$00
     beq !next+
     lda MSIGX
-    ora main.math.pow2,x
+    ora common.math.pow2,x
     sta MSIGX
     rts
 !next:
-    lda main.math.pow2,x
+    lda common.math.pow2,x
     eor #$FF
     and MSIGX
     sta MSIGX
@@ -642,7 +643,7 @@ draw_row:
     lda data.row_screen_offset_hi_ptr,y
     sta FREEZP+3
     clc
-    adc main.screen.color_mem_offset
+    adc common.screen.color_mem_offset
     sta VARPNT+1
     //
     lda game.data.row_occupancy_lo_ptr,y
@@ -689,12 +690,12 @@ render_icon:
     adc render_square_icon_offset
     dex
     bne !loop-
-    sta main.temp.data__board_icon_char_offset
+    sta data__board_icon_char_offset
     jmp render_square
 draw_empty_square:
     lda (CURLIN),y
     and #$7F
-    sta main.temp.data__board_icon_char_offset
+    sta data__board_icon_char_offset
 render_square:
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
     // - offset = row offset + (current column * 2) + current column
@@ -708,7 +709,7 @@ render_square:
     lda game.curr_color_phase
 !skip:
     ora #$08 // Derive square color
-    sta main.temp.data__curr_square_color_code
+    sta data__curr_square_color_code
     lda main.temp.data__curr_column
     asl
     clc
@@ -734,16 +735,16 @@ draw_square_part: // Draws 3 characters of the current row.
     lda #$03
     sta main.temp.data__counter
 !loop:
-    lda main.temp.data__board_icon_char_offset
+    lda data__board_icon_char_offset
     sta (FREEZP+2),y
     lda (VARPNT),y
     and #$F0
-    ora main.temp.data__curr_square_color_code
+    ora data__curr_square_color_code
     sta (VARPNT),y
     iny
     lda render_square_icon_offset
     bmi !next+
-    inc main.temp.data__board_icon_char_offset
+    inc data__board_icon_char_offset
 !next:
     dec main.temp.data__counter
     bne !loop-
@@ -763,7 +764,7 @@ draw_border:
     sbc #$00
     sta FREEZP+3
     clc
-    adc main.screen.color_mem_offset
+    adc common.screen.color_mem_offset
     sta FORPNT+1
     ldy #(BOARD_NUM_COLS*3+1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
 !loop:
@@ -829,11 +830,11 @@ draw_border:
 // Creates sprites in 56 and 57 from character dot data (creates "ARCHON"), position the sprites above the board,
 // set the sprite color to current player color and enable as sprite 2 and 3.
 create_logo:
-    lda main.sprite.mem_ptr_56
+    lda common.sprite.mem_ptr_56
     sta FREEZP+2 // Sprite location
     sta main.temp.data__temp_store
     sta main.temp.data__temp_store+1
-    lda main.sprite.mem_ptr_56+1
+    lda common.sprite.mem_ptr_56+1
     sta FREEZP+3
     lda #$03 // Number of letters per sprite
     sta main.temp.data__temp_store+2
@@ -887,7 +888,7 @@ copy_character_to_sprite:
     sta SP2X
     lda #$B4
     sta SP3X
-    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use main.sprite.offset_56 but source doesn't :(
+    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use common.sprite.offset_56 but source doesn't :(
     sta SPTMEM+2
     lda #((VICGOFF/BYTES_PER_SPRITE)+57)
     sta SPTMEM+3
@@ -897,9 +898,9 @@ copy_character_to_sprite:
 // Create the sprite used to indicate a magic board square.
 // The sprite is stored in sprite offset 48.
 create_magic_square_sprite:
-    lda main.sprite.mem_ptr_48
+    lda common.sprite.mem_ptr_48
     sta FREEZP+2
-    lda main.sprite.mem_ptr_48+1
+    lda common.sprite.mem_ptr_48+1
     sta FREEZP+3
     ldx #$00
     ldy #$00
@@ -933,7 +934,7 @@ draw_magic_square:
     sta common.sprite.curr_y_pos+SPRITE_NUMBER
     //
     ldx #SPRITE_NUMBER
-    lda main.sprite.offset_48
+    lda common.sprite.offset_48
     sta SPTMEM+SPRITE_NUMBER
     ldy #(SPRITE_NUMBER*2)
     jmp render_sprite_preconf
@@ -941,9 +942,9 @@ draw_magic_square:
 
 // 92EB
 create_selection_square:
-    lda main.sprite.mem_ptr_24
+    lda common.sprite.mem_ptr_24
     sta FREEZP+2 // Sprite location
-    lda main.sprite.mem_ptr_24+1
+    lda common.sprite.mem_ptr_24+1
     sta FREEZP+3
     ldy #$00
     jsr selection_square__vert_line
@@ -1012,7 +1013,7 @@ clear_last_text_row:
 
 // A0B1
 // Description:
-// - Plays an icon movement or shot sound.
+// - Plays an icon movement or attack sound.
 // Prerequisites:
 // - OLDTXT/OLDTXT+1: Pointer to sound pattern.
 // - `common.sound.flag__enable_voice`: $00 to disable sound for light player, $80 to enable sound
@@ -1176,18 +1177,17 @@ interrupt_handler__play_music:
     // 8B27
     // Source offset of the first frame of each icon sprite. An icon set comprises of multiple sprites (nominally 15)
     // to provide animations for each direction and action. One icon, the Shape Shifter, comprises only 10 sprites
-    // though as it doesn't need a shooting sprite set as it shape shifts in to the opposing icon when challenging.
-    .const BYTES_PER_CHAR_SPRITE = 54;
+    // though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
     icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, resource.sprites_icon+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 13, resource.sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
         // DG
-        .fillword 1, resource.sprites_icon+12*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 1, resource.sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
         // BS, GB
-        .fillword 2, resource.sprites_icon+(13+i)*BYTES_PER_CHAR_SPRITE*15+1*BYTES_PER_CHAR_SPRITE*10
+        .fillword 2, resource.sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
 
         // AE, FE, EE, WE
-        .fillword 4, resource.sprites_elemental+i*BYTES_PER_CHAR_SPRITE*15
+        .fillword 4, resource.sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
 
     // 8BDA
     elemental_color: // Color of each elemental (air, fire, earth, water)
@@ -1196,7 +1196,7 @@ interrupt_handler__play_music:
     // 8D44
     // Memory offset of each sprite frame within a sprite set.
     // In description below:
-    // - m-=movement frame, a-=attack frame, s-=shot (bullet, sword etc) frame
+    // - m-=movement frame, a-=attack frame, p-=projectile (bullet, sword etc) frame
     // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
     // - numbers represent the animation frame. eg movement frames have 4 animations each
     frame_offset:
@@ -1204,7 +1204,7 @@ interrupt_handler__play_music:
         .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
          //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
         .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
-        //    a-s    s-e    s-n    s-ne   s-se
+        //    a-s    p-e    p-n    p-ne   p-se
         .word $02F4, $0008, $0000, $0010, $0018
 
     // 906F
@@ -1702,3 +1702,11 @@ magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
     // BF14
     pattern_hi_ptr: .byte $00, $00 // Hi byte pointer to sound pattern for current icon
 }
+
+// BF24
+// Color code used to render.
+data__curr_square_color_code: .byte $00
+
+// BF1A
+// Index to character dot data for current board icon part (icons are 6 caharcters).
+data__board_icon_char_offset: .byte $00

@@ -27,7 +27,7 @@ entry:
     // Set sprite second colour to black; exand all spites except 7 in X direction and expand only sprite 7 in y
     // direction.
     lda #$00
-    sta main.temp.data__icon_offset
+    sta data__icon_offset
     sta SPMC0
     sta YXPAND
     lda #%1000_0000
@@ -51,7 +51,7 @@ add_icon:
     jsr board.draw_board
     jsr board.draw_border
     jsr board.create_magic_square_sprite
-    ldx main.temp.data__icon_offset
+    ldx data__icon_offset
     // Read icon and location.
     // Each icon is represented as 4 bytes in a table.
     // - Byte 1: Icon type/Sprite offset
@@ -63,20 +63,20 @@ add_icon:
     lda icon.data,x
     sta board.icon.type
     lda icon.data+1,x
-    sta main.temp.data__num_icons
+    sta data__num_icons
     lda icon.data+2,x
     sta main.temp.data__curr_board_col
     lda icon.data+3,x
     sta main.temp.data__curr_board_row
     jsr animate_icon
-    lda main.temp.data__icon_offset
+    lda data__icon_offset
     clc
     adc #$04
     cmp #(16*4) // Check if finished (16 icon types * 4 data bytes)
     bcc !next+
     rts
 !next:
-    sta main.temp.data__icon_offset
+    sta data__icon_offset
     // Toggle current player.
     lda game.state.flag__is_light_turn
     eor #$FF
@@ -90,7 +90,7 @@ add_icon:
 // - `main.temp.data__curr_board_col`: Destination column of piece
 // - `main.temp.data__curr_board_row`: Starting destination row of piece
 // - `board.icon.type`: Type of piece to animation in to destination square
-// - `main.temp.data__num_icons`: Number of icons to add to board
+// - `data__num_icons`: Number of icons to add to board
 // Notes:
 // - If number of icons is set to 2, the destination row of the second piece is automatically calculated to be 9 minus
 //   the source row.
@@ -100,9 +100,9 @@ animate_icon:
     lda main.temp.data__curr_board_col
     ldy main.temp.data__curr_board_row
     jsr board.convert_coord_sprite_pos
-    sta main.temp.data__sprite_final_x_pos
+    sta data__sprite_final_x_pos
     sty main.temp.data__sprite_final_y_pos
-    lda main.temp.data__num_icons
+    lda data__num_icons
     cmp #$07 // Adding 7 icons (knights, goblins)?
     bne !next+
     sta main.temp.data__curr_board_row // Start at row 7
@@ -112,11 +112,11 @@ add_7_icons:
     bne add_7_icons
     lda #$01 // Unused code?
     ldx #$10
-    stx main.temp.data__sprite_y_offset
+    stx data__sprite_y_offset
     jmp add_icon_to_board
 !next:
     jsr board.add_icon_to_matrix
-    lda main.temp.data__num_icons
+    lda data__num_icons
     cmp #$02 // Adding 2 icons?
     bcc add_icon_to_board
     // Add 2 icons.
@@ -140,7 +140,7 @@ add_7_icons:
     asl
     eor #$FF
     adc #$01
-    sta main.temp.data__sprite_y_offset
+    sta data__sprite_y_offset
 add_icon_to_board:
     // Creates sprites for each icon and animates them walking/flying in to the board position.
     lda #$00 // Starting X position
@@ -150,17 +150,17 @@ add_icon_to_board:
     lda #$94
     ldy #$FC
 !next:
-    sty main.temp.data__x_pixels_per_move
-    sta main.temp.data__curr_x_pos
-    ldx main.temp.data__num_icons
+    sty data__x_pixels_per_move
+    sta data__sprite_x_pos
+    ldx data__num_icons
     dex
     stx main.temp.data__curr_sprite_ptr
 !loop:
-    lda main.temp.data__curr_x_pos
+    lda data__sprite_x_pos
     sta common.sprite.curr_x_pos,x
     dex
     clc
-    adc main.temp.data__x_pixels_per_move
+    adc data__x_pixels_per_move
     sta common.sprite.curr_x_pos,x
     dex
     bpl !loop-
@@ -197,7 +197,7 @@ add_icon_to_board:
     lda main.temp.data__sprite_final_y_pos
     sta common.sprite.curr_y_pos,x
     clc
-    adc main.temp.data__sprite_y_offset
+    adc data__sprite_y_offset
     sta main.temp.data__sprite_final_y_pos
     dex
     bpl !loop-
@@ -208,19 +208,19 @@ add_icon_to_board:
     sta main.temp.data__icon_set_sprite_frame
     lda #$04
     sta common.sprite.init_animation_frame
-    lda main.sprite.mem_ptr_00
+    lda common.sprite.mem_ptr_00
     sta FREEZP+2
-    sta main.temp.data__sprite_y_direction_offset
-    lda main.sprite.mem_ptr_00+1
+    sta main.temp.data__temp_store_1
+    lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     ldx #$00
 !loop:
     jsr board.add_sprite_to_graphics
-    lda main.temp.data__sprite_y_direction_offset
+    lda main.temp.data__temp_store_1
     clc
-    adc #$40
+    adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta main.temp.data__sprite_y_direction_offset
+    sta main.temp.data__temp_store_1
     bcc !next+
     inc FREEZP+3
 !next:
@@ -270,22 +270,22 @@ update_sprite:
     bpl !next+
     ldy #$FF
 !next:
-    sty main.temp.data__sprite_x_direction_offset_1 // Set direction
+    sty flag__sprite_x_direction // Set direction
     ldx main.temp.data__curr_sprite_ptr
-    lda main.temp.flag__alternating_state_1
+    lda flag__icon_direction
     eor #$FF
-    sta main.temp.flag__alternating_state_1
+    sta flag__icon_direction
     bmi check_sprite // Only update animation frame on every second position update
     inc common.sprite.curr_animation_frame
 check_sprite:
     lda common.sprite.curr_x_pos,x
-    cmp main.temp.data__sprite_final_x_pos
+    cmp data__sprite_final_x_pos
     bne update_sprite_pos
     inc main.temp.data__curr_count
     jmp next_sprite
 update_sprite_pos:
     clc
-    adc main.temp.data__sprite_x_direction_offset_1
+    adc flag__sprite_x_direction
     sta common.sprite.curr_x_pos,x
     txa
     asl
@@ -293,7 +293,7 @@ update_sprite_pos:
     lda common.sprite.curr_animation_frame
     and #$03 // Set animation frame (0 to 3)
     clc
-    adc main.sprite.offset_00
+    adc common.sprite.offset_00
     sta SPTMEM,x
     jsr board.render_sprite_preconf
 next_sprite:
@@ -335,3 +335,40 @@ next_sprite:
         .byte WIZARD,       1, 0, 4
         .byte SORCERESS,    1, 8, 4
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+// Variables
+//---------------------------------------------------------------------------------------------------------------------
+.segment DynamicData
+
+// BD3A
+// Offset of current icon being rendered on to the board.
+data__icon_offset: .byte $00
+
+// BF3B
+// Calculated Y offset for each sprite.
+data__sprite_y_offset: .byte $00
+
+// BD17
+// Final X position of animated sprite.
+data__sprite_final_x_pos: .byte $00
+
+// BF1B
+// Current X offset of the sprite.
+data__sprite_x_pos: .byte $00
+
+// BD38
+// Number of baord icons to render.
+data__num_icons:.byte $00
+
+// BF1A
+// Pixels to move intro sprite for each frame.
+data__x_pixels_per_move: .byte $00
+
+// BD58
+// Is positive number for right direction, negative for left direction.
+flag__sprite_x_direction: .byte $00
+
+// BCEF
+// Alternating icon direction (icons walk one one type at a time, alternating between sides).
+flag__icon_direction: .byte $00

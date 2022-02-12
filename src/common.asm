@@ -233,9 +233,9 @@ wait_for_key:
 // Sets:
 // - Clears the 56th and 57th sprite position graphical memory (with 00).
 clear_mem_sprite_56_57:
-    lda main.sprite.mem_ptr_56
+    lda sprite.mem_ptr_56
     sta FREEZP+2
-    lda main.sprite.mem_ptr_56+1
+    lda sprite.mem_ptr_56+1
     sta FREEZP+3
     lda #$00
     ldy #(BYTES_PER_SPRITE*2)
@@ -251,9 +251,9 @@ clear_mem_sprite_56_57:
 // Sets:
 // - Clears the 48th sprite position graphical memory (with 00).
 clear_mem_sprite_48:
-    lda main.sprite.mem_ptr_48
+    lda sprite.mem_ptr_48
     sta FREEZP+2
-    lda main.sprite.mem_ptr_48+1
+    lda sprite.mem_ptr_48+1
     sta FREEZP+3
     ldy #(BYTES_PER_SPRITE-1)
     lda #$00
@@ -269,9 +269,9 @@ clear_mem_sprite_48:
 // Sets:
 // - Clears the 24th sprite position graphical memory (with 00).
 clear_mem_sprite_24:
-    lda main.sprite.mem_ptr_24
+    lda sprite.mem_ptr_24
     sta FREEZP+2
-    lda main.sprite.mem_ptr_24+1
+    lda sprite.mem_ptr_24+1
     sta FREEZP+3
     ldy #(BYTES_PER_SPRITE - 1)
     lda #$00
@@ -589,6 +589,46 @@ intro_music:
 // Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
+
+.namespace math {
+    // 8DC3
+    pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
+}
+
+.namespace sprite {
+    // 8DBF
+    offset_00: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
+
+    // 8DC0
+    offset_24: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
+
+    // 8DC1
+    offset_48: .byte (VICGOFF/BYTES_PER_SPRITE)+48 // Sprite 48 screen pointer
+
+    // 8DC2
+    offset_56: .byte (VICGOFF/BYTES_PER_SPRITE)+56 // Sprite 56 screen pointer
+
+    // 8DCB
+    mem_ptr_00: // Pointer to sprite 0 graphic memory area
+        .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
+
+    // 8DCD
+    mem_ptr_24: // Pointer to sprite 24 (dec) graphic memory area
+        .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
+
+    // 8DCF
+    mem_ptr_48: // Pointer to sprite 48 (dec) graphic memory area
+        .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
+
+    // 8DD1
+    mem_ptr_56: // Pointer to sprite 56 (dec) graphic memory area
+        .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
+}
+
+.namespace screen {
+    // BF19
+    color_mem_offset: .byte >(COLRAM-SCNMEM) // Screen offset to color ram
+}
 
 .namespace sound {
     // A0A5

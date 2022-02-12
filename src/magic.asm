@@ -33,7 +33,7 @@ select_spell_start:
 !next:
     // End spell selection if no spells left.
     jsr count_used_spells
-    lda main.temp.data__used_spell_count
+    lda data__used_spell_count
     cmp #$07 // All spells used?
     bcc !next+
     lda #STRING_NO_SPELLS
@@ -46,13 +46,13 @@ select_spell_start:
     jsr board.write_text
     // Get spell selection.
     jsr get_selected_spell
-    sty main.temp.data__curr_spell_id
+    sty data__curr_spell_id
     jsr board.clear_text_area
-    ldy main.temp.data__curr_spell_id
+    ldy data__curr_spell_id
     lda data.spell_string_id,y
     ldx #$0A
     jsr board.write_text
-    ldy main.temp.data__curr_spell_id
+    ldy data__curr_spell_id
     cpy #SPELL_ID_CEASE
     beq !next+
     lda #SPELL_USED
@@ -343,7 +343,7 @@ revive_error:
     jmp spell_complete
 !next:
     ldx #$00
-    stx main.temp.data__dead_icon_count
+    stx data__dead_icon_count
     cpx game.curr_player_offset
     beq !next+
     ldx #BOARD_NUM_PLAYER_ICONS // Set offset for player icon strength and type (0=light, 18=dark)
@@ -363,19 +363,19 @@ revive_error:
     bne !next+
     lda board.icon.init_matrix,x
     // Check if icon type is already in the list (eg 2 of the same type may have been killed).
-    ldy main.temp.data__dead_icon_count
+    ldy data__dead_icon_count
 check_dead_type_loop:
     cmp curr_dead_icon_offsets,y
     beq !next+
     dey
     bpl check_dead_type_loop
     // Store the dead icon in the list.
-    ldy main.temp.data__dead_icon_count
+    ldy data__dead_icon_count
     sta curr_dead_icon_offsets,y
     txa
     sta curr_dead_icon_types,y
     iny
-    sty main.temp.data__dead_icon_count
+    sty data__dead_icon_count
     cpy #$08 // Dead icon list full?
     beq !next++
 !next:
@@ -383,7 +383,7 @@ check_dead_type_loop:
     dec main.temp.data__temp_store
     bne !loop-
 !next:
-    lda main.temp.data__dead_icon_count
+    lda data__dead_icon_count
     bne !next+
     // Display error if no icons have been killed.
     lda #STRING_ICONS_ALL_ALIVE
@@ -421,7 +421,7 @@ check_dead_type_loop:
     jsr display_dead_icon
     inc main.temp.data__temp_store_1
     lda main.temp.data__temp_store_1
-    cmp main.temp.data__dead_icon_count
+    cmp data__dead_icon_count
     bcc !loop-
     // Calculate starting position and display the selection square.
     lda #$FE // 2 columns to the left of board for light player
@@ -582,7 +582,7 @@ display_spell_wasted:
 get_selected_spell:
     lda #$00
     sta main.temp.data__temp_store // Selected spell
-    sta main.temp.data__hold_delay_count // Delay before repeat while holding down up/down
+    sta data__hold_delay_count
     jsr set_selected_spell
     lda game.curr_player_offset
     eor #$01 // Swap so is 2 for player 1 and 1 for player 2. Required as Joystick 1 is on CIA port 2 and vice versa.
@@ -600,7 +600,7 @@ spell_selection_loop:
     and #%0001_0000 // Fire button
     bne !next+
     // Select spell.
-    sta main.temp.data__hold_delay_count
+    sta data__hold_delay_count
     ldy main.temp.data__temp_store
     rts
 !next:
@@ -624,8 +624,8 @@ spell_selection_loop:
     bne spell_selection_loop
     //
 select_previous_spell:
-    dec main.temp.data__hold_delay_count
-    lda main.temp.data__hold_delay_count
+    dec data__hold_delay_count
+    lda data__hold_delay_count
     and #$0F
     bne !return+
 get_previous_spell:
@@ -646,8 +646,8 @@ get_previous_spell:
 !return:
     rts
 select_next_spell:
-    inc main.temp.data__hold_delay_count
-    lda main.temp.data__hold_delay_count
+    inc data__hold_delay_count
+    lda data__hold_delay_count
     and #$0F
     cmp #$0F
     bne !return-
@@ -694,7 +694,7 @@ spell_complete:
     ldx #$60 // ~1.5 sec
     jsr common.wait_for_jiffy
     jsr config_used_spell_ptr
-    ldy main.temp.data__curr_spell_id
+    ldy data__curr_spell_id
     lda #SPELL_UNUSED // Re-enable spell
     sta (CURLIN),y
     jsr board.clear_text_area
@@ -724,7 +724,7 @@ spell_select_destination:
     lda game.state.flag__ai_player_ctl
     cmp game.state.flag__is_light_turn
     beq !return+
-    ldy main.temp.data__curr_spell_id
+    ldy data__curr_spell_id
     cpy #SPELL_ID_SUMMON_ELEMENTAL
     bcc complete_destination_selection
     cpy #SPELL_ID_IMPRISON
@@ -770,20 +770,20 @@ set_occupied_square:
 // Prerequisites:
 // - Y: is 0 for light player and 7 for dark player.
 // Sets:
-// - `main.temp.data__used_spell_count`: Number of used spells.
+// - `data__used_spell_count`: Number of used spells.
 // Preserves:
 // - X
 count_used_spells:
     txa
     pha
     lda #$00
-    sta main.temp.data__used_spell_count
+    sta data__used_spell_count
     ldx #$07
 !loop:
     lda flag__light_used_spells,y
     cmp #SPELL_USED
     bne !next+
-    inc main.temp.data__used_spell_count
+    inc data__used_spell_count
 !next:
     iny
     dex
@@ -1053,3 +1053,20 @@ temp_selected_icon_store: .byte $00 // Temporary storage for selected icon
 
 // BF43
 dead_icon_screen_offset: .byte $00 // Screen offset for start of graphical memory for dead icon list display
+
+// BF32
+// Counter used to delay selection of next/previous spell. Must be helf for a count of #$0F before selection is
+// changed.
+data__hold_delay_count: .byte $00
+
+// BD3A
+// Current selected spell ID.
+data__curr_spell_id: .byte $00
+
+// BF23
+// Count of number of used spells for a specific player.
+data__used_spell_count: .byte $00
+
+// BF24
+// Number of dead icons in the dead icon list.
+data__dead_icon_count: .byte $00

@@ -74,13 +74,13 @@ vary_square:
     tay
     lda game.curr_color_phase // Phase color
 !next:
-    sta main.temp.curr_battle_square_color // Square color used to set battle arena border
+    sta curr_battle_square_color // Square color used to set battle arena border
     tya
     asl
-    sta square_strength_adjx2 // ??? Not used?
+    sta square_strength_adj_x2 // ??? Not used?
     sty square_strength_adj
     iny
-    sty main.temp.data__light_icon_count // ??? Not used?
+    sty data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
     lda board.icon.type
     ldy game.curr_challenge_icon_type
@@ -134,12 +134,24 @@ interrupt_handler:
 .segment DynamicData
 
 // BD12
-square_strength_adj: .byte $00 // Calculated strength adjustment based on color of the challenge square.
+// Calculated strength adjustment based on color of the challenge square.
+square_strength_adj: .byte $00
 
 // BD23
-curr_square_color: .byte $00 // Color of square where challenge was initiated. Used for determining icon strength.
+// Color of square where challenge was initiated. Used for determining icon strength.
+curr_square_color: .byte $00
+
+// BCF2
+// Current color of square in which a battle is being faught.
+// TODO: WHY IS THIS DIFFERENT TO curr_square_color
+curr_battle_square_color: .byte $00 
 
 // BF41
-// Calculated strength adjustment based on color of the challenge square TIMES 2.
+// Calculated strength adjustment based on color of the challenge square times 2.
 // Doesn't appear to be used in the code.
-square_strength_adjx2: .byte $00
+square_strength_adj_x2: .byte $00
+
+// BF36
+// Calculated strength adjustment based on color of the challenge square plus 1.
+// Doesn't appear to be used in the code.
+data__strength_adj_plus1: .byte $00

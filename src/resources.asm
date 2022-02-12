@@ -64,7 +64,7 @@ sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
 // bytes only. The positive of this is that we use less memory for each sprite. The negative is that we can't just
 // load the raw sprite binary file in to a sprite editor.
 // Anyway, there are LOTS of sprites. Generally 15 sprites for each icon. This includes fram animations in each
-// direction, shoot animations and projectiles. NOTE that spearate frames for left moving and right moving
+// direction, attack animations and projectiles. NOTE that spearate frames for left moving and right moving
 // animations. Instead, the routine used to load sprites in to graphical memory has a function that allows
 // sprites to be mirrored when copied.
 sprites_icon: .import binary "/assets/sprites-icons.bin"
@@ -82,15 +82,15 @@ sprites_icon: .import binary "/assets/sprites-icons.bin"
         .word pattern_walk_quad    // 06
         .word pattern_fly_03       // 08
         .word pattern_fly_large    // 10
-        .word pattern_fire_01      // 12
-        .word pattern_fire_02      // 14
-        .word pattern_fire_03      // 16
-        .word pattern_fire_04      // 18
+        .word pattern_attack_01      // 12
+        .word pattern_attack_02      // 14
+        .word pattern_attack_03      // 16
+        .word pattern_attack_04      // 18
         .word pattern_walk_slither // 20
 
     // 8BAA
-    fire_pattern:
-    // Sound pattern used for shot sound of each icon type. The data is an index to the icon pattern pointer array
+    attack_pattern:
+    // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
     // defined above.
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
@@ -138,20 +138,20 @@ sprites_icon: .import binary "/assets/sprites-icons.bin"
         .byte SOUND_CMD_NO_NOTE, $04, $12, SOUND_CMD_NO_NOTE, $20, $02, $81, $04, $12, SOUND_CMD_NO_NOTE, $20, $02
         .byte SOUND_CMD_NO_NOTE
         .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fire_03:
+    pattern_attack_03:
         .byte SOUND_CMD_NO_NOTE, $32, $A9, SOUND_CMD_NO_NOTE, $EF, $31, $81, SOUND_CMD_END
     pattern_hit_player_dark:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $C4, $07, $41, SOUND_CMD_END
     pattern_hit_player_light:
         .byte SOUND_CMD_NO_NOTE, $12, $08, SOUND_CMD_NO_NOTE, $D0, $3B, $43, SOUND_CMD_END
-    pattern_fire_04:
+    pattern_attack_04:
         .byte SOUND_CMD_NO_NOTE, $28, $99, SOUND_CMD_NO_NOTE, $6A, $6A, $21, SOUND_CMD_END
     pattern_fly_large:
         .byte SOUND_CMD_NO_NOTE, $10, $84, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $06, $81
         .byte SOUND_CMD_NEXT_PATTERN
-    pattern_fire_01:
+    pattern_attack_01:
         .byte SOUND_CMD_NO_NOTE, $80, $4B, SOUND_CMD_NO_NOTE, SOUND_CMD_NO_NOTE, $21, $81, SOUND_CMD_END
-    pattern_fire_02:
+    pattern_attack_02:
         .byte SOUND_CMD_NO_NOTE, $10, $86, SOUND_CMD_NO_NOTE, $F0, $F0, $81, SOUND_CMD_END
     pattern_player_light_turn:
         .byte SOUND_CMD_NO_NOTE, $1E, $09, SOUND_CMD_NO_NOTE, $3E, $2A, $11, SOUND_CMD_END
@@ -329,7 +329,6 @@ relocated_resource_source_start:
 
 relocated_resource_source_end:
 
-
 // 4700
 // Move resouces from temporary load location to the end of the application to free up space for the graphics
 // display area.
@@ -338,15 +337,15 @@ move:
     // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
     lda #FLAG_ENABLE
     sta main.flag__is_initialized
-
+    //
     // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
     // we can call whenever a non-raster interrupt occurs.
     lda CINV
     sta main.interrupt.system_fn_ptr
     lda CINV+1
     sta main.interrupt.system_fn_ptr+1
-
-    // move resources out of graphics memory to the end of the application
+    //
+    // Move resources out of graphics memory to the end of the application.
     lda #<relocated_resource_source_start
     sta FREEZP
     lda #>relocated_resource_source_start
@@ -355,7 +354,7 @@ move:
     sta FREEZP+2
     lda #>relocated_resource_destination_start
     sta FREEZP+3
-    // copy chunks of $ff bytes
+    // Copy chunks of $ff bytes.
     ldy #$00
     ldx #>(relocated_resource_source_end - relocated_resource_source_start)
 !loop:
@@ -367,7 +366,7 @@ move:
     inc FREEZP+3
     dex
     bne !loop-
-    // copy remaining bytes
+    // Copy remaining bytes.
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y

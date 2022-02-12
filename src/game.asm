@@ -121,8 +121,8 @@ entry:
     // have icons, the result will be $C0. Otherwise player 1 ($40) or player 2 ($80) is the winner.
 !check_win_next:
     lda #$00
-    sta main.temp.data__dark_icon_count
-    sta main.temp.data__light_icon_count
+    sta data__dark_icon_count
+    sta data__light_icon_count
     sta main.temp.data__curr_count
     ldx #(BOARD_TOTAL_NUM_ICONS - 1)
 !loop:
@@ -131,13 +131,13 @@ entry:
     ldy #$40
     cpx #BOARD_NUM_PLAYER_ICONS
     bcc !next+
-    inc main.temp.data__dark_icon_count
-    stx main.temp.data__remaining_dark_icon_id
+    inc data__dark_icon_count
+    stx data__remaining_dark_icon_id
     ldy #$80
     bmi !next++
 !next:
-    inc main.temp.data__light_icon_count
-    stx main.temp.data__remaining_light_icon_id
+    inc data__light_icon_count
+    stx data__remaining_light_icon_id
 !next:
     tya
     ora main.temp.data__curr_count
@@ -222,19 +222,19 @@ check_light_icons:
     lda game.state.flag__is_light_turn
     bpl !next+
     // Check if dark icon is imprisoned.
-    ldy main.temp.data__dark_icon_count
+    ldy data__dark_icon_count
     cpy #$02
     bcs check_game_state
-    ldy main.temp.data__remaining_dark_icon_id
+    ldy data__remaining_dark_icon_id
     cpy imprisoned_icon_id+1
     bne check_game_state
     jmp game_over__imprisoned
 !next:
     // Check if light icon is imprisoned.
-    ldy main.temp.data__light_icon_count
+    ldy data__light_icon_count
     cpy #$02
     bcs check_game_state
-    ldy main.temp.data__remaining_light_icon_id
+    ldy data__remaining_light_icon_id
     cpy imprisoned_icon_id
     bne check_game_state
     jmp game_over__imprisoned
@@ -391,7 +391,7 @@ set_icon_speed:
     // 8304  8C 15 BD   sty intro_sprite_final_y_pos
     // 8307  CE 38 BD   dec temp_data__num_icons
     // W830A:
-    // 830A  AE 22 BF   ldx main.temp.flag__are_sprites_initialized
+    // 830A  AE 22 BF   ldx main.temp.flag__is_valid_square
     // 830D  BD 5B BE   lda WBE5B,x
     // 8310  8D 28 BD   sta WBD28
     // 8313  BC 6D BE   ldy WBE6D,x
@@ -709,10 +709,10 @@ interrupt_handler:
     lda #FLAG_ENABLE
     sta game.state.flag__is_turn_started
     lda #$00
-    sta main.temp.data__dark_icon_count
-    sta main.temp.data__light_icon_count
+    sta data__dark_icon_count
+    sta data__light_icon_count
     sta flag__icon_selected
-    sta main.temp.curr_debounce_count
+    sta curr_debounce_count
     // Configure new player turn sound.
     tax
     ldy state.flag__is_light_turn
@@ -747,7 +747,7 @@ new_player_sound:
 !next:
     lda #FLAG_DISABLE
     sta flag__new_square_selected
-    sta main.temp.flag__board_sprite_moved
+    sta flag__board_sprite_moved
     // Set player offset.
     tay
     lda state.flag__is_light_turn
@@ -770,9 +770,9 @@ new_player_sound:
     beq joystick_icon_select
     // Fire button debounce delay countdown to stop accidental selection of piece while moving directly after selecting
     // a piece.
-    lda main.temp.curr_debounce_count
+    lda curr_debounce_count
     beq !next+
-    dec main.temp.curr_debounce_count
+    dec curr_debounce_count
     jmp move_sprite_to_square
 !next:
     sta flag__icon_selected
@@ -790,15 +790,15 @@ joystick_icon_select:
     lda flag__icon_selected
     bmi move_sprite_to_square
     // Don't select icon if selection square is still moving (ie not directly over an icon).
-    lda main.temp.data__board_sprite_move_x_count
-    ora main.temp.data__board_sprite_move_y_count
+    lda data__board_sprite_move_x_count
+    ora data__board_sprite_move_y_count
     and #$7F
     bne move_sprite_to_square
     // Select icon.
     lda #FLAG_ENABLE
     sta flag__icon_selected
     lda #$10 // Wait 10 interrupts before allowing icon destination square selection
-    sta main.temp.curr_debounce_count
+    sta curr_debounce_count
     jsr select_or_move_icon
     lda main.temp.flag__icon_destination_valid
     bmi !next+
@@ -820,8 +820,8 @@ move_sprite_to_square:
     beq check_joystick_left_right
     bmi check_joystick_left_right
     // Don't bother checking joystick position until we reach the previously selected square.
-    lda main.temp.data__board_sprite_move_x_count
-    ora main.temp.data__board_sprite_move_y_count
+    lda data__board_sprite_move_x_count
+    ora data__board_sprite_move_y_count
     and #$7F
     beq check_joystick_left_right
     jmp set_sprite_square_position
@@ -832,7 +832,7 @@ check_joystick_left_right:
     cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
-    lda main.temp.data__board_sprite_move_x_count
+    lda data__board_sprite_move_x_count
     and #$7F
     bne move_up_down
     pla
@@ -858,7 +858,7 @@ move_up_down:
     jmp set_sprite_square_position
     // Disable joystick up/down movement if sprite has not reached Y direction final position.
 check_joystick_up_down:
-    lda main.temp.data__board_sprite_move_y_count
+    lda data__board_sprite_move_y_count
     and #$7F
     beq !next+
     pla
@@ -881,39 +881,39 @@ check_joystick_up_down:
     jsr display_message
 set_sprite_square_position:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
-    lda main.temp.data__board_sprite_move_x_count // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
+    lda data__board_sprite_move_x_count // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
     bmi check_move_sprite_left
     // Move sprite right.
     inc common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_move_x_count
-    inc main.temp.flag__board_sprite_moved
+    dec data__board_sprite_move_x_count
+    inc flag__board_sprite_moved
     bpl !next+
 check_move_sprite_left:
     and #$7F
     beq !next+
     // Move sprite left.
     dec common.sprite.curr_x_pos,x
-    dec main.temp.data__board_sprite_move_x_count
-    inc main.temp.flag__board_sprite_moved
+    dec data__board_sprite_move_x_count
+    inc flag__board_sprite_moved
 !next:
-    lda main.temp.data__board_sprite_move_y_count // Number of pixels to move in y direction ($00-$7f for down, $80-ff for up)
+    lda data__board_sprite_move_y_count // Number of pixels to move in y direction ($00-$7f for down, $80-ff for up)
     beq !next+
     bmi check_move_sprite_up
     // Move sprite down.
     inc common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_move_y_count
-    inc main.temp.flag__board_sprite_moved
+    dec data__board_sprite_move_y_count
+    inc flag__board_sprite_moved
     bpl !next+
 check_move_sprite_up:
     and #$7F
     beq !next+
     // Move sprite up.
     dec common.sprite.curr_y_pos,x
-    dec main.temp.data__board_sprite_move_y_count
-    inc main.temp.flag__board_sprite_moved
+    dec data__board_sprite_move_y_count
+    inc flag__board_sprite_moved
 !next:
-    lda main.temp.flag__board_sprite_moved
+    lda flag__board_sprite_moved
     bne !next+
     // Stop sound and reset current animation frame when movemement stopped.
     sta common.sprite.curr_animation_frame,x // A = 00
@@ -934,8 +934,8 @@ check_move_sprite_up:
     // The selected initial frame is dependent on the direction of movement.
     lda icon_dir_frame_offset
     sta common.sprite.init_animation_frame,x
-    inc main.temp.data__curr_frame_adv_count
-    lda main.temp.data__curr_frame_adv_count
+    inc data__curr_frame_adv_count
+    lda data__curr_frame_adv_count
     and #$03
     cmp #$03
     bne render_selected_sprite
@@ -971,7 +971,7 @@ set_square_right:
     jsr verify_valid_move
 !next:
     lda #$0C // Move 12 pixels to the right
-    sta main.temp.data__board_sprite_move_x_count
+    sta data__board_sprite_move_x_count
     inc main.temp.data__curr_board_col
     inc flag__new_square_selected
 !return:
@@ -991,7 +991,7 @@ set_square_left:
     sta icon_dir_frame_offset
     jsr verify_valid_move
     lda #$8C // Move 12 pixels to the left
-    sta main.temp.data__board_sprite_move_x_count
+    sta data__board_sprite_move_x_count
     dec main.temp.data__curr_board_col
     inc flag__new_square_selected
 !return:
@@ -1014,7 +1014,7 @@ set_square_up:
 !next:
     jsr verify_valid_move
     lda #$90 // Move 16 pixels up
-    sta main.temp.data__board_sprite_move_y_count
+    sta data__board_sprite_move_y_count
     dec main.temp.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
@@ -1039,7 +1039,7 @@ set_square_down:
 !next:
     jsr verify_valid_move
     lda #$10 // Move down 16 pixels
-    sta main.temp.data__board_sprite_move_y_count
+    sta data__board_sprite_move_y_count
     inc main.temp.data__curr_board_row
     lda #$01
     sta flag__new_square_selected
@@ -1326,7 +1326,7 @@ transport_icon:
     sta XXPAND
     // Configure source icon.
     lda #(BYTERS_PER_STORED_SPRITE-1)
-    sta main.temp.data__temp_store_2
+    sta data__temp_store_2
     lda main.temp.data__curr_icon_col
     ldy main.temp.data__curr_icon_row
     jsr board.convert_coord_sprite_pos
@@ -1335,9 +1335,9 @@ transport_icon:
     sta board.icon.offset
     jsr board.sprite_initialize
     //
-    lda main.sprite.mem_ptr_00
+    lda common.sprite.mem_ptr_00
     sta FREEZP+2
-    lda main.sprite.mem_ptr_00+1
+    lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     lda #BYTERS_PER_STORED_SPRITE
     sta board.sprite.copy_length
@@ -1376,16 +1376,16 @@ transport_icon:
     lda #>resource.sound.pattern_transport
     sta OLDTXT+1
     lda resource.sound.pattern_transport+5 // This note increases in patch as animation runs
-    sta main.temp.data__temp_note_store
+    sta data__temp_note_store
     jsr board.play_icon_sound
     // Configure sprite source and destination pointers (for line by line copy)
-    lda main.sprite.mem_ptr_00
+    lda common.sprite.mem_ptr_00
     sta FREEZP
-    lda main.sprite.mem_ptr_00+1
+    lda common.sprite.mem_ptr_00+1
     sta FREEZP+1
-    lda main.sprite.mem_ptr_24
+    lda common.sprite.mem_ptr_24
     sta FREEZP+2
-    lda main.sprite.mem_ptr_24+1
+    lda common.sprite.mem_ptr_24+1
     sta FREEZP+3
     // Set interrupt handler for transport animation.
     sei
@@ -1417,15 +1417,15 @@ transport_icon_interrupt:
     // Play sound.
     lda #$00
     sta VCREG1
-    lda main.temp.data__temp_note_store
+    lda data__temp_note_store
     clc
     adc #$02
-    sta main.temp.data__temp_note_store
+    sta data__temp_note_store
     sta FREHI1
     lda #$11
     sta VCREG1
     // Copy 2 lines of the source sprite and move to destination sprite.
-    ldy main.temp.data__temp_store_2
+    ldy data__temp_store_2
     ldx #$03
 !loop:
     lda (FREEZP),y    // copy line by line (one line per interrupt - transport effect)
@@ -1436,7 +1436,7 @@ transport_icon_interrupt:
     bmi !return+ // Copy finished?
     dex
     bne !loop-
-    sty main.temp.data__temp_store_2
+    sty data__temp_store_2
     jmp common.complete_interrupt
 !return:
     lda flag__is_challenge_required
@@ -1564,3 +1564,47 @@ icon_move_col_buffer: .byte $00, $00, $00, $00, $00, $00
 // Stores each row the icon enters as it is being moved. Used to calculate number of moves.
 // Allows for a total of 5 moves (maximum move count) plus the starting row.
 icon_move_row_buffer: .byte $00, $00, $00, $00, $00, $00
+
+// BF32
+// Dark remaining icon count.
+data__dark_icon_count: .byte $00
+
+// BF36
+// Light remaining icon count.
+data__light_icon_count: .byte $00
+
+// BF32
+// Sprite Y position movement counter.
+data__board_sprite_move_y_count: .byte $00
+
+// BF33
+// Icon ID of last dark icon.
+data__remaining_dark_icon_id: .byte $00
+
+// BF37
+// Icon ID of last light icon.
+data__remaining_light_icon_id: .byte $00
+
+// BF36
+// Sprite X position movement counter.
+data__board_sprite_move_x_count: .byte $00
+
+// BD68
+// Temporary storage for musical note being played.
+data__temp_note_store: .byte $00
+
+// BCEE
+// Counter used to advance animation frame (every 4 pixels).
+data__curr_frame_adv_count: .byte $00
+
+// BCF2
+// Current debounce counter (used when debouncing fire button presses).
+curr_debounce_count: .byte $00
+
+// BD0D
+// Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
+flag__board_sprite_moved:.byte $00
+
+// BD2D
+// Temporary storage
+data__temp_store_2: .byte $00

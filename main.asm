@@ -12,17 +12,7 @@
 // THANK YOU FOR MANY YEARS OF MEMORABLE GAMING. ARCHON ROCKS AND ALWAYS WILL!!!
 //---------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Notes:
-// - This is not a byte for byte memory replication. The code is fully relocatable and pays no heed to original
-//   memory locations. Original memory locations are provided as comments above each variable, constant or method
-//   for reference.
-// - The source does not include any original logic that moves code around. The code below has been developed so that
-//   all code remians in place. This is to aide readability and also alows easy addition or modification of code.
-//   We do need to move around some sprite resources though to fit within memory. See `Resources` section below.
-// - The source uses the same data memory addresses for different purposes. For example `$BF24` may store the current
-//   color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we have
-//   added multiple lables to the same memory address.
-//   TODO: MIGHT MAKE THESE SEPARATE MEMORY IF WE HAVE ENOUGH SPACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// See README.md file for additional information.
 
 //---------------------------------------------------------------------------------------------------------------------
 // Memory map
@@ -36,15 +26,15 @@
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
 .segmentdef Game [startAfter="Intro"]
-.segmentdef CodeBase [segments="Main, Common, Intro, Game"]
+.segmentdef CodeBase [segments="Main, Common, Intro, Game", hide]
 //
 .segmentdef Assets [startAfter="Game"]
-.segmentdef RelocatedResources [startAfter="Assets", virtual]
+.segmentdef RelocatedResources [startAfter="Assets", virtual, hide]
 //
 .segmentdef Data [start=$c000, virtual] // Data set once on game initialization
-.segmentdef DynamicDataStart [startAfter="Data", virtual] // Data that is reset on each game state change
+.segmentdef DynamicDataStart [startAfter="Data", virtual, hide] // Data that is reset on each game state change
 .segmentdef DynamicData [startAfter="DynamicDataStart", virtual]
-.segmentdef DynamicDataEnd [startAfter="DynamicData", virtual]
+.segmentdef DynamicDataEnd [startAfter="DynamicData", virtual, hide]
 //
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -58,18 +48,17 @@
 // Source Files
 //---------------------------------------------------------------------------------------------------------------------
 // The source code is split in to the following files:
-// - Main: Main game loop.
-// - Resources: Game resources such as sprites and character sets.
-// - Common: Library of subroutines and assets used by various game states.
-// - board: Subroutines and assets used to render the game board.
-// - intro: Subroutines and assets used by the intro page (eg the dancing logo page).
-// - board_walk: Subroutines and assets used during the introduction to walk icons on to the board.
-// - game: Subroutines and assets used during main game play.
-// - ai: Subroutinues used for AI in board and challenge game play. I split these out as they may be interesting.
-// - challenge: Subroutines and assets used during challenge battle game play.
-// Additionally, two constant files are used:
-// - io: contains standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names
-// - const: contains game specific constants
+// - `main`: Main game loop.
+// - `resources`: Game resources such as sprites, character sets and music phraseology.
+// - `common`: Library of subroutines and assets used by two or more source code files.
+// - `board`: Subroutines and assets used to render the game board.
+// - `intro`: Subroutines and assets used by the intro page (eg the dancing logo page).
+// - `board_walk`: Subroutines and assets used during the introduction to walk icons on to the board.
+// - `game`: Subroutines and assets used during main game play.
+// - `ai`: Subroutinues used for AI in board and challenge game play. I split these out as they may be interesting.
+// - `challenge`: Subroutines and assets used during challenge battle game play.
+// - `io`: Standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names.
+// - `const`: Game specific constants.
 
 #import "src/io.asm"
 #import "src/const.asm"
@@ -113,19 +102,19 @@ entry:
     sta curr_pre_game_progress // Pregame state ($80 is intro)
     lda #$03 // Set number of large jiffies before game auto plays after intro (~12s as each tick is ~4s)
     sta board.countdown_timer
-
+    //
     lda flag__is_initialized
     bmi skip_move
     jsr resource.move
 skip_move:
     jsr init
-
+    //
 restart_game_loop:
     // Ensure each game state starts with cleared sound, clean graphics and 00's in all dynamic variables.
     ldx stack_ptr_store
     txs
     jsr common.stop_sound
-
+    //
     // Clears variable storage area.
     lda #<dynamic_data_start
     sta FREEZP+2
@@ -141,10 +130,10 @@ restart_game_loop:
     inc FREEZP+3
     dex
     bne !loop-
-
+    //
     jsr common.clear_screen
     jsr common.clear_sprites
-
+    //
     // Set the initial strength of each icon.
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
@@ -153,31 +142,31 @@ restart_game_loop:
     sta game.curr_icon_strength,x
     dex
     bpl !loop-
-    
+    //    
     // skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
     // tile color scheme or row occupancy. we have instead included these as constants using compiler directives as it
     // is much more readable.
-    
+    //
     lda #FLAG_ENABLE
     sta interrupt.flag__enable
-
+    //
     // Clear board square occupancy data.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
     sta game.curr_square_occupancy,x
     dex
     bpl !loop-
-
+    //
     sta game.imprisoned_icon_id
     sta game.imprisoned_icon_id+1
     lda game.state.flag__is_first_player_light
     sta game.state.flag__is_light_turn
-
+    //
     // Set default board phase color.
     ldy #$03 // There are 8 phases (0 to 7) with 0 being the darked and 7 the lighted. $03 is in the middle.
     lda board.data.color_phase,y
     sta game.curr_color_phase
-
+    //
 #if INCLUDE_INTRO
     // Display the game intro (bouncing Archon).
     lda flag__enable_intro
@@ -185,7 +174,7 @@ restart_game_loop:
     jsr play_intro
 #endif
 skip_intro:
-
+    //
     // Configure SID for main game.
     lda #$08
     sta PWHI1
@@ -198,7 +187,7 @@ skip_intro:
     sta VCREG3
     lda #%1000_1111 // Turn off voice 3 and keep full volume on other voices
     sta SIGVOL
-
+    //
     // Configure graphics.
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
@@ -208,7 +197,7 @@ skip_intro:
     lda SCROLX
     ora #%0001_0000
     sta SCROLX
-
+    //
 #if INCLUDE_INTRO
     // Display the board intro (walking icons).
     lda flag__enable_intro
@@ -219,14 +208,14 @@ skip_intro:
     sta SPENA
 #endif
 skip_board_walk:
-
+    //
     lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
     lda #FLAG_DISABLE
     sta flag__enable_intro // Display game options
     lda TIME+1
     sta state.last_stored_time // Store time - used to start game if timeout on options page
-
+    //
     // Clear used spell flags.
     ldx #$0D // 7 spells per size (14 total - zero based)
     lda #SPELL_UNUSED
@@ -234,7 +223,7 @@ skip_board_walk:
     sta magic.flag__light_used_spells,x
     dex
     bpl !loop-
-
+    //
     // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
     // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
@@ -269,7 +258,7 @@ board_setup_player_2_loop:
     bne board_setup_player_2_loop
     cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
     bcc board_setup_row_loop
-
+    //
     // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), the we cannot
     // select a true "middle" starting point for the game. Instead, we chose the phase on the darker side if light is
     // first (06) or the lighter side if dark is first (08). This should reduce any advantage that the first player
@@ -293,7 +282,7 @@ board_setup_player_2_loop:
     lda board.data.color_phase,y
     sta game.curr_color_phase
     jsr common.clear_screen
-
+    //
     // Let's play!
     jmp game.entry
 
@@ -323,28 +312,27 @@ init:
     //
     // As can be seen, the screen memory overlaps the first character set. This is OK as the first character set
     // contains upper case only characters and therefore occupies only half of the memory of a full character set.
-
-    // Enable data direction bits for setting VICII memory bank.
+    //
+    // Set VICII memory bank.
     lda C2DDRA
     ora #%0000_0011
-    sta C2DDRA
-
-    // Set memory bank.
+    sta C2DDRA // Enable data direction bits for setting memory bank.
     lda CI2PRA
     and #%1111_1100
     ora #VICBANK
-    sta CI2PRA
-
+    sta CI2PRA // Set memory bank.
+    //
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
     lda #%0001_0010
     sta VMCSB
-
-    // set RAM visible at $A000-$BFFF.
+    //
+    // Set RAM visible at $A000-$BFFF.
+    // We don't actually need this as we fit everything in before $A000, but we'll leave it in.
     lda R6510
     and #%1111_1110
     sta R6510
-
+    //
     // Configure interrupt handler routines
     // The interrupt handler calls the standard system interrupt if a non-raster interrupt is detected. If a raster
     // interrupt occurs, we will initially calls a minimalist interrupt routine. This routine will be replaced with
@@ -417,11 +405,6 @@ play_intro:
 // 02A7
 flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized
 
-.namespace screen {
-    // BF19
-    color_mem_offset: .byte >(COLRAM-SCNMEM) // Screen offset to color ram
-}
-
 .namespace state {
     // 4760
     game_fn_ptr: // Pointer to each main game function
@@ -430,41 +413,6 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 #if INCLUDE_INTRO
         .word intro.entry
 #endif
-}
-
-.namespace math {
-    // 8DC3
-    pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
-}
-
-.namespace sprite {
-    // 8DBF
-    offset_00: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
-
-    // 8DC0
-    offset_24: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
-
-    // 8DC1
-    offset_48: .byte (VICGOFF/BYTES_PER_SPRITE)+48 // Sprite 48 screen pointer
-
-    // 8DC2
-    offset_56: .byte (VICGOFF/BYTES_PER_SPRITE)+56 // Sprite 56 screen pointer
-
-    // 8DCB
-    mem_ptr_00: // Pointer to sprite 0 graphic memory area
-        .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
-
-    // 8DCD
-    mem_ptr_24: // Pointer to sprite 24 (dec) graphic memory area
-        .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
-
-    // 8DCF
-    mem_ptr_48: // Pointer to sprite 48 (dec) graphic memory area
-        .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
-
-    // 8DD1
-    mem_ptr_56: // Pointer to sprite 56 (dec) graphic memory area
-        .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -538,56 +486,27 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
 .namespace temp {
     // BCEE
     flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
-    data__curr_frame_adv_count: // Counter used to advance animation frame (every 4 pixels)
         .byte $00
-
-    // BCF2
-    curr_debounce_count: // Current debounce counter (used when debouncing fire button presses)
-    curr_battle_square_color: // Current color of square in which a battle is being faught
-        .byte $00 
 
     // BCFE
     data__curr_count: // Current counter value
     flag__icon_destination_valid: // Action on icon square drop selection
         .byte $00
 
-    // BCEF
-    flag__alternating_state_1: // Alternating state flag (alternates between 00 and FF)
-        .byte $00
-
-    // BD0D
-    data__sprite_x_direction_offset_1: // Amount added to x plan to move sprite to the left or right (uses rollover)
-    flag__board_sprite_moved: // Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
-        .byte $00
-
-    // BD17
-    data__sprite_final_x_pos: // Final X position of animated sprite
-        .byte $00
-
     // BD26
     data__curr_sprite_ptr: // Current sprite counter
-        .byte $00
-
-    // BD2D
-    data__temp_store_2: // Temporary storage
-        .byte $00
-
-    // BD38
-    data__num_icons: // Number of baord icons to render
         .byte $00
 
     // BD66
     dynamic_fn_ptr: .word $0000 // Pointer to a dynanic function determined at runtime
 
     // BF1A
-    data__curr_color: // Color of the current intro string being rendered
-    data__board_icon_char_offset: // Index to character dot data for current board icon part (icons are 6 caharcters)
     data__math_store: // Temporary storage used for math operations
-    data__x_pixels_per_move: // Pixels to move intro sprite for each frame
     data__temp_store: // Temporary data storage area
         .byte $00
+
+    // BF1B
     ptr__sprite: // Intro sprite data pointer
-    data__curr_x_pos: // Current calculated sprite X position
         .byte $00
         .byte $00
         .byte $00
@@ -603,7 +522,6 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 
     // BF22
-    flag__are_sprites_initialized: // Is TRUE if intro icon sprites are initialized
     flag__is_valid_square: // is TRUE if a surrounding square is valid for movement or magical spell
          .byte $00
 
@@ -632,59 +550,17 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // BF31
     data__curr_column: // Current board column
         .byte $00
-
-    // BF32
-    data__dark_icon_count: // Dark remaining icon count
-    data__board_sprite_move_y_count: // Sprite Y position movement counter
-    data__hold_delay_count: // Current spell selection
-        .byte $00
-
-    // BF33
-    data__remaining_dark_icon_id: // Icon ID of last dark icon
-        .byte $00
-
-    // BF36
-    data__light_icon_count: // Light remaining icon count
-    data__board_sprite_move_x_count: // Sprite X position movement counter
-        .byte $00
-
-    // BF37
-    data__remaining_light_icon_id: // Icon ID of last light icon
-        .byte $00
-
-    // BD3A
-    data__msg_offset: // Offset of current message being rendered in into page
-    data__icon_offset: // Offset of current icon being rendered on to the board
-    data__curr_spell_id: // Current selected spell ID
-        .byte $00
-
-    // BD68
-    data__temp_note_store: // Temporary storage for musical note being played
-        .byte $00
-
+    
     // BD7B
-    data__counter: // Temporary counter
-        .byte $00
-
-    // BF3B
-    data__sprite_y_offset: // Calculated Y offset for each sprite in walk in intro
-        .byte $00
-
-    // BF3C
-    flag__string_pos_ctl: // Used to control string rendering in intro page
-        .byte $00
+    // Temporary counter.
+    data__counter: .byte $00
 
     // BF23
-    data__sprite_y_direction_offset: // Amount added to y plan to move sprite to the left or right (uses rollover)
     data__temp_store_1: // Temporary data storage
-    data__used_spell_count: // Count of number of used spells for a specific player
         .byte $00
 
     // BF24
-    data__sprite_x_direction_offset: // Amount added to x plan to move sprite to the left or right (uses rollover)
-    data__curr_square_color_code: // Color code used to render
     data__icon_set_sprite_frame: // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
-    data__dead_icon_count: // Number of dead icons in the dead icon list.
         .byte $00
 }
 .segment DynamicDataEnd

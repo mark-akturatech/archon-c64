@@ -1,7 +1,7 @@
 
 
 
-    // Copy sprite shot sprites
+    // Copy sprite projectile sprites
 7B99  BC 29 BF   ldy board.icon.offset,x
 7B9C  B9 8B 8A   lda W8A8B,y
 7B9F  9D 01 BD   sta WBD01,x
@@ -87,7 +87,7 @@ W7C28:
 W7C2D:
 7C2D  20 EB 62   jsr board_get_sound_for_piece
 7C30  BC 29 BF   ldy board.icon.offset,x
-7C33  B9 AA 8B   lda board_sound_shoot_phrase,y
+7C33  B9 AA 8B   lda board_sound_attack_phrase,y
 7C36  A8        tay
 7C37  B9 94 8B   lda board_sound_phrase_ptr,y
 W7C3A:
@@ -225,7 +225,7 @@ W8A9F:
 05, 09, 09, 06
 
 
-// shot animation sprite offsets
+// projectile animation sprite offsets
 // 20C6 = phonex icon ($1EAA) + $21C
 // 3908 = banshee icon ($36EC) + $21C
 
