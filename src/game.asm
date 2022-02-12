@@ -88,7 +88,7 @@ entry:
     // Check and see if the same player is occupying all of the magic squares. If so, the game is ended and that player
     // wins.
     lda #$00
-    sta main.temp.data__curr_count
+    sta data__curr_count
     ldx #$04 // Number of magic squares (0 based - so 5)
 !loop:
     ldy board.data.magic_square_col,x
@@ -108,11 +108,11 @@ entry:
     ldy #$80
 !next:
     tya
-    ora main.temp.data__curr_count
-    sta main.temp.data__curr_count
+    ora data__curr_count
+    sta data__curr_count
     dex
     bpl !loop-
-    lda main.temp.data__curr_count
+    lda data__curr_count
     cmp #$C0 // All icons the same?
     beq !check_win_next+
     jmp game_over
@@ -123,7 +123,7 @@ entry:
     lda #$00
     sta data__dark_icon_count
     sta data__light_icon_count
-    sta main.temp.data__curr_count
+    sta data__curr_count
     ldx #(BOARD_TOTAL_NUM_ICONS - 1)
 !loop:
     lda curr_icon_strength,x
@@ -140,12 +140,12 @@ entry:
     stx data__remaining_light_icon_id
 !next:
     tya
-    ora main.temp.data__curr_count
-    sta main.temp.data__curr_count
+    ora data__curr_count
+    sta data__curr_count
 !check_next:
     dex
     bpl !loop-
-    lda main.temp.data__curr_count
+    lda data__curr_count
     bne !next+
     jmp game_over // No icons left on any side. Not sure how this is possible.
 !next:
@@ -168,7 +168,7 @@ round_complete:
     and #$0F
     bne !next+
     lda #$01 // Stalemate
-    sta main.temp.data__curr_count
+    sta data__curr_count
     jmp game_over
 !next:
     dec curr_stalemate_count
@@ -240,7 +240,7 @@ check_light_icons:
     jmp game_over__imprisoned
     //
 check_game_state:
-    lda main.curr_pre_game_progress
+    lda main.state.flag__pregame_state
     beq play_turn // In game?
     // Play game with 0 players if option timer expires.
     lda TIME+1
@@ -251,7 +251,7 @@ check_game_state:
     bpl !next+
     // Start game.
     lda #FLAG_DISABLE
-    sta main.curr_pre_game_progress
+    sta main.state.flag__pregame_state
     jmp main.restart_game_loop
 !next:
     jsr board.display_options
@@ -391,7 +391,7 @@ set_icon_speed:
     // 8304  8C 15 BD   sty intro_sprite_final_y_pos
     // 8307  CE 38 BD   dec temp_data__num_icons
     // W830A:
-    // 830A  AE 22 BF   ldx main.temp.flag__is_valid_square
+    // 830A  AE 22 BF   ldx game.flag__is_valid_square
     // 830D  BD 5B BE   lda WBE5B,x
     // 8310  8D 28 BD   sta WBD28
     // 8313  BC 6D BE   ldy WBE6D,x
@@ -559,13 +559,13 @@ game_over__imprisoned:
     // Set winner (opposite to current player as current player has the imprisoned icon).
     lda state.flag__is_light_turn
     eor #$FF
-    sta main.temp.data__curr_count
+    sta data__curr_count
 
 // 66F8
 // Description:
 // - Print game over message, play outro music and reset game.
 // Prerequisites:
-// - `main.temp.data__curr_count` contains the winning side:
+// - `data__curr_count` contains the winning side:
 //      $40: light player
 //      $80: dark player
 //      $C0: tie
@@ -575,7 +575,7 @@ game_over:
     lda #STRING_GAME_ENDED
     ldx #CHARS_PER_SCREEN_ROW
     jsr board.write_text
-    lda main.temp.data__curr_count
+    lda data__curr_count
     cmp #$01 // Stalemate?
     bne !next+
     lda #STRING_STALEMATE
@@ -588,10 +588,10 @@ game_over:
     // method multiples the ID by 2 (ignoreing overflow), so we get offset 12 (for 86) or 14 or 16 which is string
     // 6 (light wins) and 7 (dark wins) or 8 (tie). Makes sense eventually.
     ldy #$86 // Light wins
-    bit main.temp.data__curr_count
+    bit data__curr_count
     bvs !next+
     iny // Dark wins
-    lda main.temp.data__curr_count
+    lda data__curr_count
     bmi !next+
     iny // Tie
 !next:
@@ -623,10 +623,10 @@ game_over__show_winner:
     lda #$07 // Approx 30s (each tick is ~4s)
     sta board.countdown_timer
     lda #FLAG_ENABLE // Intro
-    sta main.curr_pre_game_progress
+    sta main.state.flag__pregame_state
 !loop:
     jsr common.check_option_keypress
-    lda main.curr_pre_game_progress
+    lda main.state.flag__pregame_state
     beq !next+
     lda TIME+1
     cmp main.state.last_stored_time
@@ -635,7 +635,7 @@ game_over__show_winner:
     dec board.countdown_timer
     bpl !next+
     lda #FLAG_DISABLE
-    sta main.curr_pre_game_progress
+    sta main.state.flag__pregame_state
     jmp main.restart_game_loop
 !next:
     jmp !loop-
@@ -647,12 +647,12 @@ game_over__show_winner:
 // - `main.temp.data__curr_icon_row`: row of source square
 // - `main.temp.data__curr_icon_col`: column of source square
 // Sets:
-// - `main.temp.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
+// - `game.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
 // - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
 // - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
 check_empty_non_magic_surrounding_square:
     lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-    sta main.temp.flag__is_valid_square
+    sta game.flag__is_valid_square
     jsr board.surrounding_squares_coords
     ldx #$08 // Number of surrounding squares (and current square)
 !loop:
@@ -678,7 +678,7 @@ check_empty_non_magic_surrounding_square:
     lda state.flag__is_light_turn
     cmp state.flag__ai_player_ctl
     // 7948  F0 04      beq W794E // TODO: AI
-    asl main.temp.flag__is_valid_square
+    asl game.flag__is_valid_square
     rts
 !next:
     dex
@@ -689,17 +689,17 @@ check_empty_non_magic_surrounding_square:
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
     lda #FLAG_DISABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
 !loop:
     jsr common.check_stop_keypess
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     beq !loop-
     jmp common.stop_sound
 
 // 8377
 interrupt_handler:
     jsr board.draw_magic_square
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -807,7 +807,7 @@ joystick_icon_select:
     jsr display_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
     sta flag__interrupt_response
     jmp common.complete_interrupt
     //
@@ -824,7 +824,7 @@ move_sprite_to_square:
     ora data__board_sprite_move_y_count
     and #$7F
     beq check_joystick_left_right
-    jmp set_sprite_square_position
+    jmp set_sprite_square_pos
 check_joystick_left_right:
     lda CIAPRA,x
     pha // Put joystick status on stack
@@ -855,14 +855,14 @@ move_up_down:
     beq check_joystick_up_down
     bmi check_joystick_up_down
     pla
-    jmp set_sprite_square_position
+    jmp set_sprite_square_pos
     // Disable joystick up/down movement if sprite has not reached Y direction final position.
 check_joystick_up_down:
     lda data__board_sprite_move_y_count
     and #$7F
     beq !next+
     pla
-    jmp set_sprite_square_position
+    jmp set_sprite_square_pos
 !next:
     pla
     lsr // Joystick up (bit 1 set)
@@ -877,9 +877,9 @@ check_joystick_up_down:
 //
 !next:
     lda flag__new_square_selected
-    bpl set_sprite_square_position
+    bpl set_sprite_square_pos
     jsr display_message
-set_sprite_square_position:
+set_sprite_square_pos:
     ldx main.temp.data__curr_sprite_ptr // 01 if moving selection square, 00 if moving icon
     lda data__board_sprite_move_x_count // Number of pixels to move in x direction ($00-$7f for right, $80-ff for left)
     beq !next+
@@ -1255,7 +1255,7 @@ warn_on_diagonal_move_exceeded:
     eor #$FF
     adc #$01
 !next:
-    sta main.temp.data__math_store_1
+    sta data__temp_col_calc_store
     lda main.temp.data__curr_row
     sec
     sbc main.temp.data__curr_icon_row
@@ -1263,13 +1263,13 @@ warn_on_diagonal_move_exceeded:
     eor #$FF
     adc #$01
 !next:
-    sta main.temp.data__math_store_2
+    sta data__temp_row_calc_store
     //
     lda curr_icon_total_moves
     and #$3F
-    cmp main.temp.data__math_store_1
+    cmp data__temp_col_calc_store
     bcc show_limit_reached_message
-    cmp main.temp.data__math_store_2
+    cmp data__temp_row_calc_store
     bcs !return+
 show_limit_reached_message:
     lda #(FLAG_ENABLE+STRING_LIMIT_MOVED)
@@ -1310,7 +1310,7 @@ display_message:
 // transport piece
 transport_icon:
     ldx #$00
-    stx main.temp.flag__alternating_state
+    stx data__interrupt_count
     // Enable 2 sprites for animating transport from and to - the source sprite is slowly removed from the source
     // location and rebuilt at the destination location. This is done by removing one line from the source (every 3
     // interrupts) and adding it to the destination.
@@ -1326,7 +1326,7 @@ transport_icon:
     sta XXPAND
     // Configure source icon.
     lda #(BYTERS_PER_STORED_SPRITE-1)
-    sta data__temp_store_2
+    sta data__sprite_byte_count
     lda main.temp.data__curr_icon_col
     ldy main.temp.data__curr_icon_row
     jsr board.convert_coord_sprite_pos
@@ -1404,11 +1404,11 @@ transport_icon:
 // Performs an animation when transporting an icon from one location to another.
 transport_icon_interrupt:
     jsr board.draw_magic_square
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     bmi !return+
     // Animate every 4th interrupt.
-    inc main.temp.flag__alternating_state
-    lda main.temp.flag__alternating_state
+    inc data__interrupt_count
+    lda data__interrupt_count
     and #$03
     beq !next+
 !return:
@@ -1425,7 +1425,7 @@ transport_icon_interrupt:
     lda #$11
     sta VCREG1
     // Copy 2 lines of the source sprite and move to destination sprite.
-    ldy data__temp_store_2
+    ldy data__sprite_byte_count
     ldx #$03
 !loop:
     lda (FREEZP),y    // copy line by line (one line per interrupt - transport effect)
@@ -1436,7 +1436,7 @@ transport_icon_interrupt:
     bmi !return+ // Copy finished?
     dex
     bne !loop-
-    sty data__temp_store_2
+    sty data__sprite_byte_count
     jmp common.complete_interrupt
 !return:
     lda flag__is_challenge_required
@@ -1444,7 +1444,7 @@ transport_icon_interrupt:
     jsr board.add_icon_to_matrix
 !next:
     lda #FLAG_ENABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
     jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1597,14 +1597,34 @@ data__temp_note_store: .byte $00
 // Counter used to advance animation frame (every 4 pixels).
 data__curr_frame_adv_count: .byte $00
 
+// BCEE
+// Count number of interrupts. Used to perform actions on the nth interrupt.
+data__interrupt_count: .byte $00
+
+// BD2D
+// Sprite byte counter used to copy sprite line by line when transporting an icon
+data__sprite_byte_count: .byte $00
+
 // BCF2
 // Current debounce counter (used when debouncing fire button presses).
 curr_debounce_count: .byte $00
 
 // BD0D
 // Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
-flag__board_sprite_moved:.byte $00
+flag__board_sprite_moved: .byte $00
 
-// BD2D
-// Temporary storage
-data__temp_store_2: .byte $00
+// BF20
+// Temporary storage used to store calculated column for diagonal move exceeded determination.
+data__temp_col_calc_store: .byte $00
+
+// BF21
+// Temporary storage used to store calculated row for diagonal move exceeded determination.
+data__temp_row_calc_store: .byte $00
+
+// BCFE
+// Temporary counter storage.
+data__curr_count: .byte $00
+
+// BF22
+// is TRUE if a surrounding square is valid for movement or magical spell
+flag__is_valid_square: .byte $00

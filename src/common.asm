@@ -37,7 +37,7 @@ process_key:
     jsr advance_intro_state
     lda #FLAG_DISABLE
     sta board.countdown_timer
-    sta main.curr_pre_game_progress
+    sta main.state.flag__pregame_state
     lda common.options.flag__ai_player_ctl
     sta game.state.flag__ai_player_ctl
     jmp main.restart_game_loop
@@ -89,7 +89,7 @@ advance_intro_state:
     lda #$07 // Load ~30 seconds in to countdown timer
     sta board.countdown_timer
     lda #FLAG_ENABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
     // Remove intro interrupt handler.
     sei
     lda #<complete_interrupt
@@ -103,11 +103,11 @@ advance_intro_state:
     sta VMCSB
     //
     lda #$FF // Go straight to options page
-    sta main.curr_pre_game_progress
+    sta main.state.flag__pregame_state
     // Skip intro.
     lda #FLAG_DISABLE
-    sta main.flag__enable_intro
-    sta main.interrupt.flag__enable_next
+    sta main.state.flag__enable_intro
+    sta main.interrupt.flag__set_new_state
     rts
 
 // 6490
@@ -133,7 +133,7 @@ wait_for_jiffy:
 // Description:
 // - Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `main.interrupt.flag__enable_next` is toggled if RUN/STOP pressed.
+// - `main.interrupt.flag__set_new_state` is toggled if RUN/STOP pressed.
 // Notes:
 // - Game is reset if Q key is pressed.
 // - Subroutine waits for key to be released before exiting.
@@ -151,9 +151,9 @@ check_stop_keypess:
     jsr advance_intro_state
     jmp main.restart_game_loop
 !next:
-    lda main.interrupt.flag__enable_next
+    lda main.interrupt.flag__set_new_state
     eor #$FF
-    sta main.interrupt.flag__enable_next
+    sta main.interrupt.flag__set_new_state
 !loop:
     jsr STOP
     beq !loop-
@@ -216,14 +216,14 @@ clear_sprites:
 // Description:
 // - Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 // Notes:
-// - Repeats until `main.interrupt.flag__enable` is set.
+// - Repeats until `main.state.flag__enable_next` is set.
 wait_for_key:
     lda #FLAG_DISABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
 !loop:
     jsr check_option_keypress
     jsr check_stop_keypess
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     beq !loop-
     jmp stop_sound
 
@@ -333,9 +333,9 @@ play_music:
     asl
     tay
     lda sound.note_data_fn_ptr,y
-    sta main.temp.dynamic_fn_ptr
+    sta voice_note_fn_ptr
     lda sound.note_data_fn_ptr+1,y
-    sta main.temp.dynamic_fn_ptr+1
+    sta voice_note_fn_ptr+1
     lda sound.voice_io_addr,y
     sta FREEZP+2
     lda sound.voice_io_addr+1,y
@@ -442,7 +442,7 @@ set_note:
 // Read note from current music loop and increment the note pointer.
 get_note: // Get note for current voice and increment note pointer
     ldy #$00
-    jmp (main.temp.dynamic_fn_ptr)
+    jmp (voice_note_fn_ptr)
 
 // A143
 get_note_V1: // Get note for voice 1 and increment note pointer
@@ -718,3 +718,7 @@ intro_music:
     // BF50
     flag__play_outro: .byte $00 // Is 00 for title music and 80 for game end music
 }
+
+// BD66
+// Function pointer to retrieve a note for the current voice. 
+voice_note_fn_ptr: .word $0000

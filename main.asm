@@ -14,6 +14,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 // See README.md file for additional information.
 
+// TODO:
+// - Standardise data label naming
+
 //---------------------------------------------------------------------------------------------------------------------
 // Memory map
 //---------------------------------------------------------------------------------------------------------------------
@@ -96,10 +99,10 @@ entry:
     lda #$55 // Light player ($AA for dark)
     sta game.state.flag__is_first_player_light // Light player first
     tsx
-    stx stack_ptr_store
+    stx storage.stack_ptr
     lda #FLAG_ENABLE
-    sta flag__enable_intro // Play intro
-    sta curr_pre_game_progress // Pregame state ($80 is intro)
+    sta state.flag__enable_intro // Play intro
+    sta state.flag__pregame_state // Pregame state ($80 is intro)
     lda #$03 // Set number of large jiffies before game auto plays after intro (~12s as each tick is ~4s)
     sta board.countdown_timer
     //
@@ -111,7 +114,7 @@ skip_move:
     //
 restart_game_loop:
     // Ensure each game state starts with cleared sound, clean graphics and 00's in all dynamic variables.
-    ldx stack_ptr_store
+    ldx storage.stack_ptr
     txs
     jsr common.stop_sound
     //
@@ -148,7 +151,7 @@ restart_game_loop:
     // is much more readable.
     //
     lda #FLAG_ENABLE
-    sta interrupt.flag__enable
+    sta state.flag__enable_next
     //
     // Clear board square occupancy data.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
@@ -169,7 +172,7 @@ restart_game_loop:
     //
 #if INCLUDE_INTRO
     // Display the game intro (bouncing Archon).
-    lda flag__enable_intro
+    lda state.flag__enable_intro
     beq skip_intro
     jsr play_intro
 #endif
@@ -200,7 +203,7 @@ skip_intro:
     //
 #if INCLUDE_INTRO
     // Display the board intro (walking icons).
-    lda flag__enable_intro
+    lda state.flag__enable_intro
     beq skip_board_walk
     jsr board_walk.entry
 #else
@@ -212,7 +215,7 @@ skip_board_walk:
     lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
     lda #FLAG_DISABLE
-    sta flag__enable_intro // Display game options
+    sta state.flag__enable_intro // Display game options
     lda TIME+1
     sta state.last_stored_time // Store time - used to start game if timeout on options page
     //
@@ -423,15 +426,6 @@ flag__is_initialized: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initia
 // Data in this area are not cleared on state change.
 .segment Data
 
-// BCC3
-curr_pre_game_progress: .byte $00 // Game intro state ($80 = intro, $00 = board walk, $ff = options)
-
-// BCC4
-stack_ptr_store: .byte $00 // Stored stack pointer so that stack is reset on each state update
-
-// BCD1
-flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
-
 .namespace interrupt {
     // BCCC
     // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
@@ -442,12 +436,21 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     // System interrupt handler function pointer. This pointer is calls a minimalist handler that really does nothing
     // and is used to ensure the game runs at optimum speed.
     system_fn_ptr: .word $0000
-
-    // BCD0
-    flag__enable: .byte $00 // Is set to $80 to indicate that the game state should be changed to the next state
 }
 
 .namespace state {
+    // BCD0
+    // Is set to $80 to indicate that the game state should be changed to the next state.
+    flag__enable_next: .byte $00
+    
+    // BCD1
+    // Set to $80 to play intro and $00 to skip intro.
+    flag__enable_intro: .byte $00
+    
+    // BCC3
+    // Pre-game intro state ($80 = intro, $00 = board walk, $ff = options).
+    flag__pregame_state: .byte $00
+
     // BCC7
     counter: // State counters
         .byte $00
@@ -457,39 +460,44 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
         .byte $00
 }
 
+.namespace storage {
+    // BCC4
+    // Stored stack pointer so that stack is reset on each state update.
+    stack_ptr: .byte $00
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 // Dynamic data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
 // of the data area.
 .segment DynamicDataStart
     dynamic_data_start:
+
 .segment DynamicData
 
 .namespace interrupt {
     // BCD3
-    flag__enable_next: .byte $00 // Is set to non zero if the game state should be updated after next interrupt
+    // Is set to non zero if the game state should be updated after interrupt ha completed.
+    flag__set_new_state: .byte $00
 }
 
 .namespace state {
     // BD27
-    last_stored_time: .byte $00 // Last recorded major jiffy clock counter (256 jiffy counter)
+    // Last recorded major jiffy clock counter (256 jiffy counter).
+    last_stored_time: .byte $00
 
     // BD30
-    curr_fn_ptr: .word $0000 // Pointer to code that will run in the current state
+    // Pointer to code that will run in the current state.
+    curr_fn_ptr: .word $0000
 
     // BF3D
-    // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C)
+    // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C).
     curr_cycle: .byte $00, $00, $00, $00
 }
 
 // Memory addresses used for multiple purposes. Each purpose has it's own label and label description for in-code
 // readbility.
 .namespace temp {
-    // BCEE
-    flag__alternating_state: // Alternating state flag (alternates between 00 and FF)
-        .byte $00
-
     // BCFE
-    data__curr_count: // Current counter value
     flag__icon_destination_valid: // Action on icon square drop selection
         .byte $00
 
@@ -497,36 +505,18 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     data__curr_sprite_ptr: // Current sprite counter
         .byte $00
 
-    // BD66
-    dynamic_fn_ptr: .word $0000 // Pointer to a dynanic function determined at runtime
-
     // BF1A
-    data__math_store: // Temporary storage used for math operations
     data__temp_store: // Temporary data storage area
         .byte $00
-
     // BF1B
     ptr__sprite: // Intro sprite data pointer
-        .byte $00
-        .byte $00
-        .byte $00
-        .byte $00
-        .byte $00
-
-    // BF20
-    data__math_store_1: // Temporary storage used for math operations
-        .byte $00
-
-    // BF21
-    data__math_store_2: // Temporary storage used for math operations
-        .byte $00
-
-    // BF22
-    flag__is_valid_square: // is TRUE if a surrounding square is valid for movement or magical spell
-         .byte $00
+        .byte $00 // data__temp_store+1
+        .byte $00 // data__temp_store+2
+        .byte $00 // data__temp_store+3
+        .byte $00 // data__temp_store+4
+        .byte $00 // data__temp_store+5
 
     // BF25
-    data__sprite_final_y_pos: // Final Y position of animated sprite
     data__curr_icon_row: // Intitial board row of selected icon
         .byte $00
 
@@ -551,17 +541,10 @@ flag__enable_intro: .byte $00 // Set to $80 to play intro and $00 to skip intro
     data__curr_column: // Current board column
         .byte $00
     
-    // BD7B
-    // Temporary counter.
-    data__counter: .byte $00
-
-    // BF23
-    data__temp_store_1: // Temporary data storage
-        .byte $00
-
     // BF24
     data__icon_set_sprite_frame: // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
         .byte $00
 }
+
 .segment DynamicDataEnd
     dynamic_data_end:

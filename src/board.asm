@@ -87,12 +87,12 @@ convert_coord_sprite_pos:
     asl
     asl
     asl
-    sta main.temp.data__math_store
+    sta data__temp_sprite_x_calc_store
     pla
     asl
     asl
     clc
-    adc main.temp.data__math_store
+    adc data__temp_sprite_x_calc_store
     clc
     adc #$1A
     cpx #$04
@@ -325,7 +325,7 @@ add_sprite_set_to_graphics:
     tay
     lda common.sprite.mem_ptr_00,y
     sta FREEZP+2
-    sta main.temp.data__temp_store_1
+    sta data__curr_sprite_mem_lo_ptr
     lda common.sprite.mem_ptr_00+1,y
     sta FREEZP+3
     cpx #$02
@@ -392,10 +392,10 @@ skip_frames_84_to_8C:
     sta main.temp.data__icon_set_sprite_frame
 add_next_frame_to_graphics:
     // Incremement frame grpahics pointer to point to next sprite memory location.
-    lda main.temp.data__temp_store_1
+    lda data__curr_sprite_mem_lo_ptr
     clc
     adc #BYTES_PER_SPRITE
-    sta main.temp.data__temp_store_1
+    sta data__curr_sprite_mem_lo_ptr
     sta FREEZP+2
     bcc add_individual_frame_to_graphics
     inc FREEZP+3
@@ -574,14 +574,14 @@ render_sprite_preconf:
     lda common.sprite.curr_x_pos,x
     clc
     adc common.sprite.curr_x_pos,x
-    sta main.temp.data__math_store_1
+    sta data__temp_sprite_y_store
     lda #$00
     adc #$00
-    sta main.temp.data__math_store_2
-    lda main.temp.data__math_store_1
+    sta data__temp_sprite_x_store
+    lda data__temp_sprite_y_store
     adc #$18
     sta SP0X,y
-    lda main.temp.data__math_store_2
+    lda data__temp_sprite_x_store
     adc #$00
     beq !next+
     lda MSIGX
@@ -733,7 +733,7 @@ render_square:
     rts
 draw_square_part: // Draws 3 characters of the current row.
     lda #$03
-    sta main.temp.data__counter
+    sta data__curr_count
 !loop:
     lda data__board_icon_char_offset
     sta (FREEZP+2),y
@@ -746,7 +746,7 @@ draw_square_part: // Draws 3 characters of the current row.
     bmi !next+
     inc data__board_icon_char_offset
 !next:
-    dec main.temp.data__counter
+    dec data__curr_count
     bne !loop-
     rts
 
@@ -1043,9 +1043,9 @@ configure_voice:
     asl
     tay
     lda common.sound.note_data_fn_ptr,y
-    sta main.temp.dynamic_fn_ptr
+    sta common.voice_note_fn_ptr
     lda common.sound.note_data_fn_ptr+1,y
-    sta main.temp.dynamic_fn_ptr+1
+    sta common.voice_note_fn_ptr+1
     lda common.sound.voice_io_addr,y
     sta FREEZP+2 // SID voice address
     lda common.sound.voice_io_addr+1,y
@@ -1108,7 +1108,7 @@ stop_sound:
 // AE12
 interrupt_handler:
     jsr draw_magic_square
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     bmi !return+
     jmp (main.state.curr_fn_ptr)
 interrupt_handler__play_music:
@@ -1710,3 +1710,24 @@ data__curr_square_color_code: .byte $00
 // BF1A
 // Index to character dot data for current board icon part (icons are 6 caharcters).
 data__board_icon_char_offset: .byte $00
+
+// BF23
+// Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
+// bytes) when adding chasing icon sprites.
+data__curr_sprite_mem_lo_ptr: .byte $00
+
+// BD7B
+// Temporary counter storage.
+data__curr_count: .byte $00
+
+// BF20
+// Temporary storage of calculated initial Y position of a newly places sprite.
+data__temp_sprite_y_store: .byte $00
+
+// BF21
+// Temporary storage of calculated initial X position of a newly places sprite.
+data__temp_sprite_x_store: .byte $00
+
+// BF1A
+// Temporary storage of interim calculation used to convert a board position to a sprite location.
+data__temp_sprite_x_calc_store: .byte $00

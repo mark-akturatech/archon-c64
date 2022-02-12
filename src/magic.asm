@@ -63,10 +63,10 @@ select_spell_start:
     asl
     tay
     lda data.spell_cast_fn_ptr,y
-    sta main.temp.dynamic_fn_ptr
+    sta prt__spell_fn
     lda data.spell_cast_fn_ptr+1,y
-    sta main.temp.dynamic_fn_ptr+1
-    jmp (main.temp.dynamic_fn_ptr)
+    sta prt__spell_fn+1
+    jmp (prt__spell_fn)
     //
 cancel_spell_selection:
     jsr end_spell_selection
@@ -333,7 +333,7 @@ allow_summon_elemental:
 // 693F
 spell_select_revive:
     jsr game.check_empty_non_magic_surrounding_square
-    lda main.temp.flag__is_valid_square
+    lda game.flag__is_valid_square
     bmi !next+
     // No empty non-magical squares surrounding the spell caster.
     lda #STRING_NO_CHARMED
@@ -343,7 +343,7 @@ revive_error:
     jmp spell_complete
 !next:
     ldx #$00
-    stx data__dead_icon_count
+    stx data__number_dead_icons
     cpx game.curr_player_offset
     beq !next+
     ldx #BOARD_NUM_PLAYER_ICONS // Set offset for player icon strength and type (0=light, 18=dark)
@@ -363,19 +363,19 @@ revive_error:
     bne !next+
     lda board.icon.init_matrix,x
     // Check if icon type is already in the list (eg 2 of the same type may have been killed).
-    ldy data__dead_icon_count
+    ldy data__number_dead_icons
 check_dead_type_loop:
     cmp curr_dead_icon_offsets,y
     beq !next+
     dey
     bpl check_dead_type_loop
     // Store the dead icon in the list.
-    ldy data__dead_icon_count
+    ldy data__number_dead_icons
     sta curr_dead_icon_offsets,y
     txa
     sta curr_dead_icon_types,y
     iny
-    sty data__dead_icon_count
+    sty data__number_dead_icons
     cpy #$08 // Dead icon list full?
     beq !next++
 !next:
@@ -383,7 +383,7 @@ check_dead_type_loop:
     dec main.temp.data__temp_store
     bne !loop-
 !next:
-    lda data__dead_icon_count
+    lda data__number_dead_icons
     bne !next+
     // Display error if no icons have been killed.
     lda #STRING_ICONS_ALL_ALIVE
@@ -405,9 +405,9 @@ check_dead_type_loop:
     sta VARPNT+1
     // Display the dead icons.
     lda #$00
-    sta main.temp.data__temp_store_1
+    sta data__dead_icon_index
 !loop:
-    ldy main.temp.data__temp_store_1
+    ldy data__dead_icon_index
     lda curr_dead_icon_offsets,y
     pha
     asl
@@ -419,9 +419,9 @@ check_dead_type_loop:
     adc main.temp.data__temp_store
     sta main.temp.data__temp_store
     jsr display_dead_icon
-    inc main.temp.data__temp_store_1
-    lda main.temp.data__temp_store_1
-    cmp data__dead_icon_count
+    inc data__dead_icon_index
+    lda data__dead_icon_index
+    cmp data__number_dead_icons
     bcc !loop-
     // Calculate starting position and display the selection square.
     lda #$FE // 2 columns to the left of board for light player
@@ -485,7 +485,7 @@ check_dead_type_loop:
 // Draw an icon piece on the screen uisng character dot data. A pice is 3 characters wide and 2 characters high.
 display_dead_icon:
     lda #$02 // 2 rows high
-    sta main.temp.data__counter
+    sta data__curr_count
 !loop:
     ldy #$00
     ldx #$03 // 3 characters wide
@@ -508,7 +508,7 @@ display_dead_icon:
     inc FREEZP+3
     inc VARPNT+1
 !next:
-    dec main.temp.data__counter
+    dec data__curr_count
     bne !loop--
     rts
 
@@ -805,9 +805,9 @@ spell_select:
     asl
     tax
     lda data.spell_action_fn_ptr,x
-    sta main.temp.dynamic_fn_ptr
+    sta prt__spell_fn
     lda data.spell_action_fn_ptr+1,x
-    sta main.temp.dynamic_fn_ptr+1
+    sta prt__spell_fn+1
     pla
     pha
     bpl check_valid_square
@@ -830,7 +830,7 @@ check_valid_square:
     lda main.temp.flag__icon_destination_valid
     bmi spell_abort_magic_square
 !next:
-    jmp (main.temp.dynamic_fn_ptr)
+    jmp (prt__spell_fn)
 spell_abort_magic_square:
     pla
     lsr main.temp.flag__icon_destination_valid // Invalid selection
@@ -860,7 +860,7 @@ spell_check_icon_is_free:
 spell_end_turn:
     sta game.flag__new_square_selected
     lda #FLAG_ENABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
     rts
 
 // 881A
@@ -1069,4 +1069,16 @@ data__used_spell_count: .byte $00
 
 // BF24
 // Number of dead icons in the dead icon list.
-data__dead_icon_count: .byte $00
+data__number_dead_icons: .byte $00
+
+// BF23
+// Index used to acces an item within the dead icon array.
+data__dead_icon_index: .byte $00
+
+// BD7B
+// Temporary counter storage.
+data__curr_count: .byte $00
+
+// BD66
+// Pointer to function to execute selected spell logic.
+prt__spell_fn: .word $0000

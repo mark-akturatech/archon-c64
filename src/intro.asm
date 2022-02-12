@@ -146,12 +146,12 @@ import_sprite_frame:
 
 // AA42
 interrupt_handler:
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda main.interrupt.flag__enable_next
-    sta main.interrupt.flag__enable
+    lda main.interrupt.flag__set_new_state
+    sta main.state.flag__enable_next
     jsr common.play_music
     jmp (main.state.curr_fn_ptr)
 
@@ -395,14 +395,14 @@ state__avatar_bounce:
     bpl !next+
     lda #$FF // -1 (up)
 !next:
-    sta data__sprite_y_position
+    sta data__sprite_y_pos
     //
     lda #$01 // +1 (right)
     ldy flag__sprite_x_direction
     bpl !next+
     lda #$FF // -1 (left)
 !next:
-    sta data__sprite_x_position
+    sta data__sprite_x_pos
     // Move all 3 sprites that make up the Avatar logo.
     ldx #$03
     ldy #$06
@@ -411,12 +411,12 @@ state__avatar_bounce:
     // Add the direction pointer to the current sprite positions.
     // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
     clc
-    adc data__sprite_y_position
+    adc data__sprite_y_pos
     sta common.sprite.curr_y_pos,x
     sta SP0Y,y
     lda common.sprite.curr_x_pos,x
     clc
-    adc data__sprite_x_position
+    adc data__sprite_x_pos
     sta common.sprite.curr_x_pos,x
     sta SP0X,y
     dey
@@ -545,7 +545,7 @@ set_icon_frame:
 // Complete the current game state and move on.
 state__end_intro:
     lda #FLAG_ENABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
     jmp common.complete_interrupt
     rts
 
@@ -676,11 +676,11 @@ data__curr_color: .byte $00
 
 // BF23
 // Current sprite Y position of bouncing Archon sprite.
-data__sprite_y_position: .byte $00
+data__sprite_y_pos: .byte $00
 
 // BF24
 // Current sprite X position of bouncing Archon sprite.
-data__sprite_x_position: .byte $00
+data__sprite_x_pos: .byte $00
 
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64

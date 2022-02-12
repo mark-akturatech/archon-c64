@@ -101,7 +101,7 @@ animate_icon:
     ldy main.temp.data__curr_board_row
     jsr board.convert_coord_sprite_pos
     sta data__sprite_final_x_pos
-    sty main.temp.data__sprite_final_y_pos
+    sty data__sprite_final_y_pos
     lda data__num_icons
     cmp #$07 // Adding 7 icons (knights, goblins)?
     bne !next+
@@ -194,11 +194,11 @@ add_icon_to_board:
 !loop:
     lda SP0COL
     sta SP0COL,x
-    lda main.temp.data__sprite_final_y_pos
+    lda data__sprite_final_y_pos
     sta common.sprite.curr_y_pos,x
     clc
     adc data__sprite_y_offset
-    sta main.temp.data__sprite_final_y_pos
+    sta data__sprite_final_y_pos
     dex
     bpl !loop-
     // Load sprites in to graphical memory. Add first 4 frames of the sprite icon set.
@@ -210,17 +210,17 @@ add_icon_to_board:
     sta common.sprite.init_animation_frame
     lda common.sprite.mem_ptr_00
     sta FREEZP+2
-    sta main.temp.data__temp_store_1
+    sta data__curr_sprite_mem_lo_ptr
     lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     ldx #$00
 !loop:
     jsr board.add_sprite_to_graphics
-    lda main.temp.data__temp_store_1
+    lda data__curr_sprite_mem_lo_ptr
     clc
     adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta main.temp.data__temp_store_1
+    sta data__curr_sprite_mem_lo_ptr
     bcc !next+
     inc FREEZP+3
 !next:
@@ -250,18 +250,18 @@ add_icon_to_board:
 // 8FE6
 interrupt_handler:
     jsr board.draw_magic_square
-    lda main.interrupt.flag__enable
+    lda main.state.flag__enable_next
     bpl !next+
     jmp common.complete_interrupt
 !next:
     jsr board.play_icon_sound
     // Update sprite frame and position.
     lda #$FF
-    sta main.temp.data__curr_count
+    sta data__curr_count
     // Only update sprite position on every second interrupt.
-    lda main.temp.flag__alternating_state
+    lda flag__update_sprite_pos
     eor #$FF
-    sta main.temp.flag__alternating_state
+    sta flag__update_sprite_pos
     bmi update_sprite
     jmp common.complete_interrupt
 update_sprite:
@@ -270,22 +270,22 @@ update_sprite:
     bpl !next+
     ldy #$FF
 !next:
-    sty flag__sprite_x_direction // Set direction
+    sty data__sprite_x_adj // Set direction
     ldx main.temp.data__curr_sprite_ptr
-    lda flag__icon_direction
+    lda flag__sprite_direction
     eor #$FF
-    sta flag__icon_direction
+    sta flag__sprite_direction
     bmi check_sprite // Only update animation frame on every second position update
     inc common.sprite.curr_animation_frame
 check_sprite:
     lda common.sprite.curr_x_pos,x
     cmp data__sprite_final_x_pos
     bne update_sprite_pos
-    inc main.temp.data__curr_count
+    inc data__curr_count
     jmp next_sprite
 update_sprite_pos:
     clc
-    adc flag__sprite_x_direction
+    adc data__sprite_x_adj
     sta common.sprite.curr_x_pos,x
     txa
     asl
@@ -300,11 +300,11 @@ next_sprite:
     dex
     bpl check_sprite // Set additional sprites
     ldx main.temp.data__curr_sprite_ptr
-    cpx main.temp.data__curr_count
+    cpx data__curr_count
     bne !next+
     //
     lda #FLAG_ENABLE
-    sta main.interrupt.flag__enable
+    sta main.state.flag__enable_next
 !next:
     jmp common.complete_interrupt
 
@@ -349,9 +349,17 @@ data__icon_offset: .byte $00
 // Calculated Y offset for each sprite.
 data__sprite_y_offset: .byte $00
 
+// BF25
+// Final Y position of animated sprite.
+data__sprite_final_y_pos: .byte $00
+
 // BD17
 // Final X position of animated sprite.
 data__sprite_final_x_pos: .byte $00
+
+// BD58
+// Sprite X direction adjustment. Is positive number for right direction, negative for left direction.
+data__sprite_x_adj: .byte $00
 
 // BF1B
 // Current X offset of the sprite.
@@ -365,10 +373,19 @@ data__num_icons:.byte $00
 // Pixels to move intro sprite for each frame.
 data__x_pixels_per_move: .byte $00
 
-// BD58
-// Is positive number for right direction, negative for left direction.
-flag__sprite_x_direction: .byte $00
+// BCEE
+// Updates the sprite position 
+flag__update_sprite_pos: .byte $00
 
 // BCEF
 // Alternating icon direction (icons walk one one type at a time, alternating between sides).
-flag__icon_direction: .byte $00
+flag__sprite_direction: .byte $00
+
+// BF23
+// Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
+// bytes) when adding chasing icon sprites.
+data__curr_sprite_mem_lo_ptr: .byte $00
+
+// BCFE
+// Temporary counter storage.
+data__curr_count: .byte $00
