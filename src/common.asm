@@ -108,8 +108,8 @@ advance_intro_state:
     // Skip intro.
 #if INCLUDE_INTRO    
     lda #FLAG_DISABLE
-    sta intro.flag__enable_intro
-    sta intro.flag__skip_intro
+    sta intro.flag__enable
+    sta intro.flag__exit_intro
 #endif
     rts
 
@@ -136,7 +136,7 @@ wait_for_jiffy:
 // Description:
 // - Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `intro.flag__skip_intro` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
+// - `intro.flag__exit_intro` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
 //   screen to display.
 // Notes:
 // - Game is reset if Q key is pressed.
@@ -156,9 +156,9 @@ check_stop_keypess:
     jmp main.restart_game_loop
 !next:
 #if INCLUDE_INTRO
-    lda intro.flag__skip_intro
+    lda intro.flag__exit_intro
     eor #$FF
-    sta intro.flag__skip_intro
+    sta intro.flag__exit_intro
 #endif
 !loop:
     jsr STOP
@@ -697,44 +697,60 @@ flag__pregame_state: .byte $00
     init_animation_frame: .byte $00, $00, $00, $00 // Initial animation for up to 4 sprites
 
     // BCE7
-    curr_animation_frame: // Current animation frame
-        .byte $00
-    animation_delay: // Delay between color changes when color scrolling avatar sprites
-        .byte $00
-    y_move_counter: // Number of moves left in y plane in current direction (will reverse direction on 0)
-        .byte $00
-    x_move_counter: // Number of moves left in x plane in current direction (will reverse direction on 0)
-        .byte $00
+    // Current animation frame.
+    curr_animation_frame: .byte $00
+
+    // BCE8
+    // Delay between color changes when color scrolling avatar sprites
+    animation_delay: .byte $00
+
+    // BCE9
+    // Number of moves left in y plane in current direction (will reverse direction on 0)
+    y_move_counter: .byte $00
+
+    // BCEA
+    // Number of moves left in x plane in current direction (will reverse direction on 0)
+    x_move_counter: .byte $00
 
     // BD15
-    final_y_pos: .byte $00, $00 // Final set position of sprites after completion of animation
+    // Final set position of sprites after completion of animation.
+    final_y_pos: .byte $00, $00
 
     // BD3E
-    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite x-position
+    // Current sprite x-position.
+    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
     // BD46
-    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00 // Current sprite y-position
+    // Current sprite y-position.
+    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
 }
 
 .namespace sound {
-    // BF08
-    curr_pattern_data_fn_ptr: // Pointer to function to read current pattern for current voice
-    flag__enable_voice: // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2)
-        .byte $00, $00
-
-    // BF0B
-    new_note_delay: .byte $00, $00, $00 // New note delay timer
-
-    // BF4A
-    note_delay_counter: .byte $00, $00, $00 // Current note delay countdown
-
-    // BF4D
-    curr_voice_ctl: .byte $00, $00, $00 // Current voice control value
-
-    // BF50
-    flag__play_outro: .byte $00 // Is 00 for title music and 80 for game end music
-
     // BD66
     // Function pointer to retrieve a note for the current voice. 
     voice_note_fn_ptr: .word $0000
+
+    // BF08
+    // Pointer to function to read current pattern for current voice.
+    curr_pattern_data_fn_ptr: .word $0000
+    
+    // BF08
+    // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2).
+    flag__enable_voice: .byte $00, $00
+
+    // BF0B
+    // New note delay timer.
+    new_note_delay: .byte $00, $00, $00
+
+    // BF4A
+    // Current note delay countdown.
+    note_delay_counter: .byte $00, $00, $00
+
+    // BF4D
+    // Current voice control value.
+    curr_voice_ctl: .byte $00, $00, $00
+
+    // BF50
+    // Is 00 for title music and 80 for game end music.
+    flag__play_outro: .byte $00
 }

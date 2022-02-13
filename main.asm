@@ -98,7 +98,7 @@ entry:
     stx ptr__stack
     lda #FLAG_ENABLE
 #if INCLUDE_INTRO
-    sta intro.flag__enable_intro // Play intro
+    sta intro.flag__enable // Play intro
 #endif
     sta common.flag__pregame_state
     .const TWELVE_SECONDS = $03
@@ -151,7 +151,7 @@ restart_game_loop:
     // skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
     // tile color scheme or row occupancy. we have instead included these as constants using compiler directives as it
     // is much more readable.
-    //
+    // 621A
     lda #FLAG_ENABLE
     sta common.flag__enable_next_state // Ensure we exit any running interrupt routines
     //
@@ -174,7 +174,7 @@ restart_game_loop:
     //
 #if INCLUDE_INTRO
     // Display the game intro if it hasn't already been played.
-    lda intro.flag__enable_intro
+    lda intro.flag__enable
     beq !skip+
     jsr play_intro
 #endif
@@ -205,7 +205,7 @@ restart_game_loop:
     //
 #if INCLUDE_INTRO
     // Display the board intro (walking icons).
-    lda intro.flag__enable_intro
+    lda intro.flag__enable
     beq !skip+
     jsr board_walk.entry
 #else
@@ -215,10 +215,10 @@ restart_game_loop:
 !skip:
     //
     lda #FLAG_DISABLE
-    sta board.sprite.flag__copy_animation_group
+    sta board.sprite.flag__copy_animation_group // Animation groups only copied in challenge
 #if INCLUDE_INTRO
     lda #FLAG_DISABLE
-    sta intro.flag__enable_intro // Don't play intro again
+    sta intro.flag__enable // Don't play intro again
 #endif
     lda TIME+1
     sta game.last_stored_time // Store time - used to start game if timeout on options page
@@ -363,11 +363,13 @@ init:
     sta IRQMASK
     // Set interrupt handler.
     lda #<interrupt_interceptor
-    sta CINV
-    sta CBINV
-    lda #>interrupt_interceptor
+    // I really don't know why the code below is split out to 8C8B and why there are NOPs. Since the routine is at the
+    // end of the application, I am guessing it is here so they can add additional debugging code or something during
+    // development by calling a different interrupt interceptor. 
+    jsr set_partial_interrupt
+    nop
+    nop
     sta CINV+1
-    sta CBINV+1
     // Set raster line used to trigger on raster 
     // As there are 262 lines, the line number is set by setting the highest bit of $D011 and the 8 bits in $D012.
     lda SCROLY
@@ -380,6 +382,13 @@ init:
     ora #%1000_0001
     sta IRQMASK
     cli
+    rts
+// BC8B
+set_partial_interrupt:
+    sta CINV
+    sta CBINV
+    lda #>interrupt_interceptor
+    sta CBINV+1
     rts
 
 // 637E
@@ -424,8 +433,15 @@ ptr__game_state_fn:
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
+//
+// Dynamic data typically starts at BCC0 and continues to BCD2, however some lower addresses are used within the
+// application.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
+
+// BCC4
+// Stored stack pointer so that stack is reset on each state update.
+ptr__stack: .byte $00
 
 // BCCC
 // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
@@ -437,13 +453,10 @@ ptr__raster_interrupt_fn: .word $0000
 // and is used to ensure the game runs at optimum speed.
 ptr__system_interrupt_fn: .word $0000
 
-// BCC4
-// Stored stack pointer so that stack is reset on each state update.
-ptr__stack: .byte $00
-
 //---------------------------------------------------------------------------------------------------------------------
-// Variable data is cleared completely on each game state change. Dynamic data starts at BCD3 and continues to the end
-// of the data area.
+// Variable data is cleared completely on each game state change. 
+//
+// Variable data starts at BCD3 and continues to the end of the data area.
 //
 // The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the

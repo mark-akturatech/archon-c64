@@ -47,6 +47,12 @@ Multilables will be used specifically for the following:
 - !next : breaking out of a loop
 - !return : exiting from a subroutine
 
+Double or higher jumps (eg jmp !loop++) will not be used.
+
+### Files
+
+Each file will implement a separate namespace.
+
 ## Build
 
 Build using Kick Assembler V5.24.

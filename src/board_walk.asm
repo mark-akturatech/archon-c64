@@ -152,12 +152,12 @@ add_icon_to_board:
     ldy #$FC
 !next:
     sty data__x_pixels_per_move
-    sta data__sprite_x_pos
+    sta pos__sprite_x
     ldx data__num_icons
     dex
-    stx data__curr_sprite_ptr
+    stx ptr__sprite_mem
 !loop:
-    lda data__sprite_x_pos
+    lda pos__sprite_x
     sta common.sprite.curr_x_pos,x
     dex
     clc
@@ -191,7 +191,7 @@ add_icon_to_board:
     lda #BLACK // Set multicolor background color to black
     sta SPMC0
     // Calculate starting Y position and color of each sprite.
-    ldx data__curr_sprite_ptr
+    ldx ptr__sprite_mem
 !loop:
     lda SP0COL
     sta SP0COL,x
@@ -211,17 +211,17 @@ add_icon_to_board:
     sta common.sprite.init_animation_frame
     lda common.sprite.mem_ptr_00
     sta FREEZP+2
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     ldx #$00
 !loop:
     jsr board.add_sprite_to_graphics
-    lda data__curr_sprite_mem_lo_ptr
+    lda ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     bcc !next+
     inc FREEZP+3
 !next:
@@ -272,7 +272,7 @@ update_sprite:
     ldy #$FF
 !next:
     sty data__sprite_x_adj // Set direction
-    ldx data__curr_sprite_ptr
+    ldx ptr__sprite_mem
     lda flag__sprite_direction
     eor #$FF
     sta flag__sprite_direction
@@ -300,7 +300,7 @@ update_sprite_pos:
 next_sprite:
     dex
     bpl check_sprite // Set additional sprites
-    ldx data__curr_sprite_ptr
+    ldx ptr__sprite_mem
     cpx data__curr_count
     bne !next+
     //
@@ -342,38 +342,6 @@ next_sprite:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-// BD3A
-// Offset of current icon being rendered on to the board.
-data__icon_offset: .byte $00
-
-// BF3B
-// Calculated Y offset for each sprite.
-data__sprite_y_offset: .byte $00
-
-// BF25
-// Final Y position of animated sprite.
-data__sprite_final_y_pos: .byte $00
-
-// BD17
-// Final X position of animated sprite.
-data__sprite_final_x_pos: .byte $00
-
-// BD58
-// Sprite X direction adjustment. Is positive number for right direction, negative for left direction.
-data__sprite_x_adj: .byte $00
-
-// BF1B
-// Current X offset of the sprite.
-data__sprite_x_pos: .byte $00
-
-// BD38
-// Number of baord icons to render.
-data__num_icons:.byte $00
-
-// BF1A
-// Pixels to move intro sprite for each frame.
-data__x_pixels_per_move: .byte $00
-
 // BCEE
 // Updates the sprite position 
 flag__update_sprite_pos: .byte $00
@@ -382,15 +350,47 @@ flag__update_sprite_pos: .byte $00
 // Alternating icon direction (icons walk one one type at a time, alternating between sides).
 flag__sprite_direction: .byte $00
 
+// BCFE
+// Temporary counter storage.
+data__curr_count: .byte $00
+
+// BD17
+// Final X position of animated sprite.
+data__sprite_final_x_pos: .byte $00
+
 // BD26
 // Current sprite location pointer.
-data__curr_sprite_ptr: .byte $00
+ptr__sprite_mem: .byte $00
+
+// BD38
+// Number of baord icons to render.
+data__num_icons:.byte $00
+
+// BD3A
+// Offset of current icon being rendered on to the board.
+data__icon_offset: .byte $00
+
+// BD58
+// Sprite X direction adjustment. Is positive number for right direction, negative for left direction.
+data__sprite_x_adj: .byte $00
+
+// BF1A
+// Pixels to move intro sprite for each frame.
+data__x_pixels_per_move: .byte $00
+
+// BF1B
+// Current X offset of the sprite.
+pos__sprite_x: .byte $00
 
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
 // bytes) when adding chasing icon sprites.
-data__curr_sprite_mem_lo_ptr: .byte $00
+ptr__sprite_mem_lo: .byte $00
 
-// BCFE
-// Temporary counter storage.
-data__curr_count: .byte $00
+// BF25
+// Final Y position of animated sprite.
+data__sprite_final_y_pos: .byte $00
+
+// BF3B
+// Calculated Y offset for each sprite.
+data__sprite_y_offset: .byte $00

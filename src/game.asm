@@ -1483,13 +1483,16 @@ transport_icon_interrupt:
     flag__ai_player_ctl: .byte $00
 
     // BCC2
-    flag__is_first_player_light: .byte $00 // Is positive (55) for light, negative (AA) for dark
+    // Is positive (55) for light, negative (AA) for dark.
+    flag__is_first_player_light: .byte $00
 
     // BCC6
-    flag__is_light_turn: .byte $00 // Is positive for light, negative for dark
+    // Is positive for light, negative for dark.
+    flag__is_light_turn: .byte $00 
 
     // BCD2
-    flag__is_turn_started: .byte $00 // Is positive if player turn has just started
+    // Is positive if player turn has just started.
+    flag__is_turn_started: .byte $00
 }
 
 
@@ -1509,62 +1512,80 @@ flag__phase_direction_board:
 .segment Variables
 
 // BCEB
-icon_dir_frame_offset: .byte $00 // Icon direction initial sprite frame offset
+// Icon direction initial sprite frame offset.
+icon_dir_frame_offset: .byte $00
 
 // BCED
-flag__round_complete: .byte $00 // Toggles after each play so is high after both players had completed thier turn
+// Toggles after each play so is high after both players had completed thier turn.
+flag__round_complete: .byte $00
 
 // BCDE
-curr_player_offset: .byte $00 // Is 0 for player 1 and 1 for player 2. Used mostly as a memory offset index.
+// Is 0 for player 1 and 1 for player 2. Used mostly as a memory offset index.
+curr_player_offset: .byte $00
 
 // BCF3
-delay_before_turn: .byte $00 // Delay before start of each turn can commence
+// Delay before start of each turn can commence.
+delay_before_turn: .byte $00
 
 // BCFC
-flag__icon_selected: .byte $00 // An icon is currently selected for movemement
+// An icon is currently selected for movemement.
+flag__icon_selected: .byte $00
 
 // BCFD
-curr_icon_total_moves: .byte $00 // Selected icon total number moves (+$40 if can cast spells, +$80 if can fly)
+// Selected icon total number moves (+$40 if can cast spells, +$80 if can fly).
+curr_icon_total_moves: .byte $00
 
 // BCFF
-flag__is_challenge_required: .byte $00 // Is enabled if the icon must challenge for the destination square
+// Is enabled if the icon must challenge for the destination square.
+flag__is_challenge_required: .byte $00
 
 // BD00
-curr_challenge_icon_type: .byte $00 // Type of selected icon to challenge for the destination square
+// Type of selected icon to challenge for the destination square.
+curr_challenge_icon_type: .byte $00
 
 // BD09
-curr_icon_move_speed: .byte $00 // Delay between movement for selected icon. Is only delayed for Golem and Troll.
+// Delay between movement for selected icon. Is only delayed for Golem and Troll.
+curr_icon_move_speed: .byte $00
 
 // BD0F
 // Is $80 if the selected icon can cast spells. Used to determine if icon transports or moves.
 flag__icon_can_cast: .byte $00
 
 // BD11
-curr_color_phase: .byte $00 // Current board color phase (colors phase between light and dark as time progresses)
+// Current board color phase (colors phase between light and dark as time progresses).
+curr_color_phase: .byte $00
 
 // BD24
-imprisoned_icon_id: .byte $00, $00 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark)
+// Imprisoned icon ID for each player (offset 0 for light, 1 for dark).
+imprisoned_icon_id: .byte $00, $00
 
 // BD3D
-flag__new_square_selected: // Is set to non-zero if a new board square was selected
-message_id: // ID of selected spell used as an offset when calling spell logic
-    .byte $00
+// Is set to non-zero if a new board square was selected.
+flag__new_square_selected: .byte $00
+
+// BD3D
+// ID of selected spell used as an offset when calling spell logic
+message_id: .byte $00
 
 // BD55
-flag__interrupt_response: // Interrrupt response saved after interrupt was completed.
-    .byte $00
+// Interrrupt response saved after interrupt was completed.
+flag__interrupt_response: .byte $00
 
 // BD70
-curr_stalemate_count: .byte $00 // Countdown of moves left until stalemate occurs (0 for disabled)
+// Countdown of moves left until stalemate occurs (0 for disabled).
+curr_stalemate_count: .byte $00
 
 // BD7C
-curr_square_occupancy: .fill BOARD_SIZE, $00 // Board square occupant data (#$80 for no occupant)
+// Board square occupant data (#$80 for no occupant).
+curr_square_occupancy: .fill BOARD_SIZE, $00
 
 // BDFD
-curr_icon_strength: .fill BOARD_TOTAL_NUM_ICONS, $00 // Current strength of each board icon
+// Current strength of each board icon.
+curr_icon_strength: .fill BOARD_TOTAL_NUM_ICONS, $00
 
 // BEA1
-curr_icon_move_count: .byte $00 // Selected icon number of moves made in current turn
+// Selected icon number of moves made in current turn.
+curr_icon_move_count: .byte $00
 
 // BEA2
 // Stores each column the icon enters as it is being moved. Used to calculate number of moves.

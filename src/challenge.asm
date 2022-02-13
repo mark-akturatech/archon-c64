@@ -131,6 +131,11 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
+// BCF2
+// Current color of square in which a battle is being faught.
+// TODO: WHY IS THIS DIFFERENT TO curr_square_color
+curr_battle_square_color: .byte $00 
+
 // BD12
 // Calculated strength adjustment based on color of the challenge square.
 square_strength_adj: .byte $00
@@ -139,17 +144,12 @@ square_strength_adj: .byte $00
 // Color of square where challenge was initiated. Used for determining icon strength.
 curr_square_color: .byte $00
 
-// BCF2
-// Current color of square in which a battle is being faught.
-// TODO: WHY IS THIS DIFFERENT TO curr_square_color
-curr_battle_square_color: .byte $00 
+// BF36
+// Calculated strength adjustment based on color of the challenge square plus 1.
+// Doesn't appear to be used in the code.
+data__strength_adj_plus1: .byte $00
 
 // BF41
 // Calculated strength adjustment based on color of the challenge square times 2.
 // Doesn't appear to be used in the code.
 square_strength_adj_x2: .byte $00
-
-// BF36
-// Calculated strength adjustment based on color of the challenge square plus 1.
-// Doesn't appear to be used in the code.
-data__strength_adj_plus1: .byte $00

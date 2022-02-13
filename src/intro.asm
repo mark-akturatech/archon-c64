@@ -60,7 +60,7 @@ import_sprites:
     sta board.sprite.copy_length
     lda common.sprite.mem_ptr_24
     sta FREEZP+2
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     lda common.sprite.mem_ptr_24+1
     sta FREEZP+3
     ldx #$03 // Copy 4 frames (0 offset)
@@ -76,11 +76,11 @@ import_sprite_icon_set:
     sta common.sprite.init_animation_frame
 import_sprite_frame:
     jsr board.add_sprite_to_graphics
-    lda data__curr_sprite_mem_lo_ptr
+    lda ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     bcc !next+
     inc FREEZP+3
 !next:
@@ -116,15 +116,15 @@ import_sprite_frame:
     // 6 (of 8) sprites (and we work backwards from 6).
     .const NUM_SPRITES = 6
     lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES
-    sta data__curr_sprite_ptr
+    sta ptr__sprite_mem
     ldx #NUM_SPRITES
 !loop:
     txa
     asl
     tay
-    lda data__curr_sprite_ptr
+    lda ptr__sprite_mem
     sta SPTMEM,x
-    dec data__curr_sprite_ptr
+    dec ptr__sprite_mem
     lda sprite.logo_color,x
     sta SP0COL,x
     lda sprite.logo_x_pos,x
@@ -149,7 +149,7 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda flag__skip_intro
+    lda flag__exit_intro
     sta common.flag__enable_next_state
     jsr common.play_music
     jmp (ptr__substate_fn)
@@ -213,14 +213,14 @@ state__draw_freefall_logo:
     // half of the Free Fall log) on four separate lines.
     ldx #$16
     ldy #$08
-    sty data__msg_offset
+    sty idx__string_msg
 !loop:
     stx data__curr_line
     jsr screen_draw_text
     ldx data__curr_line
     dex
-    dec data__msg_offset
-    ldy data__msg_offset
+    dec idx__string_msg
+    ldy idx__string_msg
     cpy #$04
     bcs !loop-
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
@@ -229,7 +229,7 @@ state__draw_freefall_logo:
     sta flag__string_pos_ctl
     jsr screen_draw_text
     //
-    dec data__msg_offset // Set to pointer next string to display in next state
+    dec idx__string_msg // Set to pointer next string to display in next state
     // Start scrolling Avatar logo colors
     lda #<state__avatar_color_scroll
     sta ptr__substate_fn
@@ -242,13 +242,13 @@ state__draw_freefall_logo:
 // - Initiates the draw text routine by selecting a color and text offset.
 // - The routine then calls a method to write the text to the screen.
 // Prerequisites:
-// - `data__msg_offset`: Contains the string ID offset
+// - `idx__string_msg`: Contains the string ID offset
 // Notes:
 // - The message offset is used to read the string memory location from `screen.string_data_ptr` (message offset is
 //   multiplied by 2 as 2 bytes are required to store the message location).
 // - The message offset is used to read the string color from `screen.string_color_data`.
 screen_draw_text:
-    ldy data__msg_offset
+    ldy idx__string_msg
     lda screen.string_color_data,y
     sta data__curr_color
     tya
@@ -364,13 +364,13 @@ state__show_authors:
     // Display author names.
 !next:
     jsr screen_draw_text
-    dec data__msg_offset
+    dec idx__string_msg
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
     sta flag__string_pos_ctl
     lda #$09
-    sta data__msg_offset
+    sta idx__string_msg
     ldx #$18
     jsr screen_draw_text
     // Bounce the Avatar logo.
@@ -394,14 +394,14 @@ state__avatar_bounce:
     bpl !next+
     lda #$FF // -1 (up)
 !next:
-    sta data__sprite_y_pos
+    sta pos__sprite_y
     //
     lda #$01 // +1 (right)
     ldy flag__sprite_x_direction
     bpl !next+
     lda #$FF // -1 (left)
 !next:
-    sta data__sprite_x_pos
+    sta pos__sprite_x
     // Move all 3 sprites that make up the Avatar logo.
     ldx #$03
     ldy #$06
@@ -410,12 +410,12 @@ state__avatar_bounce:
     // Add the direction pointer to the current sprite positions.
     // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
     clc
-    adc data__sprite_y_pos
+    adc pos__sprite_y
     sta common.sprite.curr_y_pos,x
     sta SP0Y,y
     lda common.sprite.curr_x_pos,x
     clc
-    adc data__sprite_x_pos
+    adc pos__sprite_x
     sta common.sprite.curr_x_pos,x
     sta SP0X,y
     dey
@@ -665,51 +665,63 @@ state__end_intro:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
+// BCC7
+// Index for current introduction sub-state function pointer.
+idx__substate_fn_ptr: .byte $00
+
 // BCD1
 // Set to $80 to play intro and $00 to skip intro.
-flag__enable_intro: .byte $00
+flag__enable: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-// BD3A
-// Offset of current message being rendered in into page.
-data__msg_offset: .byte $00
-
-// BF1A
-// Color of the current intro string being rendered.
-data__curr_color: .byte $00
-
-// BF23
-// Current sprite Y position of bouncing Archon sprite.
-data__sprite_y_pos: .byte $00
-
-// BF24
-// Current sprite X position of bouncing Archon sprite.
-data__sprite_x_pos: .byte $00
-
-// BF23
-// Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
-// bytes) when adding chasing icon sprites.
-data__curr_sprite_mem_lo_ptr: .byte $00
-
-// BF1B
-// Current sprite location pointer.
-data__curr_sprite_ptr: .byte $00
+// BCD3
+// Is set to non zero to stop the current intro and advance the game state to the options screen.
+flag__exit_intro: .byte $00
 
 // BD0D
 // Is positive number for right direction, negative for left direction.
 flag__sprite_x_direction: .byte $00
 
+// BD30
+// Pointer to code for the current intro substate (eg bounce logo, chase icons, display text etc).
+ptr__substate_fn: .word $0000
+
+// BD3A
+// Offset of current message being rendered in into page.
+idx__string_msg: .byte $00
+
 // BD59
 // Is positive number for down direction, negative for up direction.
 flag__sprite_y_direction: .byte $00 
 
+// BF1A
+// Color of the current intro string being rendered.
+data__curr_color: .byte $00
+
+// BF1B
+// Current sprite location pointer.
+ptr__sprite_mem: .byte $00
+
 // BF22
 // Is TRUE if intro icon sprites are initialized.
 flag__are_sprites_initialized: .byte $00
+
+// BF23
+// Current sprite Y position of bouncing Archon sprite.
+pos__sprite_y: .byte $00
+
+// BF23
+// Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
+// bytes) when adding chasing icon sprites.
+ptr__sprite_mem_lo: .byte $00
+
+// BF24
+// Current sprite X position of bouncing Archon sprite.
+pos__sprite_x: .byte $00
 
 // BF30
 // Current screen line used while rendering repeated strings in into page.
@@ -719,15 +731,3 @@ data__curr_line: .byte $00
 // Used to control string rendering ($00 = read row/column fro first bytes of string, $80 = row supplied in x, $C0 =
 // column is #06 and row supplied in x).
 flag__string_pos_ctl: .byte $00
-
-// BD30
-// Pointer to code that will run the current intro substate (eg bounce logo, chase icons, display text etc).
-ptr__substate_fn: .word $0000
-
-// BCD3
-// Is set to non zero to stop the current intro and advance the game state to the options screen.
-flag__skip_intro: .byte $00
-
-// BCC7
-// Index for current introduction sub-state function pointer.
-idx__substate_fn_ptr: .byte $00

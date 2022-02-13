@@ -6,7 +6,7 @@
 // OK this is a little bit special. Archon loads a single file including all resources. The resources have a large
 // number of sprites for the various movement and battle animations. Memory managament is therefore quite complex.
 // 
-// Archon requires 2 character maps and screen in the first 4k of graphics memory (there are lots of characters for
+// Archon requires 2 character maps and screen data in the first 4k of graphics memory (there are lots of characters for
 // each icon and logos etc) and spites in the second 4k (there are lots of sprites - enough for 2 characters to battle
 // and throw projectiles and animate 4 directions and animate firing). Anyway, so this means we need 8k.
 //
@@ -17,30 +17,31 @@
 // - We can use bank 1 however this requires us to either leave a big part of memory blank when we load the game (as the
 //   game loads at $0801 and continues through to a little over $8000) or relocate code after the game loads.
 // - We can use bank 2 however the code game loads past this point, so we'd need to relocate some code or assets in
-//   this area to $C000+.
+//   this area.
 // - We can't use $C000 as this will take up $C000-$DFFF - we need registers in $D000 range to control graphics and
-//   sound.
-// 
-// The simplest solution here is to use bank 2 then locate sprite assets at the end of the application and relocate
-// after application load. HOWEVER, the original source uses bank 1, so for consistency we will do the same.
+//   sound (ie this will only work if we need only 4kb of graphics).
 // 
 // The original source loads sprites in to memory just after $0801 up to $4000. It then loads the character maps in
 // place ($4000-$43ff and $4800-$4fff), and has the remaining sprites (and some music data) from $5000 to $5fff. 
 // The data between $5000 to $5fff is relocated to memory under basic ROM after the application starts using code
-// fitted between $4400 and $47ff. $4400-$47ff and $5000-$5fff is then cleared.
+// fit between $4400 and $47ff. $4400-$47ff and $5000-$5fff is then cleared.
 //
 // So even though we are not trying to generate a byte for byte replication of the original source locations, we'll do
 // something similar here as well for consistency.
 //
 // Our memory map will look like this...
-//  - sprites - logo: start: $0900; length: $1c0; end: $0ac0
-//  - sprites - projectile: length: $251; end: $0d11
+//  - Sprites - logo: start: $0900; length: $1c0; end: $0ac0
+//  - Sprites - projectile: length: $251; end: $0d11
 //  - Sprites - icons: length: $3191; end: $3ea2
-//  - sound phrases; start $3ea3; end: $3fa8
-//  - charset - intro: start: $4000; length: $3ff; end: $4400
-//  - charset - game: start: $4800; length: $7ff; end: $4fff
-//  - sprites - elemetals; start: $5000; length: $ca7; end: $5ca7
-//  - music phrases; start $5ca8; end: $5f0d
+//  - Sound - effects: start $3ea3; end: $3fa8
+//  - Charset - intro: start: $4000; length: $3ff; end: $4400
+//  - Charset - game: start: $4800; length: $7ff; end: $4fff
+//  - Sprites - elemetal icons; start: $5000; length: $ca7; end: $5ca7
+//  - Sound - music; start $5ca8; end: $5f0d
+//
+// This is a little wastefull as we have some unused blocks of memory ($080e-$8fff, $3fa9-$3fff, $4734-$74ff and
+// $5f0e-$5fff) included in the source file. It could be possible to move assets in to this area (like matrix maps,
+// string messages etc) if we want to optimize the file size. For now though, this is good enough.
 .segment Resources
 
 // BACB
@@ -70,7 +71,7 @@ sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
 sprites_icon: .import binary "/assets/sprites-icons.bin"
 
 // 8B94
-// Provides sound phraseology for icon movement and attacks. 
+// Provides sound phraseology for sound effects including icon movement and attacks. 
 .namespace sound {
     // 8B94
     // Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
@@ -166,6 +167,7 @@ sprites_icon: .import binary "/assets/sprites-icons.bin"
 #if INCLUDE_INTRO
     .import binary "/assets/charset-intro.bin"
 #endif
+
 *=CHRMEM2 "Character set 2"
 .import binary "/assets/charset-game.bin"
 
@@ -183,7 +185,7 @@ relocated_resource_source_start:
     sprites_elemental: .import binary "/assets/sprites-elementals.bin"
 
     // 3D40
-    // Music configuration.
+    // Music phraseology.
     // Music is played by playing notes pointed to by `init_pattern_list_ptr` on each voice.
     // When the voice pattern list finishes, the music will look at the intro or outro pattern list pointers (
     // `intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played. This list will then tell the
@@ -354,8 +356,8 @@ relocate:
     sta FREEZP+2
     lda #>relocated_resource_destination_start
     sta FREEZP+3
+    ldx #>(relocated_resource_source_end - relocated_resource_source_start)
     ldy #$00
-    ldx #(>(relocated_resource_source_end - relocated_resource_source_start))+1
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -365,6 +367,14 @@ relocate:
     inc FREEZP+3
     dex
     bne !loop-
+!loop:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    cpy #<(relocated_resource_source_end - relocated_resource_source_start)
+    bcc !loop-
+    // Skip 473C to 475B as we haven't filled all usable graphics area with resources. We only need to move one block.
+    // Skip 475D as we don't need to copy function pointers as they reside in the persisted asset section.
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -378,4 +388,5 @@ relocate:
 .segment Assets
 
 // 02A7
-flag__is_relocated: .byte FLAG_DISABLE // 00 for uninitialized, $80 for initialized
+// Is set ($80) if resource data has already been relocated out of the graphics memory area.
+flag__is_relocated: .byte FLAG_DISABLE

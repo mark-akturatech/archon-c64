@@ -270,9 +270,9 @@ allow_summon_elemental:
     // Create random elemental type.
     lda RANDOM
     and #$03 // 0-3 random number (choose one of 4 elementals)
-    cmp used_elemental_id // Ensures both players generate a different elemental
+    cmp data__used_elemental_id // Ensures both players generate a different elemental
     beq !loop-
-    sta used_elemental_id
+    sta data__used_elemental_id
     pha
     clc
     adc #AIR_ELEMENTAL // Elemental ID
@@ -1011,30 +1011,53 @@ spell_select_revive_icon:
 .segment Data
 
 // 6AFD
-used_elemental_id: .byte $00 // ID of used elemental. Used to ensure opposing player will generate a unique elemental.
+// ID of used elemental. Used to ensure opposing player will generate a unique elemental.
+data__used_elemental_id: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
+// BCFE
+// Is set if the selected square is a magic square.
+flag__sqaure_is_magic: .byte $00
+
 // BD0E
-curr_spell_cast_selection: .byte $00 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell
+// Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell.
+curr_spell_cast_selection: .byte $00
+
+// BD3A
+// Current selected spell ID.
+data__curr_spell_id: .byte $00
 
 // BD53
-temp_row_store: .byte $00 // Temporary current row storage
+// Temporary current row storage.
+temp_row_store: .byte $00
 
 // BD54
-temp_column_store: .byte $00 // Temporary current column row storage
+// Temporary current column row storage.
+temp_column_store: .byte $00
+
+// BD66
+// Pointer to function to execute selected spell logic.
+prt__spell_fn: .word $0000
 
 // BD71
-temp_message_id_store: .byte $00 // Temporary message ID storage
+// Temporary message ID storage.
+temp_message_id_store: .byte $00
+
+// BD7B
+// Temporary counter storage.
+data__curr_count: .byte $00
 
 // BE7F
-curr_dead_icon_offsets: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon offsets.
+// List of unique dead icon offsets.
+curr_dead_icon_offsets: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BE87
-curr_dead_icon_types: .byte $00, $00, $00, $00, $00, $00, $00, $00 // List of unique dead icon types.
+// List of unique dead icon types.
+curr_dead_icon_types: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BEFA
 // Flags used to keep track of spells used by light player.
@@ -1046,45 +1069,31 @@ flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
 // Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
 flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
 
-// BF2E
-temp_selected_icon_store: .byte $00 // Temporary storage for selected icon
+// BF1A
+// Generic temporary data storage area
+temp__data_store: .byte $00
 
-// BF43
-dead_icon_screen_offset: .byte $00 // Screen offset for start of graphical memory for dead icon list display
+// BF23
+// Count of number of used spells for a specific player.
+data__used_spell_count: .byte $00
+
+// BF23
+// Index used to acces an item within the dead icon array.
+data__dead_icon_index: .byte $00
+
+// BF24
+// Number of dead icons in the dead icon list.
+data__number_dead_icons: .byte $00
+
+// BF2E
+// Temporary storage for selected icon.
+temp_selected_icon_store: .byte $00
 
 // BF32
 // Counter used to delay selection of next/previous spell. Must be helf for a count of #$0F before selection is
 // changed.
 data__hold_delay_count: .byte $00
 
-// BD3A
-// Current selected spell ID.
-data__curr_spell_id: .byte $00
-
-// BF23
-// Count of number of used spells for a specific player.
-data__used_spell_count: .byte $00
-
-// BF24
-// Number of dead icons in the dead icon list.
-data__number_dead_icons: .byte $00
-
-// BF23
-// Index used to acces an item within the dead icon array.
-data__dead_icon_index: .byte $00
-
-// BD7B
-// Temporary counter storage.
-data__curr_count: .byte $00
-
-// BD66
-// Pointer to function to execute selected spell logic.
-prt__spell_fn: .word $0000
-
-// BCFE
-// Is set if the selected square is a magic square.
-flag__sqaure_is_magic: .byte $00
-
-// BF1A
-// Generic temporary data storage area
-temp__data_store: .byte $00
+// BF43
+// Screen offset for start of graphical memory for dead icon list display.
+dead_icon_screen_offset: .byte $00 

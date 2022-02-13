@@ -325,7 +325,7 @@ add_sprite_set_to_graphics:
     tay
     lda common.sprite.mem_ptr_00,y
     sta FREEZP+2
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     lda common.sprite.mem_ptr_00+1,y
     sta FREEZP+3
     cpx #$02
@@ -392,10 +392,10 @@ skip_frames_84_to_8C:
     sta data__icon_set_sprite_frame
 add_next_frame_to_graphics:
     // Incremement frame grpahics pointer to point to next sprite memory location.
-    lda data__curr_sprite_mem_lo_ptr
+    lda ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
-    sta data__curr_sprite_mem_lo_ptr
+    sta ptr__sprite_mem_lo
     sta FREEZP+2
     bcc add_individual_frame_to_graphics
     inc FREEZP+3
@@ -1651,24 +1651,6 @@ countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate action
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-// BD14
-// Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
-// square only.
-flag__render_square_ctl: .byte $00
-
-// BD4E
-render_square_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
-
-// BE8F
-// Array of squares adjacent to the source square.
-surrounding_square_row:
-    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
-surrounding_square_column:
-    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
-
-// BF44
-magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
-
 .namespace icon {
     // BF29
     offset: .byte $00, $00, $00, $00 // Icon sprite group offset used to determine which sprite to copy
@@ -1699,6 +1681,25 @@ magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
     pattern_hi_ptr: .byte $00, $00 // Hi byte pointer to sound pattern for current icon
 }
 
+
+// BD14
+// Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
+// square only.
+flag__render_square_ctl: .byte $00
+
+// BD4E
+render_square_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
+
+// BE8F
+// Array of squares adjacent to the source square.
+surrounding_square_row:
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
+surrounding_square_column:
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
+
+// BF44
+magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
+
 // BF24
 // Color code used to render.
 data__curr_square_color_code: .byte $00
@@ -1714,7 +1715,7 @@ data__temp_sprite_x_calc_store: .byte $00
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
 // bytes) when adding chasing icon sprites.
-data__curr_sprite_mem_lo_ptr: .byte $00
+ptr__sprite_mem_lo: .byte $00
 
 // BD7B
 // Temporary counter storage.
