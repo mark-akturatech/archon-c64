@@ -159,9 +159,9 @@ end_spell_selection:
 
 // 68C5
 spell_select_shift_time:
-    lda main.state.curr_phase
+    lda game.flag__phase_direction_board
     eor #$FF
-    sta main.state.curr_phase
+    sta game.flag__phase_direction_board
     lda #STRING_REVERED_TIME
     bpl end_spell_selection
 
@@ -548,7 +548,7 @@ spell_select_imprison:
     ldy #$00
 !next:
     sty temp__data_store
-    lda main.state.curr_cycle+3
+    lda game.data__phase_cycle_board
     cmp temp__data_store
     beq display_spell_wasted
     //
@@ -860,7 +860,7 @@ spell_check_icon_is_free:
 spell_end_turn:
     sta game.flag__new_square_selected
     lda #FLAG_ENABLE
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
     rts
 
 // 881A

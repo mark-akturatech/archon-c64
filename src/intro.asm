@@ -29,15 +29,14 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<interrupt_handler
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>interrupt_handler
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     cli
-    // Black border and background.
     lda #$00
-    sta main.state.counter
-    sta EXTCOL
-    sta BGCOL0
+    sta game.flag__phase_direction // TODO: Not needed? Seems to have no purpose.
+    sta EXTCOL // Black border.
+    sta BGCOL0 // Black background
     // Set multicolor sprite second color.
     lda sprite.logo_color
     sta SPMC0
@@ -146,12 +145,12 @@ import_sprite_frame:
 
 // AA42
 interrupt_handler:
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     bpl !next+
     jmp common.complete_interrupt
 !next:
     lda main.state.flag__set_new
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
     jsr common.play_music
     jmp (main.state.curr_fn_ptr)
 
@@ -545,7 +544,7 @@ set_icon_frame:
 // Complete the current game state and move on.
 state__end_intro:
     lda #FLAG_ENABLE
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
     jmp common.complete_interrupt
     rts
 
@@ -660,6 +659,15 @@ state__end_intro:
         .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
         .byte STRING_CMD_END
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+// Data
+//---------------------------------------------------------------------------------------------------------------------
+.segment Data
+
+// BCD1
+// Set to $80 to play intro and $00 to skip intro.
+flag__enable_intro: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables

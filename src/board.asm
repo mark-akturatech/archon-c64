@@ -1108,7 +1108,7 @@ stop_sound:
 // AE12
 interrupt_handler:
     jsr draw_magic_square
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     bmi !return+
     jmp (main.state.curr_fn_ptr)
 interrupt_handler__play_music:

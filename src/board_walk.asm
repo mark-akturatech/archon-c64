@@ -21,9 +21,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     // Why no SEI and CLI wrapping it?
     lda #<interrupt_handler
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>interrupt_handler
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     // Set sprite second colour to black; exand all spites except 7 in X direction and expand only sprite 7 in y
     // direction.
     lda #$00
@@ -251,7 +251,7 @@ add_icon_to_board:
 // 8FE6
 interrupt_handler:
     jsr board.draw_magic_square
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -305,7 +305,7 @@ next_sprite:
     bne !next+
     //
     lda #FLAG_ENABLE
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
 !next:
     jmp common.complete_interrupt
 

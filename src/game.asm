@@ -81,9 +81,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<main.play_game
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>main.play_game
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     cli
     // Check and see if the same player is occupying all of the magic squares. If so, the game is ended and that player
     // wins.
@@ -176,7 +176,7 @@ change_phase_color:
     ldy #$03 // Board phase state
     jsr cycle_phase_counters
     jsr board.draw_board
-    lda main.state.curr_cycle+3 // Board color
+    lda data__phase_cycle_board
     bne check_light_icons
     // Board is black
     lda #$FF
@@ -240,18 +240,18 @@ check_light_icons:
     jmp game_over__imprisoned
     //
 check_game_state:
-    lda main.state.flag__pregame_state
+    lda common.flag__pregame_state
     beq play_turn // In game?
     // Play game with 0 players if option timer expires.
     lda TIME+1
-    cmp main.state.last_stored_time
+    cmp last_stored_time
     beq !next+
-    sta main.state.last_stored_time
+    sta last_stored_time
     dec board.countdown_timer
     bpl !next+
     // Start game.
     lda #FLAG_DISABLE
-    sta main.state.flag__pregame_state
+    sta common.flag__pregame_state
     jmp main.restart_game_loop
 !next:
     jsr board.display_options
@@ -485,9 +485,9 @@ regenerate_hitpoints:
 // - PURPLE, BLUE, BLACK, WHITE, CYAN, GREEN (repeat)
 // Note that the colors don't actually do this. The direction is swapped when we reach black or white.
 cycle_phase_counters:
-    lda main.state.counter,y
+    lda flag__phase_direction,y
     bmi cycle_phase_counters__reverse
-    lda main.state.curr_cycle,y
+    lda data__phase_cycle,y
     cmp #PHASE_CYCLE_LENGTH
     bne increase_cycle_count
     lda #$00 // Reset cycle
@@ -507,16 +507,16 @@ increase_cycle_count_again:
     clc
     adc #$02
 !next:
-    sta main.state.curr_cycle,y
+    sta data__phase_cycle,y
     cmp #PHASE_CYCLE_LENGTH
     bcc set_phase_color
     lda #$FF // Reverse phase
-    sta main.state.counter,y
+    sta flag__phase_direction,y
 set_phase_color:
     cpy #$03
     bcc !return+
     // Set board color.
-    lda main.state.curr_cycle+3
+    lda data__phase_cycle_board
     lsr
     tay
     lda board.data.color_phase,y
@@ -524,7 +524,7 @@ set_phase_color:
 !return:
     rts
 cycle_phase_counters__reverse:
-    lda main.state.curr_cycle,y
+    lda data__phase_cycle,y
     bne decrease_cycle_count
     lda #PHASE_CYCLE_LENGTH
     bpl !next+
@@ -543,10 +543,10 @@ decrease_cycle_count_again:
     sec
     sbc #$02
 !next:
-    sta main.state.curr_cycle,y
+    sta data__phase_cycle,y
     cmp #$00
     bne set_phase_color
-    sta main.state.counter,y // Reverse phase
+    sta flag__phase_direction,y // Reverse phase
     jmp set_phase_color
 
 // 66E9
@@ -602,12 +602,12 @@ game_over__show_winner:
     lda #FLAG_ENABLE
     sta common.sound.flag__play_outro
     lda #$04
-    sta main.state.counter
+    sta flag__phase_direction // TODO: WTF?
     sei
     lda #<board.interrupt_handler
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>board.interrupt_handler
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     lda #<board.interrupt_handler__play_music
     sta main.state.curr_fn_ptr
     lda #>board.interrupt_handler__play_music
@@ -617,25 +617,25 @@ game_over__show_winner:
     // Wait for about 30 seconds before restarting the game.
     jsr common.wait_for_key
     lda TIME+1
-    sta main.state.last_stored_time
+    sta last_stored_time
     lda board.countdown_timer
     beq !loop+
     lda #$07 // Approx 30s (each tick is ~4s)
     sta board.countdown_timer
     lda #FLAG_ENABLE // Intro
-    sta main.state.flag__pregame_state
+    sta common.flag__pregame_state
 !loop:
     jsr common.check_option_keypress
-    lda main.state.flag__pregame_state
+    lda common.flag__pregame_state
     beq !next+
     lda TIME+1
-    cmp main.state.last_stored_time
+    cmp last_stored_time
     beq !next+
-    sta main.state.last_stored_time
+    sta last_stored_time
     dec board.countdown_timer
     bpl !next+
     lda #FLAG_DISABLE
-    sta main.state.flag__pregame_state
+    sta common.flag__pregame_state
     jmp main.restart_game_loop
 !next:
     jmp !loop-
@@ -689,17 +689,17 @@ check_empty_non_magic_surrounding_square:
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
     lda #FLAG_DISABLE
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
 !loop:
     jsr common.check_stop_keypess
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     beq !loop-
     jmp common.stop_sound
 
 // 8377
 interrupt_handler:
     jsr board.draw_magic_square
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -807,7 +807,7 @@ joystick_icon_select:
     jsr display_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
     sta flag__interrupt_response
     jmp common.complete_interrupt
     //
@@ -1390,9 +1390,9 @@ transport_icon:
     // Set interrupt handler for transport animation.
     sei
     lda #<transport_icon_interrupt
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>transport_icon_interrupt
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     cli
     // Wait for animation to completee.
     jsr wait_for_state_change
@@ -1404,7 +1404,7 @@ transport_icon:
 // Performs an animation when transporting an icon from one location to another.
 transport_icon_interrupt:
     jsr board.draw_magic_square
-    lda main.state.flag__enable_next
+    lda common.flag__enable_next_state
     bmi !return+
     // Animate every 4th interrupt.
     inc data__interrupt_count
@@ -1444,7 +1444,7 @@ transport_icon_interrupt:
     jsr board.add_icon_to_matrix
 !next:
     lda #FLAG_ENABLE
-    sta main.state.flag__enable_next
+    sta common.flag__enable_next_state
     jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1488,6 +1488,17 @@ transport_icon_interrupt:
     // BCD2
     flag__is_turn_started: .byte $00 // Is positive if player turn has just started
 }
+
+
+// BCC7
+// Represents the direction of specific phases within the game.
+flag__phase_direction:
+    .byte $00
+    .byte $00
+    .byte $00
+// Color phase direction (<$80: light to dark; >=$80: dark to light)
+flag__phase_direction_board:
+    .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
@@ -1637,3 +1648,17 @@ flag__selected_sprite: .byte $00
 // BF1A
 // Icon loop counter.
 data__icon_counter: .byte $00
+
+// BD27
+// Last recorded major jiffy clock counter (256 jiffy counter).
+last_stored_time: .byte $00
+
+// BF3D
+// State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C).
+data__phase_cycle: 
+    .byte $00
+    .byte $00
+    .byte $00
+// Color phase direction (<$80: light to dark; >=$80: dark to light)
+data__phase_cycle_board:
+    .byte $00

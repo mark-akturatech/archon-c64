@@ -97,8 +97,10 @@ entry:
     tsx
     stx storage.stack_ptr
     lda #FLAG_ENABLE
-    sta state.flag__enable_intro // Play intro
-    sta state.flag__pregame_state // Pregame state ($80 is intro)
+#if INCLUDE_INTRO
+    sta intro.flag__enable_intro // Play intro
+#endif
+    sta common.flag__pregame_state // Pregame state ($80 is intro)
     lda #$03 // Set number of large jiffies before game auto plays after intro (~12s as each tick is ~4s)
     sta board.countdown_timer
     //
@@ -122,7 +124,7 @@ restart_game_loop:
     sta FREEZP+2
     lda #>variables_start
     sta FREEZP+3
-    ldx #>(variables_end-variables_start+1) // Number of blocks to clear + 1
+    ldx #(>(variables_end-variables_start))+1 // Number of blocks to clear + 1
     lda #$00
     tay
 !loop:
@@ -150,7 +152,7 @@ restart_game_loop:
     // is much more readable.
     //
     lda #FLAG_ENABLE
-    sta state.flag__enable_next
+    sta common.flag__enable_next_state
     //
     // Clear board square occupancy data.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
@@ -171,7 +173,7 @@ restart_game_loop:
     //
 #if INCLUDE_INTRO
     // Display the game intro (bouncing Archon).
-    lda state.flag__enable_intro
+    lda intro.flag__enable_intro
     beq !skip+
     jsr play_intro
 #endif
@@ -202,7 +204,7 @@ restart_game_loop:
     //
 #if INCLUDE_INTRO
     // Display the board intro (walking icons).
-    lda state.flag__enable_intro
+    lda intro.flag__enable_intro
     beq !skip+
     jsr board_walk.entry
 #else
@@ -213,10 +215,12 @@ restart_game_loop:
     //
     lda #FLAG_DISABLE
     sta board.sprite.flag__copy_animation_group
+#if INCLUDE_INTRO
     lda #FLAG_DISABLE
-    sta state.flag__enable_intro // Display game options
+    sta intro.flag__enable_intro // Display game options
+#endif
     lda TIME+1
-    sta state.last_stored_time // Store time - used to start game if timeout on options page
+    sta game.last_stored_time // Store time - used to start game if timeout on options page
     //
     // Clear used spell flags.
     .const NUMBER_SPELLS = 7
@@ -231,17 +235,17 @@ restart_game_loop:
     // column 1, 2 each row for player 1 and then repeated for player 2. The code below reads the sets two icons in the
     // row, clears the next 5 and then sets the last 2 icons and repeats for each row.
     lda #BOARD_NUM_PLAYER_ICONS
-    sta data__dark_icon_matrix_offset
+    sta index__dark_icon_type
     lda #$00
-    sta data__light_icon_matrix_offset
+    sta index__light_icon_type
     tax
 board_setup_row_loop:
     // Light icons.
     ldy #$02
 !loop:
-    lda data__light_icon_matrix_offset
+    lda index__light_icon_type
     sta game.curr_square_occupancy,x
-    inc data__light_icon_matrix_offset
+    inc index__light_icon_type
     inx
     dey
     bne !loop-
@@ -256,9 +260,9 @@ board_setup_row_loop:
     // Dark icons.
     ldy #$02
 !loop:
-    lda data__dark_icon_matrix_offset
+    lda index__dark_icon_type
     sta game.curr_square_occupancy,x
-    inc data__dark_icon_matrix_offset
+    inc index__dark_icon_type
     inx
     dey
     bne !loop-
@@ -273,7 +277,7 @@ board_setup_row_loop:
     // so starts in the direction of light to dark if light is first and dark to light if dark is first.
     lda game.state.flag__is_first_player_light
     eor #$FF
-    sta state.curr_phase // Phase state and direction (towards light if dark first, towards darker if light first)
+    sta game.flag__phase_direction_board // Phase state and direction (light if dark first, darker if light first)
     sta game.state.flag__is_light_turn // Set current player
     // Set starting board color.
     lda #$06 
@@ -282,7 +286,7 @@ board_setup_row_loop:
     clc
     adc #$02
 !next:
-    sta main.state.curr_cycle+3 // Board color phase cycle
+    sta game.data__phase_cycle_board
     lsr // 6 becomes 0011 (3), 8 becomes 0100 (4)
     tay
     lda board.data.color_phase,y
@@ -350,9 +354,9 @@ init:
     // re-enable scan interupts and exit.
     sei
     lda #<common.complete_interrupt
-    sta interrupt.raster_fn_ptr
+    sta interrupt.ptr__raster_fn
     lda #>common.complete_interrupt
-    sta interrupt.raster_fn_ptr+1
+    sta interrupt.ptr__raster_fn+1
     lda IRQMASK
     and #%0111_1110
     sta IRQMASK
@@ -384,9 +388,9 @@ interrupt_interceptor:
     and #%0000_0001
     beq !next+ // Non-raster?
     sta VICIRQ // Indicate that we have handled the interrupt
-    jmp (interrupt.raster_fn_ptr)
+    jmp (interrupt.ptr__raster_fn)
 !next:
-    jmp (interrupt.system_fn_ptr)
+    jmp (interrupt.ptr__system_fn)
 
 // 8010
 play_game:
@@ -419,45 +423,20 @@ play_intro:
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variables
-//---------------------------------------------------------------------------------------------------------------------
-
-//---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
+//---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
 .namespace interrupt {
     // BCCC
     // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
     // background functions such as animations, detection of joystick inputs, delays and so on.
-    raster_fn_ptr: .word $0000
+    ptr__raster_fn: .word $0000
 
     // BCCE
     // System interrupt handler function pointer. This pointer is calls a minimalist handler that really does nothing
     // and is used to ensure the game runs at optimum speed.
-    system_fn_ptr: .word $0000
-}
-
-.namespace state {
-    // BCD0
-    // Is set to $80 to indicate that the game state should be changed to the next state.
-    flag__enable_next: .byte $00
-    
-    // BCD1
-    // Set to $80 to play intro and $00 to skip intro.
-    flag__enable_intro: .byte $00
-    
-    // BCC3
-    // Pre-game intro state ($80 = intro, $00 = board walk, $ff = options).
-    flag__pregame_state: .byte $00
-
-    // BCC7
-    counter: // State counters
-        .byte $00
-        .byte $00
-        .byte $00
-    curr_phase:
-        .byte $00
+    ptr__system_fn: .word $0000
 }
 
 .namespace storage {
@@ -473,6 +452,7 @@ play_intro:
 // The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the
 // start of each game loop.
+//---------------------------------------------------------------------------------------------------------------------
 .segment VariablesStart
     variables_start:
 .segment Variables
@@ -482,25 +462,18 @@ play_intro:
     // Is set to non zero if the game state should be updated after interrupt ha completed.
     flag__set_new: .byte $00
     
-    // BD27
-    // Last recorded major jiffy clock counter (256 jiffy counter).
-    last_stored_time: .byte $00
-
     // BD30
     // Pointer to code that will run in the current state.
     curr_fn_ptr: .word $0000
-
-    // BF3D
-    // State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C).
-    curr_cycle: .byte $00, $00, $00, $00
 }
 
 // BF1A
-// Offset of the current light icon type.
-data__dark_icon_matrix_offset: .byte $00
+// Index in to the matrix of dark icon types.
+index__dark_icon_type: .byte $00
 
 // BF1B
-data__light_icon_matrix_offset: .byte $00
+// Index in to the matrix of light icon types.
+index__light_icon_type: .byte $00
 
 .segment VariablesEnd
     variables_end:

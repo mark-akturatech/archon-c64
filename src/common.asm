@@ -37,8 +37,8 @@ process_key:
     jsr advance_intro_state
     lda #FLAG_DISABLE
     sta board.countdown_timer
-    sta main.state.flag__pregame_state
-    lda common.options.flag__ai_player_ctl
+    sta flag__pregame_state
+    lda options.flag__ai_player_ctl
     sta game.state.flag__ai_player_ctl
     jmp main.restart_game_loop
 !next:
@@ -69,12 +69,12 @@ set_num_players:
     // This just gets a flag that is 55 or AA that is used to set AI player. It doesn't really matter what the state
     // is - it just gives us a starting position. It really has nothing to do with who is first player.
     lda game.state.flag__is_first_player_light
-    cmp common.options.flag__ai_player_ctl
+    cmp options.flag__ai_player_ctl
     bne !next+
     eor #$FF
 !next:
     sta game.state.flag__ai_player_ctl
-    sta common.options.flag__ai_player_ctl
+    sta options.flag__ai_player_ctl
     jsr advance_intro_state
     jmp main.restart_game_loop
 
@@ -89,13 +89,13 @@ advance_intro_state:
     lda #$07 // Load ~30 seconds in to countdown timer
     sta board.countdown_timer
     lda #FLAG_ENABLE
-    sta main.state.flag__enable_next
+    sta flag__enable_next_state
     // Remove intro interrupt handler.
     sei
     lda #<complete_interrupt
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>complete_interrupt
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     cli
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
@@ -103,10 +103,12 @@ advance_intro_state:
     sta VMCSB
     //
     lda #$FF // Go straight to options page
-    sta main.state.flag__pregame_state
+    sta flag__pregame_state
     // Skip intro.
+#if INCLUDE_INTRO    
     lda #FLAG_DISABLE
-    sta main.state.flag__enable_intro
+    sta intro.flag__enable_intro
+#endif
     sta main.state.flag__set_new
     rts
 
@@ -216,14 +218,14 @@ clear_sprites:
 // Description:
 // - Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 // Notes:
-// - Repeats until `main.state.flag__enable_next` is set.
+// - Repeats until `flag__enable_next_state` is set.
 wait_for_key:
     lda #FLAG_DISABLE
-    sta main.state.flag__enable_next
+    sta flag__enable_next_state
 !loop:
     jsr check_option_keypress
     jsr check_stop_keypess
-    lda main.state.flag__enable_next
+    lda flag__enable_next_state
     beq !loop-
     jmp stop_sound
 
@@ -405,8 +407,8 @@ get_next_command:
     sta (FREEZP+2),y
     jmp set_note
 set_state:
-    lda main.state.counter
-    inc main.state.counter
+    lda game.flag__phase_direction // TODO: WTF???
+    inc game.flag__phase_direction // Not needed? Seems to have no purpose.
 #if INCLUDE_INTRO
     asl
     tay
@@ -655,8 +657,6 @@ intro_music:
 //---------------------------------------------------------------------------------------------------------------------
 // Data
 //---------------------------------------------------------------------------------------------------------------------
-// Data in this area are not cleared on state change.
-//
 .segment Data
 
 .namespace options {
@@ -669,6 +669,14 @@ intro_music:
     // Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both
     flag__ai_player_ctl: .byte $00
 }
+
+// BCD0
+// Is set to $80 to indicate that the game state should be changed to the next state.
+flag__enable_next_state: .byte $00
+    
+// BCC3
+// Pre-game intro state ($80 = intro, $00 = board walk, $ff = options).
+flag__pregame_state: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables

@@ -341,9 +341,9 @@ relocate:
     // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
     // we can call whenever a non-raster interrupt occurs.
     lda CINV
-    sta main.interrupt.system_fn_ptr
+    sta main.interrupt.ptr__system_fn
     lda CINV+1
-    sta main.interrupt.system_fn_ptr+1
+    sta main.interrupt.ptr__system_fn+1
     //
     // Move resources out of graphics memory to the end of the application.
     lda #<relocated_resource_source_start
@@ -354,9 +354,8 @@ relocate:
     sta FREEZP+2
     lda #>relocated_resource_destination_start
     sta FREEZP+3
-    // Copy chunks of $ff bytes.
     ldy #$00
-    ldx #>(relocated_resource_source_end - relocated_resource_source_start)
+    ldx #(>(relocated_resource_source_end - relocated_resource_source_start))+1
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -366,20 +365,12 @@ relocate:
     inc FREEZP+3
     dex
     bne !loop-
-    // Copy remaining bytes.
-!loop:
-    lda (FREEZP),y
-    sta (FREEZP+2),y
-    iny
-    cpy #<(relocated_resource_source_end - relocated_resource_source_start)
-    bcc !loop-
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
 // Resources from $5000 to $5fff will be relocated here.
 .segment RelocatedResources
     relocated_resource_destination_start:
-
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data

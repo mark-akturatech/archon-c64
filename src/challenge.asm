@@ -20,9 +20,9 @@ entry:
     //
     sei
     lda #<main.play_challenge
-    sta main.interrupt.raster_fn_ptr
+    sta main.interrupt.ptr__raster_fn
     lda #>main.play_challenge
-    sta main.interrupt.raster_fn_ptr+1
+    sta main.interrupt.ptr__raster_fn+1
     cli
     // Configure sprites.
     lda #%0000_1111
@@ -69,7 +69,7 @@ dark_square:
     lda board.data.square_colors__square // Black
     beq !next+
 vary_square:
-    lda main.state.curr_cycle+3
+    lda game.data__phase_cycle_board
     lsr
     tay
     lda game.curr_color_phase // Phase color
