@@ -24,11 +24,11 @@
 // - X
 get_sound_for_icon:
     ldy icon.offset,x
-    lda resource.sound.icon_pattern,y
+    lda resources.sound.icon_pattern,y
     tay
-    lda resource.sound.icon_pattern_ptr,y
+    lda resources.sound.icon_pattern_ptr,y
     sta sound.pattern_lo_ptr,x
-    lda resource.sound.icon_pattern_ptr+1,y
+    lda resources.sound.icon_pattern_ptr+1,y
     sta sound.pattern_hi_ptr,x
     rts
 
@@ -1110,7 +1110,7 @@ interrupt_handler:
     jsr draw_magic_square
     lda common.flag__enable_next_state
     bmi !return+
-    jmp (main.state.curr_fn_ptr)
+    jmp (ptr__play_music_fn) // End of game.
 interrupt_handler__play_music:
     jsr common.play_music
 !return:
@@ -1180,14 +1180,14 @@ interrupt_handler__play_music:
     // though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
     icon_offset:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, resource.sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
+        .fillword 13, resources.sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
         // DG
-        .fillword 1, resource.sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+        .fillword 1, resources.sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
         // BS, GB
-        .fillword 2, resource.sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+        .fillword 2, resources.sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
 
         // AE, FE, EE, WE
-        .fillword 4, resource.sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
+        .fillword 4, resources.sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
 
     // 8BDA
     elemental_color: // Color of each elemental (air, fire, earth, water)
@@ -1759,3 +1759,7 @@ data__curr_row: // Current board row
 // BF31
 data__curr_column: // Current board column
     .byte $00
+
+// BD30
+// Points to the music playing function for playing the outro music during an interrupt.
+ptr__play_music_fn: .word $0000

@@ -34,7 +34,7 @@ Variable lables will be prefixed with the following:
 - ptr__ : Pointer to a memory address location.
 - idx__ : Index to an item within a block of memory (or array).
 - pos__ : Data used specifically for positioning a sprite or screen data.
-- cnt__ : A value that is incremented within a loop. Typically from 0. Is different to index__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
+- cnt__ : A value that is incremented within a loop. Typically from 0. Is different to idx__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
 - temp__ : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
 
 ### Code Labels

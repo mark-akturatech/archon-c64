@@ -20,9 +20,9 @@ entry:
     //
     sei
     lda #<main.play_challenge
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>main.play_challenge
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     cli
     // Configure sprites.
     lda #%0000_1111

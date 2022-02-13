@@ -10,7 +10,7 @@
 
 // 638E
 // Description:
-// - Complete the current interrupt by restoring the registers pushed on to the stack by the interrupt.
+// - Complete the current interrupt by restoring the registers pushed on to the stack by the 
 complete_interrupt:
     pla
     tay
@@ -56,18 +56,19 @@ process_key:
     rts
 set_num_players:
     // Toggle between two players, player light, player dark
-    lda options.temp__ai_player_ctl
+    lda options.cnt__ai_player_selection
     clc
-    adc #$01
+    adc #$01 // Not sure why we just don't `inc` here instead of adding
     cmp #$03
     bcc !next+
     lda #$00
 !next:
-    sta options.temp__ai_player_ctl
+    sta options.cnt__ai_player_selection
     cmp #$00
     beq !next+
-    // This just gets a flag that is 55 or AA that is used to set AI player. It doesn't really matter what the state
-    // is - it just gives us a starting position. It really has nothing to do with who is first player.
+    // This just gets a flag that is 55 for light, AA for dark and 0 for no AI. The flag has two purposes: we can
+    // use beq, bpl, bmi to test the tri-state and also 55 and AA are used to set the color used by the board border
+    // to represent the current player.
     lda game.state.flag__is_first_player_light
     cmp options.flag__ai_player_ctl
     bne !next+
@@ -93,9 +94,9 @@ advance_intro_state:
     // Remove intro interrupt handler.
     sei
     lda #<complete_interrupt
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>complete_interrupt
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     cli
     // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
     // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
@@ -108,8 +109,8 @@ advance_intro_state:
 #if INCLUDE_INTRO    
     lda #FLAG_DISABLE
     sta intro.flag__enable_intro
+    sta intro.flag__skip_intro
 #endif
-    sta main.state.flag__set_new
     rts
 
 // 6490
@@ -135,7 +136,8 @@ wait_for_jiffy:
 // Description:
 // - Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `main.state.flag__set_new` is toggled if RUN/STOP pressed.
+// - `intro.flag__skip_intro` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
+//   screen to display.
 // Notes:
 // - Game is reset if Q key is pressed.
 // - Subroutine waits for key to be released before exiting.
@@ -153,9 +155,11 @@ check_stop_keypess:
     jsr advance_intro_state
     jmp main.restart_game_loop
 !next:
-    lda main.state.flag__set_new
+#if INCLUDE_INTRO
+    lda intro.flag__skip_intro
     eor #$FF
-    sta main.state.flag__set_new
+    sta intro.flag__skip_intro
+#endif
 !loop:
     jsr STOP
     beq !loop-
@@ -407,15 +411,18 @@ get_next_command:
     sta (FREEZP+2),y
     jmp set_note
 set_state:
-    lda game.flag__phase_direction // TODO: WTF???
-    inc game.flag__phase_direction // Not needed? Seems to have no purpose.
 #if INCLUDE_INTRO
+    lda intro.idx__substate_fn_ptr
+    inc intro.idx__substate_fn_ptr
     asl
     tay
     lda intro.state.fn_ptr,y
-    sta main.state.curr_fn_ptr
+    sta intro.ptr__substate_fn
     lda intro.state.fn_ptr+1,y
-    sta main.state.curr_fn_ptr+1
+    sta intro.ptr__substate_fn+1
+#else
+    lda #FLAG_ENABLE
+    sta common.flag__enable_next_state
 #endif
     jmp get_next_command
 clear_note:
@@ -550,16 +557,16 @@ initialize_music:
 !loop:
     lda sound.flag__play_outro
     bpl intro_music
-    lda resource.music.outro_pattern_ptr,y
+    lda resources.music.outro_pattern_ptr,y
     jmp !next+
 intro_music:
 #if INCLUDE_INTRO
-    lda resource.music.intro_pattern_ptr,y
+    lda resources.music.intro_pattern_ptr,y
 #endif
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial pattern on all 3 voices.
-    lda resource.music.init_pattern_list_ptr,y
+    lda resources.music.init_pattern_list_ptr,y
     sta OLDTXT,y
     dey
     bpl !loop-
@@ -661,12 +668,14 @@ intro_music:
 
 .namespace options {
     // BCC1
-    // Temporary AI setting flag. Is overridden if option timer expires.
+    // Temporary AI selection flag. Is incremented when AI option is selected up to $02 before wrapping back to $00.
     // Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
-    temp__ai_player_ctl: .byte $00
+    cnt__ai_player_selection: .byte $00
 
     // BCC5
-    // Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both
+    // The AI selection is used to generate a flag representing the side played by the AI.
+    // Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both.
+    // Both is selected after a selection timeout.
     flag__ai_player_ctl: .byte $00
 }
 
@@ -675,7 +684,7 @@ intro_music:
 flag__enable_next_state: .byte $00
     
 // BCC3
-// Pre-game intro state ($80 = intro, $00 = board walk, $ff = options).
+// Pre-game intro state ($80 = intro, $00 = in game, $ff = options).
 flag__pregame_state: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------

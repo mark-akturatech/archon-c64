@@ -81,9 +81,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<main.play_game
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>main.play_game
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     cli
     // Check and see if the same player is occupying all of the magic squares. If so, the game is ended and that player
     // wins.
@@ -546,7 +546,7 @@ decrease_cycle_count_again:
     sta data__phase_cycle,y
     cmp #$00
     bne set_phase_color
-    sta flag__phase_direction,y // Reverse phase
+    sta flag__phase_direction,y // Reverse phase.
     jmp set_phase_color
 
 // 66E9
@@ -601,17 +601,20 @@ game_over__show_winner:
     // Play outro music.
     lda #FLAG_ENABLE
     sta common.sound.flag__play_outro
-    lda #$04
-    sta flag__phase_direction // TODO: WTF?
+#if INCLUDE_INTRO
+    .const index_state__end_intro = $04
+    lda #index_state__end_intro
+    sta intro.idx__substate_fn_ptr
+#endif
     sei
     lda #<board.interrupt_handler
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>board.interrupt_handler
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     lda #<board.interrupt_handler__play_music
-    sta main.state.curr_fn_ptr
+    sta board.ptr__play_music_fn
     lda #>board.interrupt_handler__play_music
-    sta main.state.curr_fn_ptr+1
+    sta board.ptr__play_music_fn+1
     cli
     jsr common.initialize_music
     // Wait for about 30 seconds before restarting the game.
@@ -726,9 +729,9 @@ interrupt_handler:
     txa
     asl
     tay
-    lda resource.sound.board_pattern_ptr+4,y
+    lda resources.sound.board_pattern_ptr+4,y
     sta OLDTXT
-    lda resource.sound.board_pattern_ptr+5,y
+    lda resources.sound.board_pattern_ptr+5,y
     sta OLDTXT+1
 new_player_sound:
     jsr board.play_icon_sound
@@ -1371,11 +1374,11 @@ transport_icon:
     ldx #$00
     stx common.sound.new_note_delay
     //
-    lda #<resource.sound.pattern_transport
+    lda #<resources.sound.pattern_transport
     sta OLDTXT
-    lda #>resource.sound.pattern_transport
+    lda #>resources.sound.pattern_transport
     sta OLDTXT+1
-    lda resource.sound.pattern_transport+5 // This note increases in patch as animation runs
+    lda resources.sound.pattern_transport+5 // This note increases in patch as animation runs
     sta data__temp_note_store
     jsr board.play_icon_sound
     // Configure sprite source and destination pointers (for line by line copy)
@@ -1390,9 +1393,9 @@ transport_icon:
     // Set interrupt handler for transport animation.
     sei
     lda #<transport_icon_interrupt
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>transport_icon_interrupt
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     cli
     // Wait for animation to completee.
     jsr wait_for_state_change
@@ -1406,7 +1409,7 @@ transport_icon_interrupt:
     jsr board.draw_magic_square
     lda common.flag__enable_next_state
     bmi !return+
-    // Animate every 4th interrupt.
+    // Animate every 4th 
     inc data__interrupt_count
     lda data__interrupt_count
     and #$03
@@ -1606,7 +1609,7 @@ data__temp_note_store: .byte $00
 data__curr_frame_adv_count: .byte $00
 
 // BCEE
-// Count number of interrupts. Used to perform actions on the nth interrupt.
+// Count number of interrupts. Used to perform actions on the nth 
 data__interrupt_count: .byte $00
 
 // BD2D

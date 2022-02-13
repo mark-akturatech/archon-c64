@@ -29,23 +29,23 @@ entry:
     // Set interrupt handler to set intro loop state.
     sei
     lda #<interrupt_handler
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>interrupt_handler
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     cli
     lda #$00
-    sta game.flag__phase_direction // TODO: Not needed? Seems to have no purpose.
+    sta idx__substate_fn_ptr
     sta EXTCOL // Black border.
-    sta BGCOL0 // Black background
+    sta BGCOL0 // Black background.
     // Set multicolor sprite second color.
     lda sprite.logo_color
     sta SPMC0
     sta SPMC1
     // Configure the starting intro state function.
     lda #<state__scroll_title
-    sta main.state.curr_fn_ptr
+    sta ptr__substate_fn
     lda #>state__scroll_title
-    sta main.state.curr_fn_ptr+1
+    sta ptr__substate_fn+1
     // Busy wait for break key. Interrupts will play the music and animations while we wait.
     jsr common.wait_for_key
     rts
@@ -149,10 +149,10 @@ interrupt_handler:
     bpl !next+
     jmp common.complete_interrupt
 !next:
-    lda main.state.flag__set_new
+    lda flag__skip_intro
     sta common.flag__enable_next_state
     jsr common.play_music
-    jmp (main.state.curr_fn_ptr)
+    jmp (ptr__substate_fn)
 
 // AA56
 state__scroll_title:
@@ -232,9 +232,9 @@ state__draw_freefall_logo:
     dec data__msg_offset // Set to pointer next string to display in next state
     // Start scrolling Avatar logo colors
     lda #<state__avatar_color_scroll
-    sta main.state.curr_fn_ptr
+    sta ptr__substate_fn
     lda #>state__avatar_color_scroll
-    sta main.state.curr_fn_ptr+1
+    sta ptr__substate_fn+1
     jmp common.complete_interrupt
 
 // AACF
@@ -375,9 +375,9 @@ state__show_authors:
     jsr screen_draw_text
     // Bounce the Avatar logo.
     lda #<state__avatar_bounce
-    sta main.state.curr_fn_ptr
+    sta ptr__substate_fn
     lda #>state__avatar_bounce
-    sta main.state.curr_fn_ptr+1
+    sta ptr__substate_fn+1
     // Initialize sprite registers used to bounce the logo in the next state.
     lda #$0E
     sta common.sprite.x_move_counter
@@ -594,7 +594,7 @@ state__end_intro:
     icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites
 
     // 8B27
-    logo_source_ptr: .word resource.sprites_logo // Pointer to intro page logo sprites
+    logo_source_ptr: .word resources.sprites_logo // Pointer to intro page logo sprites
 }
 
 .namespace screen {
@@ -719,3 +719,15 @@ data__curr_line: .byte $00
 // Used to control string rendering ($00 = read row/column fro first bytes of string, $80 = row supplied in x, $C0 =
 // column is #06 and row supplied in x).
 flag__string_pos_ctl: .byte $00
+
+// BD30
+// Pointer to code that will run the current intro substate (eg bounce logo, chase icons, display text etc).
+ptr__substate_fn: .word $0000
+
+// BCD3
+// Is set to non zero to stop the current intro and advance the game state to the options screen.
+flag__skip_intro: .byte $00
+
+// BCC7
+// Index for current introduction sub-state function pointer.
+idx__substate_fn_ptr: .byte $00

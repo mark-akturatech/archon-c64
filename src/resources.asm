@@ -1,4 +1,4 @@
-.filenamespace resource
+.filenamespace resources
 
 //---------------------------------------------------------------------------------------------------------------------
 // Resources
@@ -341,9 +341,9 @@ relocate:
     // We only handle interrupts when the raster fires. So here we store the default system interrupt handler so that
     // we can call whenever a non-raster interrupt occurs.
     lda CINV
-    sta main.interrupt.ptr__system_fn
+    sta main.ptr__system_interrupt_fn
     lda CINV+1
-    sta main.interrupt.ptr__system_fn+1
+    sta main.ptr__system_interrupt_fn+1
     //
     // Move resources out of graphics memory to the end of the application.
     lda #<relocated_resource_source_start

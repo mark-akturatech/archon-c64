@@ -21,9 +21,9 @@ entry:
     // Set interrupt handler to set intro loop state.
     // Why no SEI and CLI wrapping it?
     lda #<interrupt_handler
-    sta main.interrupt.ptr__raster_fn
+    sta main.ptr__raster_interrupt_fn
     lda #>interrupt_handler
-    sta main.interrupt.ptr__raster_fn+1
+    sta main.ptr__raster_interrupt_fn+1
     // Set sprite second colour to black; exand all spites except 7 in X direction and expand only sprite 7 in y
     // direction.
     lda #$00
@@ -259,7 +259,7 @@ interrupt_handler:
     // Update sprite frame and position.
     lda #$FF
     sta data__curr_count
-    // Only update sprite position on every second interrupt.
+    // Only update sprite position on every second 
     lda flag__update_sprite_pos
     eor #$FF
     sta flag__update_sprite_pos
