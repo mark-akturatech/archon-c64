@@ -1,7 +1,7 @@
 .filenamespace intro
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for displaying and animating the introduction/title sequence page.
+// Contains routines for displaying and animating the introduction/title sequence.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"
@@ -15,16 +15,16 @@ entry:
     jsr common.initialize_music
     // Configure screen.
     lda SCROLX
-    and #%1110_1111 // multicolor bitmap mode off
+    and #%1110_1111 // Multicolor bitmap mode off
     sta SCROLX
     lda #%0001_0000 // $0000-$07FF char memory, $0400-$07FF screen memory
     sta VMCSB
     // Configure sprites.
-    lda #%0000_1111 // first 4 sprites multicolor; last 4 sprints single color
+    lda #%0000_1111 // First 4 sprites multicolor; last 4 sprints single color
     sta SPMC
-    lda #%1111_0000 // first 4 sprites double width; last 4 sprites single width
+    lda #%1111_0000 // First 4 sprites double width; last 4 sprites single width
     sta XXPAND
-    lda #%1111_1111 // enable all sprites
+    lda #%1111_1111 // Enable all sprites
     sta SPENA
     // Set interrupt handler to set intro loop state.
     sei
@@ -34,11 +34,11 @@ entry:
     sta main.ptr__raster_interrupt_fn+1
     cli
     lda #$00
-    sta idx__substate_fn_ptr
-    sta EXTCOL // Black border.
-    sta BGCOL0 // Black background.
+    sta idx__substate_fn_ptr // Initialize substate to first substate (draw Freefall logo)
+    sta EXTCOL // Black border
+    sta BGCOL0 // Black background
     // Set multicolor sprite second color.
-    lda sprite.logo_color
+    lda data__logo_sprite_color_list
     sta SPMC0
     sta SPMC1
     // Configure the starting intro state function.
@@ -65,12 +65,12 @@ import_sprites:
     sta FREEZP+3
     ldx #$03 // Copy 4 frames (0 offset)
 import_sprite_icon_set:
-    ldy sprite.icon_id,x
+    ldy data__icon_id_list,x
     sty board.icon.type
     lda board.icon.init_matrix,y
     sta board.icon.offset,x
     jsr board.sprite_initialize
-    lda sprite.flag__is_icon_mirrored,x // Invert frames for icons pointing left
+    lda flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
     sta board.data__icon_set_sprite_frame
     lda #$04 // Copy 4 frames for each icon
     sta common.sprite.init_animation_frame
@@ -94,9 +94,9 @@ import_sprite_frame:
     sta FREEZP+2
     lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
-    lda sprite.logo_source_ptr
+    lda ptr__logo_sprite_resource
     sta FREEZP
-    lda sprite.logo_source_ptr+1
+    lda ptr__logo_sprite_resource+1
     sta FREEZP+1
     ldy #$00 // Copy 7 sprites (448 bytes)
 !loop: // Copy first 256 bytes
@@ -125,12 +125,12 @@ import_sprite_frame:
     lda ptr__sprite_mem
     sta SPTMEM,x
     dec ptr__sprite_mem
-    lda sprite.logo_color,x
+    lda data__logo_sprite_color_list,x
     sta SP0COL,x
-    lda sprite.logo_x_pos,x
+    lda pos__logo_sprite_x_list,x
     sta SP0X,y
     sta common.sprite.curr_x_pos,x
-    lda sprite.logo_y_pos,x
+    lda pos__logo_sprite_y_list,x
     sta SP0Y,y
     sta common.sprite.curr_y_pos,x
     dex
@@ -213,14 +213,14 @@ state__draw_freefall_logo:
     // half of the Free Fall log) on four separate lines.
     ldx #$16
     ldy #$08
-    sty idx__string_msg
+    sty idx__string
 !loop:
     stx data__curr_line
     jsr screen_draw_text
     ldx data__curr_line
     dex
-    dec idx__string_msg
-    ldy idx__string_msg
+    dec idx__string
+    ldy idx__string
     cpy #$04
     bcs !loop-
     // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
@@ -229,7 +229,7 @@ state__draw_freefall_logo:
     sta flag__string_pos_ctl
     jsr screen_draw_text
     //
-    dec idx__string_msg // Set to pointer next string to display in next state
+    dec idx__string // Set to pointer next string to display in next state
     // Start scrolling Avatar logo colors
     lda #<state__avatar_color_scroll
     sta ptr__substate_fn
@@ -242,21 +242,21 @@ state__draw_freefall_logo:
 // - Initiates the draw text routine by selecting a color and text offset.
 // - The routine then calls a method to write the text to the screen.
 // Prerequisites:
-// - `idx__string_msg`: Contains the string ID offset
+// - `idx__string`: Contains the string ID offset
 // Notes:
-// - The message offset is used to read the string memory location from `screen.string_data_ptr` (message offset is
+// - The message offset is used to read the string memory location from `prt__string_list` (message offset is
 //   multiplied by 2 as 2 bytes are required to store the message location).
-// - The message offset is used to read the string color from `screen.string_color_data`.
+// - The message offset is used to read the string color from `data__string_color_list`.
 screen_draw_text:
-    ldy idx__string_msg
-    lda screen.string_color_data,y
+    ldy idx__string
+    lda data__string_color_list,y
     sta data__curr_color
     tya
     asl
     tay
-    lda screen.string_data_ptr,y
+    lda prt__string_list,y
     sta FREEZP
-    lda screen.string_data_ptr+1,y
+    lda prt__string_list+1,y
     sta FREEZP+1
     ldy #$00
     jmp screen_calc_start_addr
@@ -364,13 +364,13 @@ state__show_authors:
     // Display author names.
 !next:
     jsr screen_draw_text
-    dec idx__string_msg
+    dec idx__string
     bpl !next-
     // Show press run/stop message.
     lda #$C0 // Manual row/column
     sta flag__string_pos_ctl
     lda #$09
-    sta idx__string_msg
+    sta idx__string
     ldx #$18
     jsr screen_draw_text
     // Bounce the Avatar logo.
@@ -484,7 +484,7 @@ chase_set_sprites:
     lda common.sprite.curr_x_pos,x
     lsr
     sta common.sprite.curr_x_pos,x
-    lda sprite.icon_color,x
+    lda data__icon_sprite_color_list,x
     sta SP0COL,x
     dex
     bpl !loop-
@@ -507,10 +507,10 @@ animate_icons:
     asl
     tay
     lda common.sprite.curr_x_pos,x
-    cmp sprite.icon_end_x_pos,x
+    cmp pos__icon_sprite_final_x_list,x
     beq !next+
     clc
-    adc sprite.icon_x_direction_addend,x
+    adc flag__icon_sprite_direction_list,x
     sta common.sprite.curr_x_pos,x
     asl // Move by two pixels at a time
     sta SP0X,y
@@ -532,7 +532,7 @@ set_icon_frame:
     lda common.sprite.curr_animation_frame
     and #$03 // 1-4 animation frames
     clc
-    adc sprite.icon_sprite_offsets,x
+    adc ptr__icon_sprite_mem_list,x
     sta SPTMEM,x
 !next:
     dex
@@ -553,112 +553,131 @@ state__end_intro:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-.namespace state {
-    // AD73
-    fn_ptr: // Pointers to intro state animation functions that are executed (one after the other) on an $fd
-        .word state__draw_freefall_logo, state__show_authors, state__avatar_bounce, state__chase_scene
-        .word state__end_intro
-}
+// A97A
+// Initial sprite y-position for intro logo sprites.
+pos__logo_sprite_y_list: .byte $ff, $ff, $ff, $ff, $30, $30, $30
 
-.namespace sprite {
-    // A97A
-    logo_y_pos: .byte $ff, $ff, $ff, $ff, $30, $30, $30 // Initial sprite y-position for intro logo sprites
+// A981
+// Initial sprite x-position for intro logo sprites.
+pos__logo_sprite_x_list: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc
 
-    // A981
-    logo_x_pos: .byte $84, $9c, $b4, $cc, $6c, $9c, $cc // Initial sprite x-position for intro logo sprites
+// A988
+// Initial color of intro logo sprites.
+data__logo_sprite_color_list: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE
 
-    // A988
-    logo_color: .byte YELLOW, YELLOW, YELLOW, YELLOW, WHITE, WHITE, WHITE // Initial color of intro logo sprites
+// AD73
+// Pointers to intro state animation functions that are executed (one after the other) on an $FD command while playing
+// music.
+ptr__substate_fn_list:
+    .word state__draw_freefall_logo, state__show_authors, state__avatar_bounce, state__chase_scene
+    .word state__end_intro
 
-    // ADAA:
-    icon_id: .byte GOBLIN, GOLEM, TROLL, KNIGHT // Icon IDs of pieces used in chase scene
+// ADAA:
+// Icon IDs of pieces used in chase scene.
+data__icon_id_list: .byte GOBLIN, GOLEM, TROLL, KNIGHT
 
-    // ADAE:
-    flag__is_icon_mirrored: // Direction flags of intro sprites ($80=invert direction)
-        .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
+// ADAE:
+// Direction flags of intro sprites ($80=invert direction).
+flag__is_icon_sprite_mirrored_list: .byte FLAG_DISABLE, FLAG_DISABLE, FLAG_ENABLE, FLAG_ENABLE
 
-    // ADB2
-    icon_x_direction_addend: .byte $FF, $FF, $01, $01 // Direction of each icon sprite (FF=left, 01=right)
+// ADB2
+// Direction of each icon sprite (FF=left, 01=right).
+flag__icon_sprite_direction_list: .byte $FF, $FF, $01, $01
 
-    // ADB6
-    icon_end_x_pos: .byte $00, $00, $AC, $AC // End position of each intro icon sprite
+// ADB6
+// End position of each intro icon sprite.
+pos__icon_sprite_final_x_list: .byte $00, $00, $AC, $AC
 
-    // ADBA
-    icon_sprite_offsets: // Screen pointer sprite offsets for each icon
-        .byte (VICGOFF/BYTES_PER_SPRITE)+24
-        .byte (VICGOFF/BYTES_PER_SPRITE)+28
-        .byte (VICGOFF/BYTES_PER_SPRITE)+32
-        .byte (VICGOFF/BYTES_PER_SPRITE)+36
+// ADBA
+// Screen pointer sprite offsets for each icon.
+ptr__icon_sprite_mem_list:
+    .byte (VICGOFF/BYTES_PER_SPRITE)+24
+    .byte (VICGOFF/BYTES_PER_SPRITE)+28
+    .byte (VICGOFF/BYTES_PER_SPRITE)+32
+    .byte (VICGOFF/BYTES_PER_SPRITE)+36
 
-    // ADBE
-    icon_color: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE // Initial color of chase scene icon sprites
+// ADBE
+// Initial color of chase scene icon sprites.
+data__icon_sprite_color_list: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE
 
-    // 8B27
-    logo_source_ptr: .word resources.sprites_logo // Pointer to intro page logo sprites
-}
+// 8B27
+// Pointer to intro logo sprites.
+ptr__logo_sprite_resource: .word resources.sprites_logo
 
-.namespace screen {
-    // A8A5
-    string_data_ptr: // Pointer to string data for each string
-        .word string_0, string_1, string_2, string_3, string_4, string_4, string_4, string_4, string_5
-        .word board.screen.string_67
+// A8A5
+// Pointer to string data for each string.
+prt__string_list: 
+    .word string_0, string_1, string_2, string_3, string_4, string_4, string_4, string_4
+    .word string_5, string_6
 
-    // A8B9
-    string_color_data: // Color of each string
-        .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE, DARK_GRAY, GRAY, LIGHT_GRAY, WHITE, WHITE, ORANGE
+// A8B9
+// Color of each string.
+data__string_color_list:
+    .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE, DARK_GRAY, GRAY, LIGHT_GRAY, WHITE, WHITE, ORANGE
 
-    // A87F
-    string_4: // Top half of "Free Fall" logo
-        .byte $0b
-        .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70, $71
-        .byte STRING_CMD_END
+// A87F
+// Top half of "Free Fall" logo.
+string_4:
+    .byte $0b
+    .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70, $71
+    .byte STRING_CMD_END
 
-    // A892
-    string_5: // Bottom half of "Free Fall" logo
-        .byte $0b
-        .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
-        .byte STRING_CMD_END
+// A892
+// Bottom half of "Free Fall" logo.
+string_5: 
+    .byte $0b
+    .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
+    .byte STRING_CMD_END
 
-    // A8C3
-    string_3: // A .... Game
-        .byte $10, $13
-        .text "A"
-        .byte STRING_CMD_NEWLINE, $18, $11
-        .text "GAME"
-        .byte STRING_CMD_END
+// A8C3
+// A .... Game
+string_3:
+    .byte $10, $13
+    .text "A"
+    .byte STRING_CMD_NEWLINE, $18, $11
+    .text "GAME"
+    .byte STRING_CMD_END
 
-    // A8CE
-    string_0: // By Anne Wesfall and Jon Freeman & Paul Reiche III
-        .byte $08, $0c
-        .text @"BY\$00ANNE\$00WESTFALL"
-        .byte STRING_CMD_NEWLINE, $0a, $0b
-        .text @"AND\$00JON\$00FREEMAN"
-        .byte STRING_CMD_NEWLINE, $0c, $0d
-        .text @"\$40\$00PAUL\$00REICHE\$00III"
-        .byte STRING_CMD_END
+// A8CE
+// By Anne Wesfall and Jon Freeman & Paul Reiche III
+string_0:
+    .byte $08, $0c
+    .text @"BY\$00ANNE\$00WESTFALL"
+    .byte STRING_CMD_NEWLINE, $0a, $0b
+    .text @"AND\$00JON\$00FREEMAN"
+    .byte STRING_CMD_NEWLINE, $0c, $0d
+    .text @"\$40\$00PAUL\$00REICHE\$00III"
+    .byte STRING_CMD_END
 
-    // A907
-    string_1: // Emptry string under authors - presumably here to allow text to be added for test versions etc
-        .byte $0f, $01
-        .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-        .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-        .byte $00, $00, $00, $00, $00, $00, $00
-        .byte STRING_CMD_END
+// A907
+// Emptry string under authors - presumably here to allow text to be added for test versions etc
+string_1:
+    .byte $0f, $01
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+    .byte $00, $00, $00, $00, $00, $00, $00
+    .byte STRING_CMD_END
 
-    // A931
-    string_2: // Electronic Arts Logo
-        .byte $12, $01
-        .byte $16, $17, $17, $18, $19, $1a, $1b, $1c
-        .byte STRING_CMD_NEWLINE, $13, $01
-        .byte $1e, $1f, $1f, $20, $1f, $1f, $21, $22, $23
-        .byte STRING_CMD_NEWLINE, $14, $01
-        .byte $24, $25, $25, $26, $27, $28, $29, $2a, $3f, $1d
-        .byte STRING_CMD_NEWLINE, $15, $01
-        .byte $2b, $2c, $00, $00, $00, $00, $00, $00, $00, $00, $00, $2d, $2e
-        .byte STRING_CMD_NEWLINE, $16, $01
-        .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
-        .byte STRING_CMD_END
-}
+// A931
+// Electronic Arts Logo
+string_2:
+    .byte $12, $01
+    .byte $16, $17, $17, $18, $19, $1a, $1b, $1c
+    .byte STRING_CMD_NEWLINE, $13, $01
+    .byte $1e, $1f, $1f, $20, $1f, $1f, $21, $22, $23
+    .byte STRING_CMD_NEWLINE, $14, $01
+    .byte $24, $25, $25, $26, $27, $28, $29, $2a, $3f, $1d
+    .byte STRING_CMD_NEWLINE, $15, $01
+    .byte $2b, $2c, $00, $00, $00, $00, $00, $00, $00, $00, $00, $2d, $2e
+    .byte STRING_CMD_NEWLINE, $16, $01
+    .byte $2f, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $3a, $3b, $3c, $3d, $3e
+    .byte STRING_CMD_END
+
+// A805
+// replicated from board - copied here for completeness.
+string_6:
+    .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
+    .byte STRING_CMD_END        
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data
@@ -691,8 +710,8 @@ flag__sprite_x_direction: .byte $00
 ptr__substate_fn: .word $0000
 
 // BD3A
-// Offset of current message being rendered in into page.
-idx__string_msg: .byte $00
+// Offset of current intro message being rendered.
+idx__string: .byte $00
 
 // BD59
 // Is positive number for down direction, negative for up direction.
@@ -724,7 +743,7 @@ ptr__sprite_mem_lo: .byte $00
 pos__sprite_x: .byte $00
 
 // BF30
-// Current screen line used while rendering repeated strings in into page.
+// Current screen line used while rendering repeated strings.
 data__curr_line: .byte $00
 
 // BF3C

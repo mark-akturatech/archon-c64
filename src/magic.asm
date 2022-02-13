@@ -565,7 +565,7 @@ spell_select_imprison:
     bcc !next+
     inx
 !next:
-    sta game.imprisoned_icon_id,x
+    sta game.imprisoned_data__icon_id_list,x
     lda #STRING_SPELL_DONE
     jmp end_spell_selection
 display_spell_wasted:
@@ -847,9 +847,9 @@ spell_select_icon:
     beq !return+
     sta board.icon.type
 spell_check_icon_is_free:
-    cmp game.imprisoned_icon_id
+    cmp game.imprisoned_data__icon_id_list
     beq !next+
-    cmp game.imprisoned_icon_id+1
+    cmp game.imprisoned_data__icon_id_list+1
     beq !next+
     asl game.flag__icon_destination_valid
 !return:

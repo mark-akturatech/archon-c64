@@ -1,7 +1,7 @@
 .filenamespace common
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains common routines used by various pages and game states.
+// Contains common routines used by intro and game states.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"
@@ -103,7 +103,7 @@ advance_intro_state:
     lda #%0001_0010
     sta VMCSB
     //
-    lda #$FF // Go straight to options page
+    lda #$FF // Go straight to options
     sta flag__pregame_state
     // Skip intro.
 #if INCLUDE_INTRO    
@@ -416,9 +416,9 @@ set_state:
     inc intro.idx__substate_fn_ptr
     asl
     tay
-    lda intro.state.fn_ptr,y
+    lda intro.ptr__substate_fn_list,y
     sta intro.ptr__substate_fn
-    lda intro.state.fn_ptr+1,y
+    lda intro.ptr__substate_fn_list+1,y
     sta intro.ptr__substate_fn+1
 #else
     lda #FLAG_ENABLE

@@ -51,7 +51,7 @@
 // - `resources`: Game resources such as sprites, character sets and music phraseology.
 // - `common`: Library of subroutines and assets used by both the intro and game states.
 // - `board`: Subroutines and assets used to render the game board.
-// - `intro`: Subroutines and assets used by the intro page (eg the dancing logo page).
+// - `intro`: Subroutines and assets used by the intro (eg the dancing logo).
 // - `board_walk`: Subroutines and assets used during the introduction to walk icons on to the board.
 // - `game`: Subroutines and assets used during main game play.
 // - `ai`: Subroutinues used for AI in board and challenge game play. I split these out as they may be interesting.
@@ -162,8 +162,8 @@ restart_game_loop:
     dex
     bpl !loop-
     //
-    sta game.imprisoned_icon_id // Clear imprisoned icons
-    sta game.imprisoned_icon_id+1
+    sta game.imprisoned_data__icon_id_list // Clear imprisoned icons
+    sta game.imprisoned_data__icon_id_list+1
     lda game.state.flag__is_first_player_light // Set first player
     sta game.state.flag__is_light_turn
     //
@@ -221,7 +221,7 @@ restart_game_loop:
     sta intro.flag__enable // Don't play intro again
 #endif
     lda TIME+1
-    sta game.last_stored_time // Store time - used to start game if timeout on options page
+    sta game.last_stored_time // Store time - used to start game if timeout on options
     //
     // Clear used spell flags.
     .const NUMBER_SPELLS = 7
@@ -404,16 +404,16 @@ interrupt_interceptor:
 
 // 8010
 play_game:
-    jmp (ptr__game_state_fn)
+    jmp (ptr__game_state_fn_list)
 
 // 8013
 play_challenge:
-    jmp (ptr__game_state_fn+2)
+    jmp (ptr__game_state_fn_list+2)
 
 // 8016
 #if INCLUDE_INTRO
 play_intro:
-    jmp (ptr__game_state_fn+4)
+    jmp (ptr__game_state_fn_list+4)
 #endif
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -424,7 +424,7 @@ play_intro:
 
 // 4760
 // Pointer to each main game function.
-ptr__game_state_fn:
+ptr__game_state_fn_list:
     .word game.interrupt_handler
     .word challenge.interrupt_handler
 #if INCLUDE_INTRO

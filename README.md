@@ -29,13 +29,19 @@ Source code was replicated entirely within Visual Studio Code using the `KickAss
 ### Variable Labels 
 
 Variable lables will be prefixed with the following:
-- data__ : Calculated or derived results or data stored for use later.
-- flag__ : Used to specifically for conditional logic.
-- ptr__ : Pointer to a memory address location.
-- idx__ : Index to an item within a block of memory (or array).
-- pos__ : Data used specifically for positioning a sprite or screen data.
-- cnt__ : A value that is incremented within a loop. Typically from 0. Is different to idx__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
-- temp__ : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
+- `data__` : Calculated or derived results or data stored for use later.
+- `flag__` : Used to specifically for conditional logic.
+- `ptr__` : Pointer to a memory address location.
+- `idx__` : Index to an item within a block of memory (or array).
+- `pos__` : Data used specifically for positioning a sprite or screen data.
+- `cnt__` : A value that is incremented within a loop. Typically from 0. Is different to idx__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
+- `temp__` : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
+
+Labels may also contain the following:
+- `_list` : The label is followed by two or more related items. For example, a list of colors or positions.
+- `_fn` : may be used with the ptr__ prefix to denote a pointer to a function/code.
+- `_ctl` : may be used with a flag__ prefix to denote that the flag could contain multiple values and will be used to control how the code will run (eg flag may contain an enum constant to increment a row, or a column or both).
+- `_cur_` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
 
 ### Code Labels
 

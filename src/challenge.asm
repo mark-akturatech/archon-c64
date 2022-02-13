@@ -1,7 +1,7 @@
 .filenamespace challenge
 
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for challenge battles.
+// Contains routines for challenge and battle arena.
 //---------------------------------------------------------------------------------------------------------------------
 #import "src/io.asm"
 #import "src/const.asm"

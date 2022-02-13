@@ -132,12 +132,12 @@ entry:
     cpx #BOARD_NUM_PLAYER_ICONS
     bcc !next+
     inc data__dark_icon_count
-    stx data__remaining_dark_icon_id
+    stx data__remaining_dark_data__icon_id_list
     ldy #$80
     bmi !next++
 !next:
     inc data__light_icon_count
-    stx data__remaining_light_icon_id
+    stx data__remaining_light_data__icon_id_list
 !next:
     tya
     ora data__curr_count
@@ -180,7 +180,7 @@ change_phase_color:
     bne check_light_icons
     // Board is black
     lda #$FF
-    sta imprisoned_icon_id+1 // Remove imprisoned dark icon
+    sta imprisoned_data__icon_id_list+1 // Remove imprisoned dark icon
     ldx #$23 // Dark player icon offset
     jsr regenerate_hitpoints
     jmp !next+
@@ -189,7 +189,7 @@ check_light_icons:
     bne !next+
     // Board is white
     lda #$FF
-    sta imprisoned_icon_id // Remove imprisoned light icon
+    sta imprisoned_data__icon_id_list // Remove imprisoned light icon
     ldx #$11 // Light player icon offset
     jsr regenerate_hitpoints
 !next:
@@ -225,8 +225,8 @@ check_light_icons:
     ldy data__dark_icon_count
     cpy #$02
     bcs check_game_state
-    ldy data__remaining_dark_icon_id
-    cpy imprisoned_icon_id+1
+    ldy data__remaining_dark_data__icon_id_list
+    cpy imprisoned_data__icon_id_list+1
     bne check_game_state
     jmp game_over__imprisoned
 !next:
@@ -234,8 +234,8 @@ check_light_icons:
     ldy data__light_icon_count
     cpy #$02
     bcs check_game_state
-    ldy data__remaining_light_icon_id
-    cpy imprisoned_icon_id
+    ldy data__remaining_light_data__icon_id_list
+    cpy imprisoned_data__icon_id_list
     bne check_game_state
     jmp game_over__imprisoned
     //
@@ -1175,7 +1175,7 @@ select_icon_to_move:
     bne !return-
     // Ignore and set error message if selected icon is imprisoned.
     ldx curr_player_offset
-    lda imprisoned_icon_id,x
+    lda imprisoned_data__icon_id_list,x
     cmp board.icon.type
     beq !next+
     // Accept destination.
@@ -1557,7 +1557,7 @@ curr_color_phase: .byte $00
 
 // BD24
 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark).
-imprisoned_icon_id: .byte $00, $00
+imprisoned_data__icon_id_list: .byte $00, $00
 
 // BD3D
 // Is set to non-zero if a new board square was selected.
@@ -1611,11 +1611,11 @@ data__board_sprite_move_y_count: .byte $00
 
 // BF33
 // Icon ID of last dark icon.
-data__remaining_dark_icon_id: .byte $00
+data__remaining_dark_data__icon_id_list: .byte $00
 
 // BF37
 // Icon ID of last light icon.
-data__remaining_light_icon_id: .byte $00
+data__remaining_light_data__icon_id_list: .byte $00
 
 // BF36
 // Sprite X position movement counter.

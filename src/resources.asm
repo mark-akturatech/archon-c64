@@ -45,7 +45,7 @@
 .segment Resources
 
 // BACB
-// Sprites used by title page.
+// Sprites used by intro title.
 // Sprites are contained in the following order:
 // - 0-3: Archon logo (in 3 parts)
 // - 4-6: Freefall logo (in 2 parts)

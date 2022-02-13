@@ -2,11 +2,11 @@
 
 ## Intro
 
-- Press `Q` will jump straight to options settings page (skips icon walk on).
-- Press `F3`, `F5` - will jump straight to options settings page and select that option.
+- Press `Q` will jump straight to options settings (skips icon walk on).
+- Press `F3`, `F5` - will jump straight to options settings and select that option.
 - Press `F7` will immediately start the game with default options (2 player, light first).
 - Memory address `$A907` has 40 empty characters (`$00`) that are displayed under the author's names. This can be easily modified to display any message you want (up to one line long).
-- The intro page has it's own character set (although only half a set). It is used to drag EA and Free fall logos.
+- The intro has it's own character set (although only half a set). It is used to drag EA and Free fall logos.
 - The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc). The outro actually just plays the last phrase of the intro.
 
 ## Sprites
@@ -20,7 +20,7 @@
 
 ## Game play
 
-- Press `Q` will quit the current game and return back to the options setting page.
+- Press `Q` will quit the current game and return back to the options setting.
 - The initial strength of each icon is shown below (address `$8AB3`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
