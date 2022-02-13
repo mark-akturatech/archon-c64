@@ -1,12 +1,7 @@
 .filenamespace board
-
 //---------------------------------------------------------------------------------------------------------------------
 // Contains common routines used for rendering the game board.
 //---------------------------------------------------------------------------------------------------------------------
-#importonce
-#import "src/io.asm"
-#import "src/const.asm"
-
 .segment Common
 
 // 62EB
@@ -24,11 +19,11 @@
 // - X
 get_sound_for_icon:
     ldy icon.offset,x
-    lda resources.sound.icon_pattern,y
+    lda sound.icon_pattern,y
     tay
-    lda resources.sound.icon_pattern_ptr,y
+    lda prt__sound_icon_effect_list,y
     sta sound.pattern_lo_ptr,x
-    lda resources.sound.icon_pattern_ptr+1,y
+    lda prt__sound_icon_effect_list+1,y
     sta sound.pattern_hi_ptr,x
     rts
 
@@ -167,16 +162,16 @@ intialize_enable_sprite:
 // Description:
 // - Writes a text message to the board text area.
 // Prerequisites:
-// - A: text message offset (see `screen.message_ptr` for message order).
+// - A: text message offset (see `ptr__game_string_list` for message order).
 // - X: column offset.
 // Sets:
 // - Screen graphical character memory.
 write_text:
     asl
     tay
-    lda screen.message_ptr,y
+    lda ptr__game_string_list,y
     sta FREEZP
-    lda screen.message_ptr+1,y
+    lda ptr__game_string_list+1,y
     sta FREEZP+1
     ldy #$00
 !loop:
@@ -1226,6 +1221,22 @@ interrupt_handler__play_music:
     magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
 }
 
+.namespace sound {
+    // 8BAA
+    attack_pattern:
+    // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
+    // defined above.
+        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+        .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
+
+    // 8BBE
+    // Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
+    // Uses icon offset as index.
+    icon_pattern:
+        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+        .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
+}
+
 .namespace icon {
     // 8AB3
     // Initial strength of each icon type. Uses icon offset as index. Eg Knight has an offset of 7 and therefore the
@@ -1269,374 +1280,44 @@ interrupt_handler__play_music:
         .byte 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
 }
 
-.namespace screen {
-    // A21E
-    message_ptr: // Pointer to start predefined text message. Messages are FF terminated.
-        .word string_0,  string_1,  string_2,  string_3,  string_4,  string_5,  string_6,  string_7
-        .word string_8,  string_9,  string_10, string_11, string_12, string_13, string_14, string_15
-        .word string_16, string_17, string_18, string_19, string_20, string_21, string_22, string_23
-        .word string_24, string_25, string_26, string_27, string_28, string_29, string_30, string_31
-        .word string_32, string_33, string_34, string_35, string_36, string_37, string_38, string_39
-        .word string_40, string_41, string_42, string_43, string_44, string_45, string_46, string_47
-        .word string_48, string_49, string_50, string_51, string_52, string_53, string_54, string_55
-        .word string_56, string_57, string_58, string_59, string_60, string_61, string_62, string_63
-        .word string_64, string_65, string_66, string_67, string_68, string_69, string_70
+// 8B94
+// Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
+// types.
+prt__sound_icon_effect_list:
+    .word resources.sound_pattern_walk_large   // 00
+    .word resources.sound_pattern_fly_01       // 02
+    .word resources.sound_pattern_fly_02       // 04
+    .word resources.sound_pattern_walk_quad    // 06
+    .word resources.sound_pattern_fly_03       // 08
+    .word resources.sound_pattern_fly_large    // 10
+    .word resources.sound_pattern_attack_01    // 12
+    .word resources.sound_pattern_attack_02    // 14
+    .word resources.sound_pattern_attack_03    // 16
+    .word resources.sound_pattern_attack_04    // 18
+    .word resources.sound_pattern_walk_slither // 20
+
+// A21E
+// Pointer to start predefined text message. Messages are FF terminated.
+ptr__game_string_list:
+    .word resources.game_string_0,  resources.game_string_1,  resources.game_string_2,  resources.game_string_3
+    .word resources.game_string_4,  resources.game_string_5,  resources.game_string_6,  resources.game_string_7
+    .word resources.game_string_8,  resources.game_string_9,  resources.game_string_10, resources.game_string_11
+    .word resources.game_string_12, resources.game_string_13, resources.game_string_14, resources.game_string_15
+    .word resources.game_string_16, resources.game_string_17, resources.game_string_18, resources.game_string_19
+    .word resources.game_string_20, resources.game_string_21, resources.game_string_22, resources.game_string_23
+    .word resources.game_string_24, resources.game_string_25, resources.game_string_26, resources.game_string_27
+    .word resources.game_string_28, resources.game_string_29, resources.game_string_30, resources.game_string_31
+    .word resources.game_string_32, resources.game_string_33, resources.game_string_34, resources.game_string_35
+    .word resources.game_string_36, resources.game_string_37, resources.game_string_38, resources.game_string_39
+    .word resources.game_string_40, resources.game_string_41, resources.game_string_42, resources.game_string_43
+    .word resources.game_string_44, resources.game_string_45, resources.game_string_46, resources.game_string_47
+    .word resources.game_string_48, resources.game_string_49, resources.game_string_50, resources.game_string_51
+    .word resources.game_string_52, resources.game_string_53, resources.game_string_54, resources.game_string_55
+    .word resources.game_string_56, resources.game_string_57, resources.game_string_58, resources.game_string_59
+    .word resources.game_string_60, resources.game_string_61, resources.game_string_62, resources.game_string_63
+    .word resources.game_string_64, resources.game_string_65, resources.game_string_66, resources.game_string_67
+    .word resources.game_string_68, resources.game_string_69, resources.game_string_70
 
-    // A2AC
-    string_1:
-        .text "ALAS, MASTER, THIS ICON CANNOT MOVE"
-        .byte STRING_CMD_END
-
-    // A2D0
-    string_2:
-        .text "DO YOU CHALLENGE THIS FOE?"
-        .byte STRING_CMD_END
-
-    // A2EB
-    string_3:
-        .text "YOU HAVE MOVED YOUR LIMIT"
-        .byte STRING_CMD_END
-
-    // A305
-    string_4:
-        .text "THE SQUARE AHEAD IS OCCUPIED"
-        .byte STRING_CMD_END
-
-    // A322
-    string_6:
-        .text "THE LIGHT SIDE WINS"
-        .byte STRING_CMD_END
-
-    // A336
-    string_7:
-        .text "THE DARK SIDE WINS"
-        .byte STRING_CMD_END
-
-    // A349
-    string_8:
-        .text "IT IS A TIE"
-        .byte STRING_CMD_END
-
-    // A355
-    string_9:
-        .text "THE FLOW OF TIME IS REVERSED"
-        .byte STRING_CMD_END
-
-    // A372
-    string_10:
-        .text "WHICH ICON WILL YOU HEAL?"
-        .byte STRING_CMD_END
-
-    // A38C
-    string_5:
-        .text "IT IS DONE"
-        .byte STRING_CMD_END
-
-    // A397
-    string_11:
-        .text "WHICH ICON WILL YOU TELEPORT?"
-        .byte STRING_CMD_END
-
-    // A3B5
-    string_12:
-        .text "WHERE WILL YOU TELEPORT IT?"
-        .byte STRING_CMD_END
-
-    // A3D1
-    string_13:
-        .text @"CHOOSE AN ICON TO TRANSPOSE"
-        .byte STRING_CMD_END
-
-    // A3ED
-    string_14:
-        .text "EXCHANGE IT WITH WHICH ICON?"
-        .byte STRING_CMD_END
-
-    // A40A
-    string_15:
-        .text "WHAT ICON WILL YOU REVIVE?"
-        .byte STRING_CMD_END
-
-    // A425
-    string_16:
-        .text "PLACE IT WITHIN THE CHARMED SQUARE"
-        .byte STRING_CMD_END
-
-    // A448
-    string_17:
-        .text "WHICH FOE WILL YOU IMPRISON?"
-        .byte STRING_CMD_END
-
-    // A465
-    string_18:
-        .text "ALAS, MASTER, THERE IS NO OPENING IN THECHARMED SQUARE. CONJURE ANOTHER SPELL"
-        .byte STRING_CMD_END
-
-    // A4B3
-    string_25:
-        .text "SEND IT TO THE TARGET"
-        .byte STRING_CMD_END
-
-    // A4C9
-    string_53:
-        .text "THAT SPELL WOULD BE WASTED AT THIS TIME"
-        .byte STRING_CMD_END
-
-    // A4F0
-    string_54:
-        .text "SELECT A SPELL"
-        .byte STRING_CMD_END
-
-    // A500
-    string_19:
-        .text "HAPPILY, MASTER, ALL YOUR ICONS LIVE.   PLEASE CONJURE A DIFFERENT SPELL"
-        .byte STRING_CMD_END
-
-    // A549
-    string_20:
-        .text "ALAS, THIS ICON IS IMPRISONED"
-        .byte STRING_CMD_END
-
-    // A567
-    string_21:
-        .text "AN AIR"
-        .byte STRING_CMD_END
-
-    // A56E
-    string_22:
-        .text "A FIRE"
-        .byte STRING_CMD_END
-
-    // A575
-    string_24:
-        .text "A WATER"
-        .byte STRING_CMD_END
-
-    // A57D
-    string_23:
-        .text "AN EARTH"
-        .byte STRING_CMD_END
-
-    // A586
-    string_26:
-        .text "THE WIZARD"
-        .byte STRING_CMD_END
-
-    // A591
-    string_27:
-        .text "THE SORCERESS"
-        .byte STRING_CMD_END
-
-    // A59F
-    string_0:
-        .text "OH, WOE! YOUR SPELLS ARE GONE!"
-        .byte STRING_CMD_END
-
-    //A5BE
-    string_28:
-        .text "UNICORN (GROUND 4)"
-        .byte STRING_CMD_END
-
-    // A5D1
-    string_29:
-        .text "WIZARD (TELEPORT 3)"
-        .byte STRING_CMD_END
-
-    // A5E5
-    string_30:
-        .text "ARCHER (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A5F7
-    string_31:
-        .text "GOLEM (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A608
-    string_32:
-        .text "VALKYRIE (FLY 3)"
-        .byte STRING_CMD_END
-
-    // A619
-    string_33:
-        .text "DJINNI (FLY 4)"
-        .byte STRING_CMD_END
-
-    // A628
-    string_34:
-        .text "PHOENIX (FLY 5)"
-        .byte STRING_CMD_END
-
-    // A638
-    string_35:
-        .text "KNIGHT (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A64A
-    string_36:
-        .text "BASILISK (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A65E
-    string_37:
-        .text "SORCERESS (TELEPORT 3)"
-        .byte STRING_CMD_END
-
-    // A675
-    string_38:
-        .text "MANTICORE (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A68A
-    string_39:
-        .text "TROLL (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A69B
-    string_40:
-        .text "SHAPESHIFTER (FLY 5)"
-        .byte STRING_CMD_END
-
-    // A6B0
-    string_41:
-        .text "DRAGON (FLY 4)"
-        .byte STRING_CMD_END
-
-    // A6BF
-    string_42:
-        .text "BANSHEE (FLY 3)"
-        .byte STRING_CMD_END
-
-    // A6CF
-    string_43:
-        .text "GOBLIN (GROUND 3)"
-        .byte STRING_CMD_END
-
-    // A6E1
-    string_44:
-        .text "TELEPORT"
-        .byte STRING_CMD_END
-
-    // A6EA
-    string_45:
-        .text "HEAL"
-        .byte STRING_CMD_END
-
-    // A6EF
-    string_46:
-        .text "SHIFT TIME"
-        .byte STRING_CMD_END
-
-    // A6FA
-    string_47:
-        .text "EXCHANGE"
-        .byte STRING_CMD_END
-
-    // A703
-    string_48:
-        .text "SUMMON ELEMENTAL"
-        .byte STRING_CMD_END
-
-    // A714
-    string_49:
-        .text "REVIVE"
-        .byte STRING_CMD_END
-
-    // A71B
-    string_50:
-        .text "IMPRISON"
-        .byte STRING_CMD_END
-
-    // A724
-    string_51:
-        .text "CEASE CONJURING"
-        .byte STRING_CMD_END
-
-    // A734
-    string_52:
-        .text "POWER POINTS ARE PROOF AGAINST MAGIC"
-        .byte STRING_CMD_END
-
-    // A759
-    string_55:
-        .text "COMPUTER "
-        .byte STRING_CMD_END
-
-    // A763
-    string_56:
-        .text "LIGHT "
-        .byte STRING_CMD_END
-
-    // A76A
-    string_57:
-        .text "TWO-PLAYER "
-        .byte STRING_CMD_END
-
-    // A776
-    string_58:
-        .text "FIRST"
-        .byte STRING_CMD_END
-
-    // A77C
-    string_59:
-        .text "DARK "
-        .byte STRING_CMD_END
-
-    // A782
-    string_60:
-        .text "WHEN READY"
-        .byte STRING_CMD_END
-
-    // A78D
-    string_61:
-        .text " PRESS "
-        .byte STRING_CMD_END
-
-    // A795
-    string_62:
-        .text "SPELL IS CANCELED. CHOOSE ANOTHER"
-        .byte STRING_CMD_END
-
-    // A7B7
-    string_63:
-        .text "THE GAME IS ENDED..."
-        .byte STRING_CMD_END
-
-    // A7CC
-    string_64:
-        .text "IT IS A STALEMATE"
-        .byte STRING_CMD_END
-
-    // A7DE
-    string_65:
-        .text " ELEMENTAL APPEARS!"
-        .byte STRING_CMD_END
-
-    // A7F2
-    string_66:
-        .text " CONJURES A SPELL!"
-        .byte STRING_CMD_END
-
-    //A805
-    string_67:
-        .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
-        .byte STRING_CMD_END
-
-    // A81F
-    string_68:
-        .text "F7"
-        .byte STRING_CMD_END
-
-    // A822
-    string_69:
-        .text "F5: "
-        .byte STRING_CMD_END
-
-    // A827
-    string_70:
-        .text "F3: "
-        .byte STRING_CMD_END
-}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data

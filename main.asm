@@ -1,17 +1,16 @@
 .filenamespace main
-
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
 // Archon (c) 1983
-//
+//---------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------
 // Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
 //
 // Full resepct to the awesome authors:
 // - Anne Westfall, Jon Freeman, Paul Reiche III
 //
 // THANK YOU FOR MANY YEARS OF MEMORABLE GAMING. ARCHON ROCKS AND ALWAYS WILL!!!
-//---------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
+//
 // See README.md file for additional information.
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -20,9 +19,9 @@
 //
 .segmentdef Upstart
 //
-.segmentdef Resources [startAfter="Upstart", align=$100]
+.segmentdef Resources [startAfter="Upstart"]
 //
-.segmentdef Main [start=$6000]
+.segmentdef Main [startAfter="Resources", min=$6000]
 .segmentdef Common [startAfter="Main"]
 .segmentdef Intro [startAfter="Common"]
 .segmentdef Game [startAfter="Intro"]
@@ -433,10 +432,9 @@ ptr__game_state_fn_list:
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
-//
+//---------------------------------------------------------------------------------------------------------------------
 // Dynamic data typically starts at BCC0 and continues to BCD2, however some lower addresses are used within the
 // application.
-//---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
 // BCC4
@@ -455,13 +453,12 @@ ptr__system_interrupt_fn: .word $0000
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variable data is cleared completely on each game state change. 
-//
+//---------------------------------------------------------------------------------------------------------------------
 // Variable data starts at BCD3 and continues to the end of the data area.
 //
 // The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the
 // start of each game loop.
-//---------------------------------------------------------------------------------------------------------------------
 .segment VariablesStart
     variables_start:
 .segment Variables

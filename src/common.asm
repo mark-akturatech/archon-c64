@@ -1,11 +1,7 @@
 .filenamespace common
-
 //---------------------------------------------------------------------------------------------------------------------
 // Contains common routines used by intro and game states.
 //---------------------------------------------------------------------------------------------------------------------
-#import "src/io.asm"
-#import "src/const.asm"
-
 .segment Common
 
 // 638E
@@ -557,16 +553,16 @@ initialize_music:
 !loop:
     lda sound.flag__play_outro
     bpl intro_music
-    lda resources.music.outro_pattern_ptr,y
+    lda music.outro_pattern_ptr,y
     jmp !next+
 intro_music:
 #if INCLUDE_INTRO
-    lda resources.music.intro_pattern_ptr,y
+    lda music.intro_pattern_ptr,y
 #endif
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial pattern on all 3 voices.
-    lda resources.music.init_pattern_list_ptr,y
+    lda music.init_pattern_list_ptr,y
     sta OLDTXT,y
     dey
     bpl !loop-
@@ -598,6 +594,55 @@ intro_music:
 // Assets and constants
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
+
+
+// 3D40
+// Music is played by playing notes pointed to by `init_pattern_list_ptr` on each voice.
+// When the voice pattern list finishes, the music will look at the intro or outro pattern list pointers (
+// `intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played. This list will then tell the
+// player which pattern to play next.
+// When the pattern finishes, it looks at the next pattern in the list and continues until a FE command is reached.
+//
+// NOTE: The music is split in to two parts so that we can fit it within the relocatable resource blocks.
+.namespace music {
+    #if INCLUDE_INTRO
+    intro_pattern_ptr: // Pointers for intro music pattern list for each voice
+        .word intro_pattern_V1_ptr, intro_pattern_V2_ptr, intro_pattern_V3_ptr
+    #endif
+    init_pattern_list_ptr: // Initial patterns for both intro and outro music
+        .word resources.music_pattern_1, resources.music_pattern_2, resources.music_pattern_3
+    outro_pattern_ptr: // Pointers for outro music pattern list for each voice
+        .word outro_pattern_V1_ptr, outro_pattern_V2_ptr, outro_pattern_V3_ptr
+
+    // Music patternology.
+    #if INCLUDE_INTRO
+    intro_pattern_V1_ptr: // Intro music voice 1 pattern list
+        .word resources.music_pattern_4, resources.music_pattern_4, resources.music_pattern_10, resources.music_pattern_11
+        .word resources.music_pattern_1
+    #endif
+    outro_pattern_V1_ptr:
+        .word resources.music_pattern_19 // Outro music voice 1 pattern list
+    #if INCLUDE_INTRO
+    intro_pattern_V2_ptr: // Intro music voice 2 pattern list
+        .word resources.music_pattern_5, resources.music_pattern_5, resources.music_pattern_12, resources.music_pattern_13
+        .word resources.music_pattern_2
+    #endif
+    outro_pattern_V2_ptr:
+        .word resources.music_pattern_21 // Outro music voice 2 pattern list
+    #if INCLUDE_INTRO
+    intro_pattern_V3_ptr: // Intro music voice 3 pattern list
+        .word resources.music_pattern_6, resources.music_pattern_7, resources.music_pattern_7, resources.music_pattern_7
+        .word resources.music_pattern_8, resources.music_pattern_8, resources.music_pattern_9, resources.music_pattern_9
+        .word resources.music_pattern_6, resources.music_pattern_7, resources.music_pattern_7, resources.music_pattern_7
+        .word resources.music_pattern_8, resources.music_pattern_8, resources.music_pattern_9, resources.music_pattern_9
+        .word resources.music_pattern_14, resources.music_pattern_15, resources.music_pattern_15, resources.music_pattern_15
+        .word resources.music_pattern_16, resources.music_pattern_16, resources.music_pattern_16, resources.music_pattern_16
+        .word resources.music_pattern_17, resources.music_pattern_17, resources.music_pattern_18, resources.music_pattern_18
+        .word resources.music_pattern_3
+    #endif
+    outro_pattern_V3_ptr:
+        .word resources.music_pattern_20 // Outro music voice 3 pattern list        
+}
 
 .namespace math {
     // 8DC3

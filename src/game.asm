@@ -1,11 +1,7 @@
 .filenamespace game
-
 //---------------------------------------------------------------------------------------------------------------------
 // Contains routines for playing the board game.
 //---------------------------------------------------------------------------------------------------------------------
-#import "src/io.asm"
-#import "src/const.asm"
-
 .segment Game
 
 // 8019
@@ -729,9 +725,9 @@ interrupt_handler:
     txa
     asl
     tay
-    lda resources.sound.board_pattern_ptr+4,y
+    lda ptr__sound_game_effect_list+4,y
     sta OLDTXT
-    lda resources.sound.board_pattern_ptr+5,y
+    lda ptr__sound_game_effect_list+5,y
     sta OLDTXT+1
 new_player_sound:
     jsr board.play_icon_sound
@@ -1374,11 +1370,11 @@ transport_icon:
     ldx #$00
     stx common.sound.new_note_delay
     //
-    lda #<resources.sound.pattern_transport
+    lda #<resources.sound_pattern_transport
     sta OLDTXT
-    lda #>resources.sound.pattern_transport
+    lda #>resources.sound_pattern_transport
     sta OLDTXT+1
-    lda resources.sound.pattern_transport+5 // This note increases in patch as animation runs
+    lda resources.sound_pattern_transport+5 // This note increases in patch as animation runs
     sta data__temp_note_store
     jsr board.play_icon_sound
     // Configure sprite source and destination pointers (for line by line copy)
@@ -1472,6 +1468,14 @@ transport_icon_interrupt:
         .fill BOARD_NUM_COLS, >(curr_square_occupancy+i*BOARD_NUM_COLS)
 }
 
+// 95f4
+// Provised pointers to the sounds that may be made during game play.
+ptr__sound_game_effect_list:
+    .word resources.sound_pattern_hit_player_light   // 00
+    .word resources.sound_pattern_hit_player_dark    // 02
+    .word resources.sound_pattern_player_light_turn  // 04
+    .word resources.sound_pattern_player_dark_turn   // 06
+
 //---------------------------------------------------------------------------------------------------------------------
 // Data
 //---------------------------------------------------------------------------------------------------------------------
@@ -1494,7 +1498,6 @@ transport_icon_interrupt:
     // Is positive if player turn has just started.
     flag__is_turn_started: .byte $00
 }
-
 
 // BCC7
 // Represents the direction of specific phases within the game.

@@ -1,11 +1,7 @@
 .filenamespace board_walk
-
 //---------------------------------------------------------------------------------------------------------------------
 // Contains routines for displaying and animating the board setup animations.
 //---------------------------------------------------------------------------------------------------------------------
-#import "src/io.asm"
-#import "src/const.asm"
-
 .segment Intro
 
 // 8E36

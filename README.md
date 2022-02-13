@@ -4,11 +4,9 @@
 
 This project is reverse engineer of the iconic Commodore 64 game **Archon (c) 1983** by Free Fall Associates.
 
-The reporduced code is intended to be a true replication of the source logic with the exception of original memory locations.
+The reporduction code is intended to be a true replication of the source logic with the exception of original memory locations.
 
 The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or method for reference.
-
-The source uses some temporary memory addresses for multiple different purposes. For example `$BF24` may store the current color phase, a sprite animation frame or a sprite x position offset. To simplify code readability, we do not reuse temporary memory addresses.
 
 Extensive comments have been provided to help understand the source code.
 
@@ -53,11 +51,17 @@ Multilables will be used specifically for the following:
 - !next : breaking out of a loop
 - !return : exiting from a subroutine
 
-Double or higher jumps (eg jmp !loop++) will not be used.
+Double or more jumps (eg jmp !loop++) will not be used.
 
 ### Files
 
 Each file will implement a separate namespace.
+
+### Multiple Use Memory
+
+The source uses some temporary memory addresses for multiple different purposes. For example `$BF24` may store the current color phase, a sprite animation frame or a sprite x position offset.
+
+To simplify code readability, we do not reuse temporary memory addresses.
 
 ## Build
 
@@ -80,10 +84,9 @@ Some notes regarding the above tools:
 - Jc64Dis is also impressive. It has some bugs and memory leaks and sometimes corrupts the project (gotta save often), but it is also feature packed and perfect for disassembling C64 code. It isn't as populat as Infiltrator or Ghidra etc, but I highly recommend it. 
 - I use VSCode for many projects (including my daytime job). It is an awesome IDE and I truely recommend it to anyone independant of the language used.
 
-## Reverse Engineering Entry Point
+## Entry Point
 
-Archon initially launches via a basic program with a sys command. The initial code just decrypts the code and
-moves stuff around. We will therefore not reverse engineer this part of the application.
+Archon initially launches via a basic program with a sys command. The initial code just decrypts the code and moves stuff around. We will therefore not reverse engineer this part of the application.
 
 Below is a breif synopsis of what is going on here:
 
@@ -94,9 +97,7 @@ Basic program:
 
 ### Block 2: 082B to 0858
 
-Moves the entire code from the current loaded location to 0x68f7 to 0xffff. The move routine uses the zero page
-registers 0x00ae/af which hold the end address of the last loaded file byte and copies backwards from there.
-Therefore the app will not work if the file is not the exact correct size.
+Moves the entire code from the current loaded location to 0x68f7 to 0xffff. The move routine uses the zero page registers 0x00ae/af which hold the end address of the last loaded file byte and copies backwards from there. Therefore the app will not work if the file is not the exact correct size.
 
 The block then copies in to 0x00ab: 4c 00 01 01 80 0c 6a
 
@@ -104,17 +105,14 @@ And finally copies 0x085f-0x095e to 0x0100-0x01ff and then executes 0x0100.
 
 ### Block 3: 0100 to 01ff
 
-Some interesting logic lives here. All it does is move stuff around and performs copy logic. It takes the source code in
-0x6a00 to 0xffff and moves it around to various memory locations. This block also copies data in to the character
-data area on our graphic block.
+Some interesting logic lives here. All it does is move stuff around and performs copy logic. It takes the source code in 0x6a00 to 0xffff and moves it around to various memory locations. This block also copies data in to the character data area on our graphic block.
 
 It then executes 6100.
 
 ### Block 4: 6100 to 6128
 
-This moves sprite resources out of the area of memory we will use for graphics (4400 - 6000) to 095D. It also copies
-several constant values to many places in memory.
+This moves sprite resources out of the area of memory we will use for graphics (4400 - 6000) to 095D. It also copies several constant values to many places in memory.
 
 However, we do one important thing here, we store CINV pointer locally for use in our interrupt handler
 
-We will use a snapshot of the app with a breakpoint at address $6129 (after 4400 block is moved), however we will begin disassembly at $6100 and will just skip any moves that occur with the prep method starting at $4700.
+We will use a snapshot of the app with a breakpoint at address $6129 (after 4400 block is moved), however we will begin disassembly at $6100.
