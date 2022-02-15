@@ -22,17 +22,15 @@ relocate:
     sta main.ptr__system_interrupt_fn+1
     //
     // Move resources out of screen memory to the end of the application.
-    // Below differs slightly to the original as we stuff the resources a little bit differently to maximize
-    // readabiliyt of the source code.
-    lda #<screen_block_start
+    lda #<__prt__screen_block_start
     sta FREEZP
-    lda #>screen_block_start
+    lda #>__prt__screen_block_start
     sta FREEZP+1
-    lda #<relocated_screen_block
+    lda #<__prt__screen_block_relocate
     sta FREEZP+2
-    lda #>relocated_screen_block
+    lda #>__prt__screen_block_relocate
     sta FREEZP+3
-    ldx #(>(screen_block_end - screen_block_start))+1
+    ldx #>(__prt__screen_block_end - __prt__screen_block_start)
     ldy #$00
 !loop:
     lda (FREEZP),y
@@ -43,18 +41,25 @@ relocate:
     inc FREEZP+3
     dex
     bne !loop-
+    // Copy remaining bytes in the block.
+!loop:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    cpy #(<__prt__screen_block_end - <__prt__screen_block_start)
+    bcc !loop-
     //
     // Move resources out of graphics memory to the end of the application.
-    lda #<graphic_block_start
-    sta FREEZP
-    lda #>graphic_block_start
-    sta FREEZP+1
-    lda #<relocated_graphic_block
+    lda #<__prt__graphic_block_relocate
     sta FREEZP+2
-    lda #>relocated_graphic_block
+    lda #>__prt__graphic_block_relocate
     sta FREEZP+3
-    ldx #(>(graphic_block_end - graphic_block_start))+1
-    ldy #$00
+    lda #>__prt__graphic_block_start
+    sta FREEZP+1
+    lda #<__prt__graphic_block_start
+    sta FREEZP
+    tay // Here the original assumes LSB of graphics area will always start at #$00
+    ldx #(>(__prt__graphic_block_end - __prt__graphic_block_start))+1
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -64,6 +69,22 @@ relocate:
     inc FREEZP+3
     dex
     bne !loop-
+    jmp _prep_game_states
+    rts
+
+// 4766
+// Copies the game state pointers (into, game, challenge) to data memory. The pointers are called at the end of each
+// game loop (ie the intro end, a player turn completes or a challenge completes). I assume the addresses are copied
+// so that they can be dynamically replaced while debugging. The original locations are retained so that the debug code
+// can call the correct game state after the debug code has executed.
+_prep_game_states:
+    .const NUMBER_GAME_STATES = 3
+    ldx #(NUMBER_GAME_STATES * 2 - 1) // Zero based
+!loop:
+    lda main.ptr__game_state_fn_list_source,x
+    sta main.ptr__game_state_fn_list,x
+    dex
+    bpl !loop-
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -133,7 +154,7 @@ relocate:
 // direction, attack animations and projectiles. NOTE that spearate frames for left moving and right moving
 // animations. Instead, the routine used to load sprites in to graphical memory has a function that allows
 // sprites to be mirrored when copied.
-sprites_icon: .import binary "/assets/sprites-icons.bin"
+prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
 
 // A2AC
 // Message strings used during gameplay.
@@ -160,22 +181,22 @@ sprites_icon: .import binary "/assets/sprites-icons.bin"
 // 4400-47ff (relocated)
 
 *=CHRMEM1+$0400 "Relocted block #1"
-screen_block_start:
-.pseudopc relocated_screen_block {
+__prt__screen_block_start:
+.pseudopc __prt__screen_block_relocate {
     // BACB
     // Sprites used by intro title.
     // Sprites are contained in the following order:
     // - 0-3: Archon logo (in 3 parts)
     // - 4-6: Freefall logo (in 2 parts)
     #if INCLUDE_INTRO
-        sprites_logo: .import binary "/assets/sprites-logos.bin"
+        prt__sprites_logo: .import binary "/assets/sprites-logos.bin"
     #endif
 
     // 3D52
     // Music patterns for intro and outro music.
     #import "/assets/sound_music.asm"
 }
-screen_block_end:
+__prt__screen_block_end:
 
 //---------------------------------------------------------------------------------------------------------------------
 // 4800-4fff
@@ -189,23 +210,23 @@ screen_block_end:
 // 5000-5fff (relocated)
 
 *=GRPMEM "Relocted block #2"
-graphic_block_start:
-.pseudopc relocated_graphic_block {
+__prt__graphic_block_start:
+.pseudopc __prt__graphic_block_relocate {
     // BACB
     // Sprites used by icons as projectiles within the battle arena.
     // The projectiles are only small and consume 32 bytes each. There is not a projectile sprite per icon as may
     // icons reuse the same projectile.
-    sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
+    ptr__sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
 
     // AE23-BACA
-    // Icon sprites for the 4 summonable elementals. The sprites are arranged the same as `sprites_icon`.
-    sprites_elemental: .import binary "/assets/sprites-elementals.bin"
+    // Icon sprites for the 4 summonable elementals. The sprites are arranged the same as `prt__sprites_icon`.
+    prt__sprites_elemental: .import binary "/assets/sprites-elementals.bin"
 
     // A15E
     // Sound effect patterns used the icons for moving and attacking and gameplay after each turn.
     #import "/assets/sound_effects.asm"
 }
-graphic_block_end:
+__prt__graphic_block_end:
 
 //---------------------------------------------------------------------------------------------------------------------
 // 6000>
@@ -216,11 +237,12 @@ graphic_block_end:
 //---------------------------------------------------------------------------------------------------------------------
 // Resources from $5000 to $5fff will be relocated here.
 .segment RelocatedResources
+
 * = * "Relocated Block 1" virtual
-    relocated_screen_block:
+__prt__screen_block_relocate:
 
 * = * + $400 "Relocated Block 2" virtual
-    relocated_graphic_block:
+__prt__graphic_block_relocate:
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data

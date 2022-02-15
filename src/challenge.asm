@@ -78,26 +78,26 @@ vary_square:
     iny
     sty data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
-    lda board.icon.type
+    lda common.icon.type
     ldy game.curr_challenge_icon_type
     bit game.state.flag__is_light_turn
     bpl !next+
-    ldy board.icon.type
+    ldy common.icon.type
     lda game.curr_challenge_icon_type
 !next:
     // Configure battle pieces
-    sta board.icon.type
+    sta common.icon.type
     tax
     lda board.icon.init_matrix,x
-    sta board.icon.offset
+    sta common.icon.offset
     sty magic.temp_selected_icon_store // ??? Not used?
     lda board.icon.init_matrix,y
     tay
     cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
     bne !next+
-    ldy board.icon.offset // 
+    ldy common.icon.offset // 
 !next:
-    sty board.icon.offset+1
+    sty common.icon.offset+1
     //
     // Do this for both the light and dark icons...    
     ldx #$01
@@ -105,10 +105,10 @@ vary_square:
     // in to battle position.
 !loop:
     // Create sprite group.
-    jsr board.sprite_initialize
+    jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta board.sprite.copy_length
-    jsr board.add_sprite_set_to_graphics
+    sta common.sprite.copy_length
+    jsr common.add_sprite_set_to_graphics
     // Place the sprite at the challenge square.
     lda board.data__curr_board_col
     ldy board.data__curr_board_row
@@ -121,6 +121,20 @@ vary_square:
 // 938D
 interrupt_handler:
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+//---------------------------------------------------------------------------------------------------------------------
+// Assets
+//---------------------------------------------------------------------------------------------------------------------
+.segment Assets
+
+.namespace sound {
+    // 8BAA
+    attack_pattern:
+    // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
+    // defined above.
+        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+        .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables

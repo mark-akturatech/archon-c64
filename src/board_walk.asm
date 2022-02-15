@@ -31,7 +31,7 @@ entry:
     lda %0111_1111
     sta SPMC
     lda #BYTERS_PER_STORED_SPRITE
-    sta board.sprite.copy_length
+    sta common.sprite.copy_length
     // Adds icon types to the board one at a time. Each icon is added by animating it (flying or walking) to the
     // icon's square.
     // The anitmation is performed using sprites that are loaded in to the first four sprite slots for each icon. After
@@ -57,7 +57,7 @@ add_icon:
     //   row offset is the start row and other icons are adde done after the other below it.
     // There are a total of 16 different icon types.
     lda icon.data,x
-    sta board.icon.type
+    sta common.icon.type
     lda icon.data+1,x
     sta data__num_icons
     lda icon.data+2,x
@@ -85,7 +85,7 @@ add_icon:
 // Prerequisites:
 // - `board.data__curr_board_col`: Destination column of piece
 // - `board.data__curr_board_row`: Starting destination row of piece
-// - `board.icon.type`: Type of piece to animation in to destination square
+// - `common.icon.type`: Type of piece to animation in to destination square
 // - `data__num_icons`: Number of icons to add to board
 // Notes:
 // - If number of icons is set to 2, the destination row of the second piece is automatically calculated to be 9 minus
@@ -148,12 +148,12 @@ add_icon_to_board:
     ldy #$FC
 !next:
     sty data__x_pixels_per_move
-    sta pos__sprite_x
+    sta _pos__sprite_x
     ldx data__num_icons
     dex
-    stx ptr__sprite_mem
+    stx _ptr__sprite_mem
 !loop:
-    lda pos__sprite_x
+    lda _pos__sprite_x
     sta common.sprite.curr_x_pos,x
     dex
     clc
@@ -173,10 +173,10 @@ add_icon_to_board:
     //
     ldx #$00
     stx common.sprite.curr_animation_frame
-    ldy board.icon.type
+    ldy common.icon.type
     lda board.icon.init_matrix,y
-    sta board.icon.offset
-    jsr board.sprite_initialize
+    sta common.icon.offset
+    jsr common.sprite_initialize
     // Configure sprites.
     lda #%1111_1111 // Enable all sprites
     sta SPENA
@@ -187,7 +187,7 @@ add_icon_to_board:
     lda #BLACK // Set multicolor background color to black
     sta SPMC0
     // Calculate starting Y position and color of each sprite.
-    ldx ptr__sprite_mem
+    ldx _ptr__sprite_mem
 !loop:
     lda SP0COL
     sta SP0COL,x
@@ -200,33 +200,33 @@ add_icon_to_board:
     bpl !loop-
     // Load sprites in to graphical memory. Add first 4 frames of the sprite icon set.
     lda #FLAG_ENABLE
-    sta board.sprite.flag__copy_animation_group
+    sta common.sprite.flag__copy_animation_group
     and game.state.flag__is_light_turn
-    sta board.data__icon_set_sprite_frame
+    sta common.data__icon_set_sprite_frame
     lda #$04
     sta common.sprite.init_animation_frame
     lda common.sprite.mem_ptr_00
     sta FREEZP+2
-    sta ptr__sprite_mem_lo
+    sta _ptr__sprite_mem_lo
     lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     ldx #$00
 !loop:
-    jsr board.add_sprite_to_graphics
-    lda ptr__sprite_mem_lo
+    jsr common.add_sprite_to_graphics
+    lda _ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
     sta FREEZP+2
-    sta ptr__sprite_mem_lo
+    sta _ptr__sprite_mem_lo
     bcc !next+
     inc FREEZP+3
 !next:
-    inc board.data__icon_set_sprite_frame
+    inc common.data__icon_set_sprite_frame
     dec common.sprite.init_animation_frame
     bne !loop-
     // Display icon name.
     jsr board.clear_text_area
-    ldy board.icon.offset
+    ldy common.icon.offset
     lda board.icon.string_id,y
     ldx #$0A // Column offset 10
     jsr board.write_text
@@ -268,7 +268,7 @@ update_sprite:
     ldy #$FF
 !next:
     sty data__sprite_x_adj // Set direction
-    ldx ptr__sprite_mem
+    ldx _ptr__sprite_mem
     lda flag__sprite_direction
     eor #$FF
     sta flag__sprite_direction
@@ -296,7 +296,7 @@ update_sprite_pos:
 next_sprite:
     dex
     bpl check_sprite // Set additional sprites
-    ldx ptr__sprite_mem
+    ldx _ptr__sprite_mem
     cpx data__curr_count
     bne !next+
     //
@@ -356,7 +356,7 @@ data__sprite_final_x_pos: .byte $00
 
 // BD26
 // Current sprite location pointer.
-ptr__sprite_mem: .byte $00
+_ptr__sprite_mem: .byte $00
 
 // BD38
 // Number of baord icons to render.
@@ -376,12 +376,12 @@ data__x_pixels_per_move: .byte $00
 
 // BF1B
 // Current X offset of the sprite.
-pos__sprite_x: .byte $00
+_pos__sprite_x: .byte $00
 
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
 // bytes) when adding chasing icon sprites.
-ptr__sprite_mem_lo: .byte $00
+_ptr__sprite_mem_lo: .byte $00
 
 // BF25
 // Final Y position of animated sprite.

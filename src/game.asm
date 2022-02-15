@@ -25,7 +25,7 @@ entry:
     and #$01
     eor #$01
     tay
-    lda board.sprite.icon_color,y
+    lda common.sprite.icon_color,y
     sta SP1COL // Set logo color
     sta SP2COL
     sta SP3COL // Set selection square color
@@ -88,9 +88,9 @@ entry:
     ldx #$04 // Number of magic squares (0 based - so 5)
 !loop:
     ldy board.data.magic_square_col,x
-    lda data.row_occupancy_lo_ptr,y
+    lda board.data.row_occupancy_lo_ptr,y
     sta FREEZP
-    lda data.row_occupancy_hi_ptr,y
+    lda board.data.row_occupancy_hi_ptr,y
     sta FREEZP+1
     ldy board.data.magic_square_row,x
     lda (FREEZP),y // Get ID of icon on magic square
@@ -193,9 +193,9 @@ check_light_icons:
     ldx #$04 // 5 magic squares (0 offset)
 !loop:
     ldy board.data.magic_square_col,x
-    lda data.row_occupancy_lo_ptr,y
+    lda board.data.row_occupancy_lo_ptr,y
     sta FREEZP
-    lda data.row_occupancy_hi_ptr,y
+    lda board.data.row_occupancy_hi_ptr,y
     sta FREEZP+1
     ldy board.data.magic_square_col,x
     txa
@@ -205,7 +205,7 @@ check_light_icons:
     tax
     lda curr_icon_strength,x
     ldy board.icon.init_matrix,x
-    cmp board.icon.init_strength,y
+    cmp icon.init_strength,y
     bcs !next+
     inc curr_icon_strength,x
 !next:
@@ -278,9 +278,9 @@ play_turn:
     jsr wait_for_state_change
     //
     // Get selected icon. The above method only returns after an icon was selected or moved to a destination.
-    ldy board.icon.type
+    ldy common.icon.type
     lda board.icon.init_matrix,y
-    sta board.icon.offset
+    sta common.icon.offset
     // Display icon name and number of moves.
     tax
     lda board.icon.string_id,x
@@ -296,12 +296,12 @@ play_turn:
     // Copy sprite animation set for selected icon in to graphical memory.
     ldx #$00
     jsr board.convert_coord_sprite_pos
-    jsr board.sprite_initialize
+    jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta board.sprite.copy_length
-    jsr board.add_sprite_set_to_graphics
+    sta common.sprite.copy_length
+    jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
-    ldx board.icon.offset
+    ldx common.icon.offset
     lda board.icon.number_moves,x
     sta curr_icon_total_moves
     bmi select_icon // Selected icon can fly - don't need to check surrounding squares
@@ -358,7 +358,7 @@ select_icon:
 set_icon_speed:
     lda #$00
     sta curr_icon_move_speed
-    lda board.icon.offset
+    lda common.icon.offset
     and #$07
     cmp #$03 // Golem or Troll?
     bne !next+
@@ -424,9 +424,9 @@ configure_selected_icon:
     lda flag__icon_can_cast
     bpl end_turn
     // Transport piece (selected from trasport spell or when moving spell caster)
-    ldx board.icon.type
+    ldx common.icon.type
     lda board.icon.init_matrix,x
-    sta board.icon.offset
+    sta common.icon.offset
     jsr transport_icon
 end_turn:
     lda flag__is_challenge_required
@@ -450,7 +450,7 @@ regenerate_hitpoints:
     lda curr_icon_strength,x
     beq !next+ // Icon is dead
     ldy board.icon.init_matrix,x
-    cmp board.icon.init_strength,y
+    cmp game.icon.init_strength,y
     bcs !next+ // Icon is fully healed
     inc curr_icon_strength,x
 !next:
@@ -1151,7 +1151,7 @@ set_icon_destination:
     bmi !next+
 add_icon_to_destination:
     // Add piece to the destination square.
-    lda board.icon.type
+    lda common.icon.type
     sta (FREEZP),y
 !next:
     asl game.flag__icon_destination_valid // Set valid move
@@ -1162,7 +1162,7 @@ select_icon_to_move:
     // Ignore if no icon in selected source square
     cmp #BOARD_EMPTY_SQUARE
     beq !return-
-    sta board.icon.type
+    sta common.icon.type
     // Ignore if selected other player piece.
     tax
     lda board.icon.init_matrix,x
@@ -1172,7 +1172,7 @@ select_icon_to_move:
     // Ignore and set error message if selected icon is imprisoned.
     ldx curr_player_offset
     lda imprisoned_data__icon_id_list,x
-    cmp board.icon.type
+    cmp common.icon.type
     beq !next+
     // Accept destination.
     lda #FLAG_ENABLE
@@ -1190,9 +1190,9 @@ select_icon_to_move:
 // Returns the icon type (in A) at board row (in Y) and column (in A).
 get_square_occupancy:
     pha
-    lda data.row_occupancy_lo_ptr,y
+    lda board.data.row_occupancy_lo_ptr,y
     sta FREEZP
-    lda data.row_occupancy_hi_ptr,y
+    lda board.data.row_occupancy_hi_ptr,y
     sta FREEZP+1
     pla
     tay
@@ -1329,23 +1329,23 @@ transport_icon:
     lda board.data__curr_icon_col
     ldy board.data__curr_icon_row
     jsr board.convert_coord_sprite_pos
-    ldy board.icon.type
+    ldy common.icon.type
     lda board.icon.init_matrix,y
-    sta board.icon.offset
-    jsr board.sprite_initialize
+    sta common.icon.offset
+    jsr common.sprite_initialize
     //
     lda common.sprite.mem_ptr_00
     sta FREEZP+2
     lda common.sprite.mem_ptr_00+1
     sta FREEZP+3
     lda #BYTERS_PER_STORED_SPRITE
-    sta board.sprite.copy_length
+    sta common.sprite.copy_length
     lda common.sprite.init_animation_frame
     beq !next+
     lda #FLAG_ENABLE // Invert sprite
 !next:
-    sta board.data__icon_set_sprite_frame
-    jsr board.add_sprite_to_graphics
+    sta common.data__icon_set_sprite_frame
+    jsr common.add_sprite_to_graphics
     //
     ldx #$01
     lda #$00
@@ -1451,21 +1451,20 @@ transport_icon_interrupt:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
+.namespace icon {
+    // 8AB3
+    // Initial strength of each icon type. Uses icon offset as index. Eg Knight has an offset of 7 and therefore the
+    // initial strength of a knight is $05.
+    init_strength:
+        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+        .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
+}
+
 .namespace data {
     // 8B77
     // Index of magic squares within the square occupancy array
     magic_sqaure_occupancy_index:
         .byte $04, $24, $28, $2C, $4C
-
-    // BEC0
-    // Low byte memory offset of square occupancy data for each board row
-    row_occupancy_lo_ptr:
-        .fill BOARD_NUM_COLS, <(curr_square_occupancy+i*BOARD_NUM_COLS)
-
-    // BEC9
-    // High byte memory offset of square occupancy data for each board row
-    row_occupancy_hi_ptr:
-        .fill BOARD_NUM_COLS, >(curr_square_occupancy+i*BOARD_NUM_COLS)
 }
 
 // 95f4
@@ -1577,10 +1576,6 @@ flag__interrupt_response: .byte $00
 // BD70
 // Countdown of moves left until stalemate occurs (0 for disabled).
 curr_stalemate_count: .byte $00
-
-// BD7C
-// Board square occupant data (#$80 for no occupant).
-curr_square_occupancy: .fill BOARD_SIZE, $00
 
 // BDFD
 // Current strength of each board icon.

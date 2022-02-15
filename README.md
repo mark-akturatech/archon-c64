@@ -24,7 +24,11 @@ Source code was replicated entirely within Visual Studio Code using the `KickAss
 
 ## Conventions
 
-### Variable Labels 
+### Labels
+
+Labels begining with `_` define a private (non public) address. These labels will not be called from outside of the file within which they are declared.
+
+#### Variable Labels 
 
 Variable lables will be prefixed with the following:
 - `data__` : Calculated or derived results or data stored for use later.
@@ -41,7 +45,7 @@ Labels may also contain the following:
 - `_ctl` : may be used with a flag__ prefix to denote that the flag could contain multiple values and will be used to control how the code will run (eg flag may contain an enum constant to increment a row, or a column or both).
 - `_cur_` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
 
-### Code Labels
+#### Code Labels
 
 Lables used to identify code addresses will be named to appropriately describe the functionality of the proceeding code.
 
@@ -50,8 +54,9 @@ Multilables will be used specifically for the following:
 - !loop : looping logic
 - !next : breaking out of a loop
 - !return : exiting from a subroutine
-
 Double or more jumps (eg jmp !loop++) will not be used.
+
+For readability, code lables within a subroutine that are not intended to be called from external to the subroutine will be treated as multilables (use multilabel identifier).
 
 ### Files
 
@@ -62,6 +67,10 @@ Each file will implement a separate namespace.
 The source uses some temporary memory addresses for multiple different purposes. For example `$BF24` may store the current color phase, a sprite animation frame or a sprite x position offset.
 
 To simplify code readability, we do not reuse temporary memory addresses.
+
+### Magic Numbers
+
+Where possible, all magic numbers will be replaced with a descriptive constant.
 
 ## Build
 

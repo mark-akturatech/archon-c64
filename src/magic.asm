@@ -139,9 +139,9 @@ spell_select_heal:
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_PLAYER_ICON
     jsr spell_select_destination
-    ldx board.icon.type
+    ldx common.icon.type
     ldy board.icon.init_matrix,x
-    lda board.icon.init_strength,y
+    lda game.icon.init_strength,y
     sta game.curr_icon_strength,x
     lda #STRING_SPELL_DONE
 
@@ -167,7 +167,7 @@ spell_select_exchange:
     sta game.message_id
     jsr game.display_message
     lda #$FF // Clear selected icon
-    sta board.icon.type
+    sta common.icon.type
     lda #$00
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_ICON
@@ -177,7 +177,7 @@ spell_select_exchange:
     sta board.data__curr_icon_row
     lda board.data__curr_board_col
     sta board.data__curr_icon_col
-    lda board.icon.type
+    lda common.icon.type
     sta temp_selected_icon_store // First selected icon
     lda #STRING_EXCHANGE_WHICH
     sta game.message_id
@@ -197,7 +197,7 @@ spell_select_exchange:
     jsr board.draw_board
     ldx #$30 // ~0.75 seconds
     jsr common.wait_for_jiffy
-    ldx board.icon.type
+    ldx common.icon.type
     ldy board.data__curr_icon_row
     lda board.data__curr_icon_col
     jsr set_occupied_square
@@ -231,7 +231,7 @@ spell_select_elemental:
     jmp check_next_square
 !next:
     // Check if square has opposing player icon
-    lda game.curr_square_occupancy,x
+    lda board.curr_square_occupancy,x
     bmi check_next_square // No icon
     cmp #MANTICORE // First dark player icon id
     php
@@ -273,10 +273,10 @@ allow_summon_elemental:
     clc
     adc #AIR_ELEMENTAL // Elemental ID
     tax
-    stx board.icon.type
+    stx common.icon.type
     ldy board.icon.init_matrix,x
-    sty board.icon.offset
-    lda board.icon.init_strength,y
+    sty common.icon.offset
+    lda game.icon.init_strength,y
     sta game.curr_icon_strength,x
     // Display elemental type.
     jsr board.clear_text_area
@@ -295,10 +295,10 @@ allow_summon_elemental:
     lda board.data__curr_board_col
     ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
-    jsr board.sprite_initialize
+    jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta board.sprite.copy_length
-    jsr board.add_sprite_set_to_graphics
+    sta common.sprite.copy_length
+    jsr common.add_sprite_set_to_graphics
     lda game.curr_player_offset
     beq !next+
     lda #$11 // Left facing icon
@@ -314,7 +314,7 @@ allow_summon_elemental:
     sta temp_message_id_store
     jsr game.display_message
 !next:
-    lda board.icon.offset
+    lda common.icon.offset
     cmp #EARTH_ELEMENTAL_OFFSET
     bne !next+
     lda #$40 // Slow down animation speed for earth elemental
@@ -453,22 +453,22 @@ check_dead_type_loop:
     jsr board.convert_coord_sprite_pos
     ldy board.data__curr_board_row
     lda curr_dead_icon_offsets,y
-    sta board.icon.offset
+    sta common.icon.offset
     lda curr_dead_icon_types,y
-    sta board.icon.type
+    sta common.icon.type
     tax
     lda #STRING_CHARMED_WHERE
     sta game.message_id
     sta temp_message_id_store
     jsr game.display_message
-    ldy board.icon.offset
-    lda board.icon.init_strength,y
+    ldy common.icon.offset
+    lda game.icon.init_strength,y
     sta game.curr_icon_strength,x // Restore icon health
     ldx #$00
     stx game.flag__selected_sprite
     jsr board.get_sound_for_icon
-    jsr board.sprite_initialize
-    jsr board.add_sprite_set_to_graphics
+    jsr common.sprite_initialize
+    jsr common.add_sprite_set_to_graphics
     jsr board.render_sprite
     jsr clear_dead_icons_from_screen
     lda #(ICON_CAN_FLY+$0F)
@@ -556,7 +556,7 @@ spell_select_imprison:
     lda #ACTION_SELECT_OPPOSING_ICON
     jsr spell_select_destination
     ldx #$00
-    lda board.icon.type
+    lda common.icon.type
     cmp #MANTICORE // First dark player
     bcc !next+
     inx
@@ -747,12 +747,12 @@ complete_destination_selection:
 // - Y: Row offset of board square.
 // - X: Icon ID.
 // Sets:
-// - `game.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
+// - `board.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 set_occupied_square:
     pha
-    lda game.data.row_occupancy_lo_ptr,y
+    lda board.data.row_occupancy_lo_ptr,y
     sta OLDLIN
-    lda game.data.row_occupancy_hi_ptr,y
+    lda board.data.row_occupancy_hi_ptr,y
     sta OLDLIN+1
     pla
     tay
@@ -839,9 +839,9 @@ spell_abort_magic_square:
 spell_select_icon:
     pla
     bmi !return+ // Unoccupied square selected
-    cmp board.icon.type
+    cmp common.icon.type
     beq !return+
-    sta board.icon.type
+    sta common.icon.type
 spell_check_icon_is_free:
     cmp game.imprisoned_data__icon_id_list
     beq !next+
@@ -872,7 +872,7 @@ spell_select_square:
 spell_select_player_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta board.icon.type
+    sta common.icon.type
     tay
     lda board.icon.init_matrix,y
     eor game.state.flag__is_light_turn
@@ -930,7 +930,7 @@ spell_select_charmed_square:
 spell_select_opposing_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta board.icon.type
+    sta common.icon.type
     tay
     lda board.icon.init_matrix,y
     eor game.state.flag__is_light_turn
@@ -946,13 +946,13 @@ spell_select_opposing_icon:
 spell_select_free_player_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta board.icon.type
+    sta common.icon.type
     tay
     lda board.icon.init_matrix,y
     eor game.state.flag__is_light_turn
     and #$08
     bne !return- // Not current player icon
-    lda board.icon.type
+    lda common.icon.type
     jmp spell_check_icon_is_free
 
 // 8899
@@ -966,7 +966,7 @@ spell_select_revive_icon:
     lda curr_dead_icon_offsets,y
     cmp #DEAD_ICON_SLOT_UNUSED
     beq !return-
-    sta board.icon.type
+    sta common.icon.type
     asl game.flag__icon_destination_valid
     rts
 

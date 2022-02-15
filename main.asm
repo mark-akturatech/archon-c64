@@ -48,7 +48,7 @@
 // The source code is split in to the following files:
 // - `main`: Main game loop.
 // - `resources`: Game resources such as sprites, character sets and music phraseology.
-// - `common`: Library of subroutines and assets used by both the intro and game states.
+// - `common`: Library of subroutines and assets used by the intro, board and battle arean states.
 // - `board`: Subroutines and assets used to render the game board.
 // - `intro`: Subroutines and assets used by the intro (eg the dancing logo).
 // - `board_walk`: Subroutines and assets used during the introduction to walk icons on to the board.
@@ -94,7 +94,7 @@ entry:
     lda #PLAYER_LIGHT
     sta game.state.flag__is_first_player_light // Light player first
     tsx
-    stx ptr__stack
+    stx _ptr__stack
     lda #FLAG_ENABLE
 #if INCLUDE_INTRO
     sta intro.flag__enable // Play intro
@@ -108,11 +108,12 @@ entry:
     bmi !skip+
     jsr resources.relocate
 !skip:
-    jsr init
+    jsr _init
     //
+// 612C
 restart_game_loop:
     // Ensure each game state starts with cleared sound, clean graphics and 00's in all dynamic variables.
-    ldx ptr__stack
+    ldx _ptr__stack
     txs
     jsr common.stop_sound
     //
@@ -120,11 +121,11 @@ restart_game_loop:
     // Note that the logic below will clear past the end of the storage area up to #$ff. This is probably done as it
     // may be more efficient to clear a little bit of extra memory instead of having additional logic to clear the
     // exact number of bytes.
-    lda #<variables_start
+    lda #<__ptr__variables_start
     sta FREEZP+2
-    lda #>variables_start
+    lda #>__ptr__variables_start
     sta FREEZP+3
-    ldx #(>(variables_end-variables_start))+1 // Number of blocks to clear + 1
+    ldx #(>(__ptr__variables_end-__ptr__variables_start))+1 // Number of blocks to clear + 1
     lda #$00
     tay
 !loop:
@@ -142,7 +143,7 @@ restart_game_loop:
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
 !loop:
     ldy board.icon.init_matrix,x
-    lda board.icon.init_strength,y
+    lda game.icon.init_strength,y
     sta game.curr_icon_strength,x
     dex
     bpl !loop-
@@ -157,7 +158,7 @@ restart_game_loop:
     // Clear board square occupancy data.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
-    sta game.curr_square_occupancy,x
+    sta board.curr_square_occupancy,x
     dex
     bpl !loop-
     //
@@ -175,7 +176,7 @@ restart_game_loop:
     // Display the game intro if it hasn't already been played.
     lda intro.flag__enable
     beq !skip+
-    jsr play_intro
+    jsr _play_intro
 #endif
 !skip:
     //
@@ -214,7 +215,7 @@ restart_game_loop:
 !skip:
     //
     lda #FLAG_DISABLE
-    sta board.sprite.flag__copy_animation_group // Animation groups only copied in challenge
+    sta common.sprite.flag__copy_animation_group // Animation groups only copied in challenge
 #if INCLUDE_INTRO
     lda #FLAG_DISABLE
     sta intro.flag__enable // Don't play intro again
@@ -235,17 +236,17 @@ restart_game_loop:
     // column 1, 2 each row for light player and then repeated for dark player. The code below reads the sets two icons
     // in the row, clears the next 5 and then sets the last 2 icons and repeats for each row.
     lda #BOARD_NUM_PLAYER_ICONS
-    sta idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
+    sta _idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
     lda #$00
-    sta idx__light_icon_type
+    sta _idx__light_icon_type
     tax
-board_setup_row_loop:
+!row_loop:
     // Light icons.
     ldy #$02
 !loop:
-    lda idx__light_icon_type
-    sta game.curr_square_occupancy,x
-    inc idx__light_icon_type
+    lda _idx__light_icon_type
+    sta board.curr_square_occupancy,x
+    inc _idx__light_icon_type
     inx
     dey
     bne !loop-
@@ -253,21 +254,21 @@ board_setup_row_loop:
     ldy #$05
     lda #BOARD_EMPTY_SQUARE
 !loop:
-    sta game.curr_square_occupancy,x
+    sta board.curr_square_occupancy,x
     inx
     dey
     bne !loop-
     // Dark icons.
     ldy #$02
 !loop:
-    lda idx__dark_icon_type
-    sta game.curr_square_occupancy,x
-    inc idx__dark_icon_type
+    lda _idx__dark_icon_type
+    sta board.curr_square_occupancy,x
+    inc _idx__dark_icon_type
     inx
     dey
     bne !loop-
     cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
-    bcc board_setup_row_loop
+    bcc !row_loop-
     //
     // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), the we cannot
     // select a true "middle" starting point for the game. Instead, we choose the phase on the darker side if light is
@@ -297,7 +298,7 @@ board_setup_row_loop:
     jmp game.entry
 
 // 632D
-init:
+_init:
     // Set VIC memory bank.
     // Original code uses the furst 8kb of Bank #1 ($4000-$5FFF)
     //
@@ -361,11 +362,8 @@ init:
     and #%0111_1110
     sta IRQMASK
     // Set interrupt handler.
-    lda #<interrupt_interceptor
-    // I really don't know why the code below is split out to 8C8B and why there are NOPs. Since the routine is at the
-    // end of the application, I am guessing it is here so they can add additional debugging code or something during
-    // development by calling a different interrupt interceptor. 
-    jsr set_partial_interrupt
+    lda #<_interrupt_interceptor
+    jsr _set_partial_interrupt
     nop
     nop
     sta CINV+1
@@ -382,17 +380,21 @@ init:
     sta IRQMASK
     cli
     rts
+
 // BC8B
-set_partial_interrupt:
+// I really don't know why the code below is split out. Since this routine is at the end of the application, I am
+// guessing it is here so they can add additional debugging code or something during development by calling a different
+// interrupt interceptor. 
+_set_partial_interrupt:
     sta CINV
     sta CBINV
-    lda #>interrupt_interceptor
+    lda #>_interrupt_interceptor
     sta CBINV+1
     rts
 
 // 637E
 // Check if the raster interrupt has occurred and call the appropriate interrupt handlers.
-interrupt_interceptor:
+_interrupt_interceptor:
     lda VICIRQ
     and #%0000_0001
     beq !next+ // Non-raster?
@@ -411,7 +413,7 @@ play_challenge:
 
 // 8016
 #if INCLUDE_INTRO
-play_intro:
+_play_intro:
     jmp (ptr__game_state_fn_list+4)
 #endif
 
@@ -423,11 +425,13 @@ play_intro:
 
 // 4760
 // Pointer to each main game function.
-ptr__game_state_fn_list:
+ptr__game_state_fn_list_source:
     .word game.interrupt_handler
     .word challenge.interrupt_handler
 #if INCLUDE_INTRO
     .word intro.entry
+#else
+    .word $0000
 #endif
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -437,9 +441,14 @@ ptr__game_state_fn_list:
 // application.
 .segment Data
 
+// 0334
+// Pointer to each main game function copied from the function list source. I assume they do this so that they can
+// repoint the function pointers after the game has loaded for testing and debugging purposes.
+ptr__game_state_fn_list: .word $0000, $0000, $000
+
 // BCC4
 // Stored stack pointer so that stack is reset on each state update.
-ptr__stack: .byte $00
+_ptr__stack: .byte $00
 
 // BCCC
 // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
@@ -460,16 +469,16 @@ ptr__system_interrupt_fn: .word $0000
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the
 // start of each game loop.
 .segment VariablesStart
-    variables_start:
+    __ptr__variables_start:
 .segment Variables
 
 // BF1A
 // Index in to the matrix of dark icon types.
-idx__dark_icon_type: .byte $00
+_idx__dark_icon_type: .byte $00
 
 // BF1B
 // Index in to the matrix of light icon types.
-idx__light_icon_type: .byte $00
+_idx__light_icon_type: .byte $00
 
 .segment VariablesEnd
-    variables_end:
+    __ptr__variables_end:
