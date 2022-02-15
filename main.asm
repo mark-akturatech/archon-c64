@@ -301,8 +301,7 @@ restart_game_loop:
 // 4766
 // Copies the game state pointers (into, game, challenge) to data memory. The pointers are called at the end of each
 // game loop (ie the intro end, a player turn completes or a challenge completes). I assume the addresses are copied
-// so that they can be dynamically replaced while debugging. The original locations are retained so that the debug code
-// can call the correct game state after the debug code has executed.
+// so that they can be dynamically replaced while debugging.
 prep_game_states:
     .const NUMBER_GAME_STATES = 3
     ldx #(NUMBER_GAME_STATES * 2 - 1) // Zero based

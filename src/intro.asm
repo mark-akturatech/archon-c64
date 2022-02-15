@@ -49,6 +49,17 @@ entry:
 //---------------------------------------------------------------------------------------------------------------------
 // Private functions.
 .namespace private {
+    // AA42
+    interrupt_handler:
+        lda common.flag__enable_next_state
+        bpl !next+
+        jmp common.complete_interrupt
+    !next:
+        lda flag__exit_intro
+        sta common.flag__enable_next_state
+        jsr common.play_music
+        jmp (ptr__substate_fn)
+    
     // A98F
     // Imports sprites in to graphics area.
     import_sprites:
@@ -59,28 +70,28 @@ entry:
         sta common.sprite.copy_length
         lda common.sprite.mem_ptr_24
         sta FREEZP+2
-        sta private.ptr__sprite_mem_lo
+        sta ptr__sprite_mem_lo
         lda common.sprite.mem_ptr_24+1
         sta FREEZP+3
         .const ICON_ANIMATION_FRAMES = 4
         ldx #(ICON_ANIMATION_FRAMES - 1) // 0 offset
     !icon_loop:
-        ldy private.data__icon_id_list,x
+        ldy data__icon_id_list,x
         sty common.icon.type
         lda board.icon.init_matrix,y
         sta common.icon.offset,x
         jsr common.sprite_initialize
-        lda private.flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
+        lda flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
         sta common.data__icon_set_sprite_frame
         lda #ICON_ANIMATION_FRAMES
         sta common.sprite.init_animation_frame
     !frame_loop:
         jsr common.add_sprite_to_graphics
-        lda private.ptr__sprite_mem_lo
+        lda ptr__sprite_mem_lo
         clc
         adc #BYTES_PER_SPRITE
         sta FREEZP+2
-        sta private.ptr__sprite_mem_lo
+        sta ptr__sprite_mem_lo
         bcc !next+
         inc FREEZP+3
     !next:
@@ -116,21 +127,21 @@ entry:
         // 6 (of 8) sprites (and we work backwards from 6).
         .const NUM_SPRITES = 6
         lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES
-        sta private.ptr__sprite_mem
+        sta ptr__sprite_mem
         ldx #NUM_SPRITES
     !loop:
         txa
         asl
         tay
-        lda private.ptr__sprite_mem
+        lda ptr__sprite_mem
         sta SPTMEM,x
-        dec private.ptr__sprite_mem
-        lda private.data__logo_sprite_color_list,x
+        dec ptr__sprite_mem
+        lda data__logo_sprite_color_list,x
         sta SP0COL,x
-        lda private.pos__logo_sprite_x_list,x
+        lda pos__logo_sprite_x_list,x
         sta SP0X,y
         sta common.sprite.curr_x_pos,x
-        lda private.pos__logo_sprite_y_list,x
+        lda pos__logo_sprite_y_list,x
         sta SP0Y,y
         sta common.sprite.curr_y_pos,x
         dex
@@ -143,16 +154,126 @@ entry:
         sta common.sprite.final_y_pos+1
         rts
 
-    // AA42
-    interrupt_handler:
-        lda common.flag__enable_next_state
-        bpl !next+
-        jmp common.complete_interrupt
+    // AACF
+    // Description:
+    // - Initiates the draw text routine by selecting a color and text offset.
+    // - The routine then calls a method to write the text to the screen.
+    // Prerequisites:
+    // - `_idx__string`: Contains the string ID offset
+    // Notes:
+    // - The message offset is used to read the string memory location from `_ptr__txt__intro_list` (message offset is
+    //   multiplied by 2 as 2 bytes are required to store the message location).
+    // - The message offset is used to read the string color from `_data__string_color_list`.
+    screen_draw_text:
+        ldy idx__string
+        lda data__string_color_list,y
+        sta data__curr_color
+        tya
+        asl
+        tay
+        lda ptr__txt__intro_list,y
+        sta FREEZP
+        lda ptr__txt__intro_list+1,y
+        sta FREEZP+1
+        ldy #$00
+        jmp screen_calc_start_addr
+
+    // AAEA
+    // Description:
+    // - Write characters and colors to the screen.
+    // Prerequisites:
+    // - FREEZP/FREEZP+1: Pointer to string data. The string data starts with a column offset and ends with $FF.
+    // - FREEZP+2/FREEZP+3: Pointer to screen character memory.
+    // - FORPNT/FORPNT+1: Pointer to screen color memory.
+    // - `_data__curr_color`: Color code used to set the character color.
+    // Sets:
+    // - Updates screen character and color memory.
+    // Notes:
+    // - Calls `_screen_calc_start_addr` to determine screen character and color memory on new line command.
+    // - Strings are defined as follows:
+    //  - A $80 byte in the string represents a 'next line'.
+    //  - A screen row and colum offset must follow a $80 command.
+    //  - The string is terminated with a $ff byte.
+    //  - Spaces are represented as $00.
+    screen_write_chars:
+        ldy #$00
+    !loop:
+        lda (FREEZP),y
+        inc FREEZP
+        bne !next+
+        inc FREEZP+1
     !next:
-        lda flag__exit_intro
-        sta common.flag__enable_next_state
-        jsr common.play_music
-        jmp (ptr__substate_fn)
+        cmp #STRING_CMD_NEWLINE
+        bcc !next+
+        beq screen_calc_start_addr
+        rts
+    !next:
+        sta (FREEZP+2),y // Write character
+        // Set color.
+        lda (FORPNT),y
+        and #$F0
+        ora data__curr_color
+        sta (FORPNT),y
+        // Next character.
+        inc FORPNT
+        inc FREEZP+2
+        bne !loop-
+        inc FREEZP+3
+        inc FORPNT+1
+        jmp !loop-
+
+    // AB13
+    // Description:
+    // - Derive the screen starting character offset and color memory offset.
+    // Prerequisites:
+    // - FREEZP/FREEZP+1 - Pointer to string data. The string data starts with a column offset and ends with FF.
+    // - `_flag__string_pos_ctl`: Row control flag:
+    //    $00 - the screen row and column is read from the first byte and second byte in the string
+    //    $80 - the screen row is supplied using the X register and column is the first byte in the string
+    //    $C0 - the screen column is hard coded to #06 and the screen row is read X register
+    // Sets:
+    // - FREEZP+2/FREEZP+3 - Pointer to screen character memory.
+    // - FORPNT/FORPNT+1 - Pointer to screen color memory.
+    // Notes:
+    // - Calls `_screen_write_chars` to output the characters after the screen location is determined.
+    screen_calc_start_addr:
+        lda flag__string_pos_ctl
+        bmi !skip+ // flag = $80 or $c0
+        // Read screen row.
+        lda (FREEZP),y
+        inc FREEZP
+        bne !next+
+        inc FREEZP+1
+    !next:
+        tax // Get screen row from x regsietr
+    !skip:
+        // Determine start screen and color memory addresses.
+        lda #>SCNMEM // Screen memory hi byte
+        sta FREEZP+3 // Screen memory pointer
+        clc
+        adc common.screen.color_mem_offset // Derive color memory address
+        sta FORPNT+1  // color memory pointer
+        bit flag__string_pos_ctl
+        bvc !next+ // flag = $c0
+        lda #$06 // Hard coded screen column offset if BF3C flag set
+        bne !skip+
+    !next:
+        lda (FREEZP),y
+        inc FREEZP
+        bne !skip+
+        inc FREEZP+1
+    !skip:
+        clc
+        adc #CHARS_PER_SCREEN_ROW
+        bcc !next+
+        inc FREEZP+3
+        inc FORPNT+1
+    !next:
+        dex
+        bne !skip-
+        sta FREEZP+2
+        sta FORPNT
+        jmp screen_write_chars
 
     // AA56
     state__scroll_title:
@@ -196,7 +317,7 @@ entry:
     // AA8B
     state__draw_freefall_logo:
         lda #FLAG_ENABLE
-        sta private.flag__string_pos_ctl
+        sta flag__string_pos_ctl
         // Enable sprites 4 to 7 (Freefall logo).
         // The sprites are replaced with text character dot data after the animation has completed.
         ldx #$04
@@ -213,195 +334,74 @@ entry:
         // half of the Free Fall log) on four separate lines.
         ldx #$16
         ldy #$08
-        sty private.idx__string
+        sty idx__string
     !loop:
-        stx private.data__curr_line
-        jsr private.screen_draw_text
-        ldx private.data__curr_line
+        stx data__curr_line
+        jsr screen_draw_text
+        ldx data__curr_line
         dex
-        dec private.idx__string
-        ldy private.idx__string
+        dec idx__string
+        ldy idx__string
         cpy #$04
         bcs !loop-
         // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
         // read the screen rows from the remaining string messages.
         lda #FLAG_DISABLE
-        sta private.flag__string_pos_ctl
-        jsr private.screen_draw_text
+        sta flag__string_pos_ctl
+        jsr screen_draw_text
         //
-        dec private.idx__string // Set to pointer next string to display in next state
+        dec idx__string // Set to pointer next string to display in next state
         // Start scrolling Avatar logo colors
-        lda #<private.state__avatar_color_scroll
+        lda #<state__avatar_color_scroll
         sta ptr__substate_fn
-        lda #>private.state__avatar_color_scroll
+        lda #>state__avatar_color_scroll
         sta ptr__substate_fn+1
         jmp common.complete_interrupt
-
-    // AACF
-    // Description:
-    // - Initiates the draw text routine by selecting a color and text offset.
-    // - The routine then calls a method to write the text to the screen.
-    // Prerequisites:
-    // - `_idx__string`: Contains the string ID offset
-    // Notes:
-    // - The message offset is used to read the string memory location from `_ptr__txt__intro_list` (message offset is
-    //   multiplied by 2 as 2 bytes are required to store the message location).
-    // - The message offset is used to read the string color from `_data__string_color_list`.
-    screen_draw_text:
-        ldy private.idx__string
-        lda private.data__string_color_list,y
-        sta private.data__curr_color
-        tya
-        asl
-        tay
-        lda private.ptr__txt__intro_list,y
-        sta FREEZP
-        lda private.ptr__txt__intro_list+1,y
-        sta FREEZP+1
-        ldy #$00
-        jmp private.screen_calc_start_addr
-
-    // AAEA
-    // Description:
-    // - Write characters and colors to the screen.
-    // Prerequisites:
-    // - FREEZP/FREEZP+1: Pointer to string data. The string data starts with a column offset and ends with $FF.
-    // - FREEZP+2/FREEZP+3: Pointer to screen character memory.
-    // - FORPNT/FORPNT+1: Pointer to screen color memory.
-    // - `_data__curr_color`: Color code used to set the character color.
-    // Sets:
-    // - Updates screen character and color memory.
-    // Notes:
-    // - Calls `_screen_calc_start_addr` to determine screen character and color memory on new line command.
-    // - Strings are defined as follows:
-    //  - A $80 byte in the string represents a 'next line'.
-    //  - A screen row and colum offset must follow a $80 command.
-    //  - The string is terminated with a $ff byte.
-    //  - Spaces are represented as $00.
-    screen_write_chars:
-        ldy #$00
-    !loop:
-        lda (FREEZP),y
-        inc FREEZP
-        bne !next+
-        inc FREEZP+1
-    !next:
-        cmp #STRING_CMD_NEWLINE
-        bcc !next+
-        beq private.screen_calc_start_addr
-        rts
-    !next:
-        sta (FREEZP+2),y // Write character
-        // Set color.
-        lda (FORPNT),y
-        and #$F0
-        ora private.data__curr_color
-        sta (FORPNT),y
-        // Next character.
-        inc FORPNT
-        inc FREEZP+2
-        bne !loop-
-        inc FREEZP+3
-        inc FORPNT+1
-        jmp !loop-
-
-    // AB13
-    // Description:
-    // - Derive the screen starting character offset and color memory offset.
-    // Prerequisites:
-    // - FREEZP/FREEZP+1 - Pointer to string data. The string data starts with a column offset and ends with FF.
-    // - `_flag__string_pos_ctl`: Row control flag:
-    //    $00 - the screen row and column is read from the first byte and second byte in the string
-    //    $80 - the screen row is supplied using the X register and column is the first byte in the string
-    //    $C0 - the screen column is hard coded to #06 and the screen row is read X register
-    // Sets:
-    // - FREEZP+2/FREEZP+3 - Pointer to screen character memory.
-    // - FORPNT/FORPNT+1 - Pointer to screen color memory.
-    // Notes:
-    // - Calls `_screen_write_chars` to output the characters after the screen location is determined.
-    screen_calc_start_addr:
-        lda private.flag__string_pos_ctl
-        bmi !skip+ // flag = $80 or $c0
-        // Read screen row.
-        lda (FREEZP),y
-        inc FREEZP
-        bne !next+
-        inc FREEZP+1
-    !next:
-        tax // Get screen row from x regsietr
-    !skip:
-        // Determine start screen and color memory addresses.
-        lda #>SCNMEM // Screen memory hi byte
-        sta FREEZP+3 // Screen memory pointer
-        clc
-        adc common.screen.color_mem_offset // Derive color memory address
-        sta FORPNT+1  // color memory pointer
-        bit private.flag__string_pos_ctl
-        bvc !next+ // flag = $c0
-        lda #$06 // Hard coded screen column offset if BF3C flag set
-        bne !skip+
-    !next:
-        lda (FREEZP),y
-        inc FREEZP
-        bne !skip+
-        inc FREEZP+1
-    !skip:
-        clc
-        adc #CHARS_PER_SCREEN_ROW
-        bcc !next+
-        inc FREEZP+3
-        inc FORPNT+1
-    !next:
-        dex
-        bne !skip-
-        sta FREEZP+2
-        sta FORPNT
-        jmp private.screen_write_chars
 
     // AB4F
     state__show_authors:
         jsr common.clear_screen
         // Display author names.
     !loop:
-        jsr private.screen_draw_text
-        dec private.idx__string
+        jsr screen_draw_text
+        dec idx__string
         bpl !loop-
         // Show press run/stop message.
         lda #$C0 // Manual row/column
-        sta private.flag__string_pos_ctl
+        sta flag__string_pos_ctl
         lda #$09
-        sta private.idx__string
+        sta idx__string
         ldx #$18
-        jsr private.screen_draw_text
+        jsr screen_draw_text
         // Bounce the Avatar logo.
-        lda #<private.state__avatar_bounce
+        lda #<state__avatar_bounce
         sta ptr__substate_fn
-        lda #>private.state__avatar_bounce
+        lda #>state__avatar_bounce
         sta ptr__substate_fn+1
         // Initialize sprite registers used to bounce the logo in the next state.
         lda #$0E
         sta common.sprite.x_move_counter
         sta common.sprite.y_move_counter
         lda #$FF
-        sta private.flag__sprite_x_direction
+        sta flag__sprite_x_direction
         jmp common.complete_interrupt
 
     // AB83
     // Bounce the Avatar logo in a sawtooth pattern within a defined rectangle on the screen.
     state__avatar_bounce:
         lda #$01 // +1 (down)
-        ldy private.flag__sprite_y_direction
+        ldy flag__sprite_y_direction
         bpl !next+
         lda #$FF // -1 (up)
     !next:
-        sta private.pos__sprite_y
+        sta pos__sprite_y
         //
         lda #$01 // +1 (right)
-        ldy private.flag__sprite_x_direction
+        ldy flag__sprite_x_direction
         bpl !next+
         lda #$FF // -1 (left)
     !next:
-        sta private.pos__sprite_x
+        sta pos__sprite_x
         // Move all 3 sprites that make up the Avatar logo.
         ldx #$03
         ldy #$06
@@ -410,12 +410,12 @@ entry:
         // Add the direction pointer to the current sprite positions.
         // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
         clc
-        adc private.pos__sprite_y
+        adc pos__sprite_y
         sta common.sprite.curr_y_pos,x
         sta SP0Y,y
         lda common.sprite.curr_x_pos,x
         clc
-        adc private.pos__sprite_x
+        adc pos__sprite_x
         sta common.sprite.curr_x_pos,x
         sta SP0X,y
         dey
@@ -427,17 +427,17 @@ entry:
         bne !next+
         lda #$07
         sta common.sprite.y_move_counter
-        lda private.flag__sprite_y_direction
+        lda flag__sprite_y_direction
         eor #$FF
-        sta private.flag__sprite_y_direction
+        sta flag__sprite_y_direction
     !next:
         dec common.sprite.x_move_counter
-        bne private.state__avatar_color_scroll
+        bne state__avatar_color_scroll
         lda #$1C
         sta common.sprite.x_move_counter
-        lda private.flag__sprite_x_direction
+        lda flag__sprite_x_direction
         eor #$FF
-        sta private.flag__sprite_x_direction
+        sta flag__sprite_x_direction
 
     // ABE2
     // Scroll the colors on the Avatar logo.
@@ -471,25 +471,25 @@ entry:
     // AD83
     // Show 4 icons chasing each other off the screen.
     state__chase_scene:
-        lda private.flag__are_sprites_initialized
+        lda flag__are_sprites_initialized
         bpl !skip+ // Initialise sprites on first run only
-        jmp private.animate_icons
+        jmp animate_icons
     !skip:
         lda #BLACK
         sta SPMC0 // Set sprite multicolor (icon border) to black
         lda #FLAG_ENABLE
-        sta private.flag__are_sprites_initialized // Set sprites intiialised flag
+        sta flag__are_sprites_initialized // Set sprites intiialised flag
         // Confifure sprite colors and positions
         ldx #$03
     !loop:
         lda common.sprite.curr_x_pos,x
         lsr
         sta common.sprite.curr_x_pos,x
-        lda private.data__icon_sprite_color_list,x
+        lda data__icon_sprite_color_list,x
         sta SP0COL,x
         dex
         bpl !loop-
-        jmp private.animate_icons
+        jmp animate_icons
 
     // ADC2
     // Animate icons by moving them across the screen and displaying animation frames.
@@ -508,10 +508,10 @@ entry:
         asl
         tay
         lda common.sprite.curr_x_pos,x
-        cmp private.pos__icon_sprite_final_x_list,x
+        cmp pos__icon_sprite_final_x_list,x
         beq !next+
         clc
-        adc private.flag__icon_sprite_direction_list,x
+        adc flag__icon_sprite_direction_list,x
         sta common.sprite.curr_x_pos,x
         asl // Move by two pixels at a time
         sta SP0X,y
@@ -533,7 +533,7 @@ entry:
         lda common.sprite.curr_animation_frame
         and #$03 // 1-4 animation frames
         clc
-        adc private.ptr__icon_sprite_mem_list,x
+        adc ptr__icon_sprite_mem_list,x
         sta SPTMEM,x
     !next:
         dex
