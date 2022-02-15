@@ -26,8 +26,6 @@ Source code was replicated entirely within Visual Studio Code using the `KickAss
 
 ### Labels
 
-Labels begining with `_` define a private (non public) address. These labels will not be called from outside of the file within which they are declared.
-
 #### Variable Labels 
 
 Variable lables will be prefixed with the following:
@@ -38,6 +36,9 @@ Variable lables will be prefixed with the following:
 - `pos__` : Data used specifically for positioning a sprite or screen data.
 - `cnt__` : A value that is incremented within a loop. Typically from 0. Is different to idx__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
 - `temp__` : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
+- `txt__`: Pointer to the start memory location of a string of text.
+- `snd__`: Pointer to the start memory location containing a sound pattern (string of notes and sound commands).
+- `param__`: The memory address is a parameter used to configure a subroutine.
 
 Labels may also contain the following:
 - `_list` : The label is followed by two or more related items. For example, a list of colors or positions.
@@ -58,9 +59,15 @@ Double or more jumps (eg jmp !loop++) will not be used.
 
 For readability, code lables within a subroutine that are not intended to be called from external to the subroutine will be treated as multilables (use multilabel identifier).
 
+#### Constants
+
+Constant labels will use all caps.
+
 ### Files
 
 Each file will implement a separate namespace.
+
+Code and labels that are not used outside of the file will be wrapped in a private namespace.
 
 ### Multiple Use Memory
 
@@ -70,7 +77,7 @@ To simplify code readability, we do not reuse temporary memory addresses.
 
 ### Magic Numbers
 
-Where possible, all magic numbers will be replaced with a descriptive constant.
+Where relevant, all magic numbers will be replaced with a descriptive constant.
 
 ## Build
 

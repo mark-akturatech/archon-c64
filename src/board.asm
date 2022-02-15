@@ -115,16 +115,16 @@ convert_coord_sprite_pos:
 // Description:
 // - Writes a text message to the board text area.
 // Prerequisites:
-// - A: text message offset (see `ptr__game_string_list` for message order).
+// - A: text message offset (see `ptr__txt__game_list` for message order).
 // - X: column offset.
 // Sets:
 // - Screen graphical character memory.
 write_text:
     asl
     tay
-    lda ptr__game_string_list,y
+    lda ptr__txt__game_list,y
     sta FREEZP
-    lda ptr__game_string_list+1,y
+    lda ptr__txt__game_list+1,y
     sta FREEZP+1
     ldy #$00
 !loop:
@@ -959,39 +959,39 @@ interrupt_handler__play_music:
 // Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
 // types.
 prt__sound_icon_effect_list:
-    .word resources.sound_pattern_walk_large   // 00
-    .word resources.sound_pattern_fly_01       // 02
-    .word resources.sound_pattern_fly_02       // 04
-    .word resources.sound_pattern_walk_quad    // 06
-    .word resources.sound_pattern_fly_03       // 08
-    .word resources.sound_pattern_fly_large    // 10
-    .word resources.sound_pattern_attack_01    // 12
-    .word resources.sound_pattern_attack_02    // 14
-    .word resources.sound_pattern_attack_03    // 16
-    .word resources.sound_pattern_attack_04    // 18
-    .word resources.sound_pattern_walk_slither // 20
+    .word resources.snd__effect_walk_large   // 00
+    .word resources.snd__effect_fly_01       // 02
+    .word resources.snd__effect_fly_02       // 04
+    .word resources.snd__effect_walk_quad    // 06
+    .word resources.snd__effect_fly_03       // 08
+    .word resources.snd__effect_fly_large    // 10
+    .word resources.snd__effect_attack_01    // 12
+    .word resources.snd__effect_attack_02    // 14
+    .word resources.snd__effect_attack_03    // 16
+    .word resources.snd__effect_attack_04    // 18
+    .word resources.snd__effect_walk_slither // 20
 
 // A21E
 // Pointer to start predefined text message. Messages are FF terminated.
-ptr__game_string_list:
-    .word resources.game_string_0,  resources.game_string_1,  resources.game_string_2,  resources.game_string_3
-    .word resources.game_string_4,  resources.game_string_5,  resources.game_string_6,  resources.game_string_7
-    .word resources.game_string_8,  resources.game_string_9,  resources.game_string_10, resources.game_string_11
-    .word resources.game_string_12, resources.game_string_13, resources.game_string_14, resources.game_string_15
-    .word resources.game_string_16, resources.game_string_17, resources.game_string_18, resources.game_string_19
-    .word resources.game_string_20, resources.game_string_21, resources.game_string_22, resources.game_string_23
-    .word resources.game_string_24, resources.game_string_25, resources.game_string_26, resources.game_string_27
-    .word resources.game_string_28, resources.game_string_29, resources.game_string_30, resources.game_string_31
-    .word resources.game_string_32, resources.game_string_33, resources.game_string_34, resources.game_string_35
-    .word resources.game_string_36, resources.game_string_37, resources.game_string_38, resources.game_string_39
-    .word resources.game_string_40, resources.game_string_41, resources.game_string_42, resources.game_string_43
-    .word resources.game_string_44, resources.game_string_45, resources.game_string_46, resources.game_string_47
-    .word resources.game_string_48, resources.game_string_49, resources.game_string_50, resources.game_string_51
-    .word resources.game_string_52, resources.game_string_53, resources.game_string_54, resources.game_string_55
-    .word resources.game_string_56, resources.game_string_57, resources.game_string_58, resources.game_string_59
-    .word resources.game_string_60, resources.game_string_61, resources.game_string_62, resources.game_string_63
-    .word resources.game_string_64, resources.game_string_65, resources.game_string_66, resources.game_string_67
-    .word resources.game_string_68, resources.game_string_69, resources.game_string_70
+ptr__txt__game_list:
+    .word resources.txt__game_0,  resources.txt__game_1,  resources.txt__game_2,  resources.txt__game_3
+    .word resources.txt__game_4,  resources.txt__game_5,  resources.txt__game_6,  resources.txt__game_7
+    .word resources.txt__game_8,  resources.txt__game_9,  resources.txt__game_10, resources.txt__game_11
+    .word resources.txt__game_12, resources.txt__game_13, resources.txt__game_14, resources.txt__game_15
+    .word resources.txt__game_16, resources.txt__game_17, resources.txt__game_18, resources.txt__game_19
+    .word resources.txt__game_20, resources.txt__game_21, resources.txt__game_22, resources.txt__game_23
+    .word resources.txt__game_24, resources.txt__game_25, resources.txt__game_26, resources.txt__game_27
+    .word resources.txt__game_28, resources.txt__game_29, resources.txt__game_30, resources.txt__game_31
+    .word resources.txt__game_32, resources.txt__game_33, resources.txt__game_34, resources.txt__game_35
+    .word resources.txt__game_36, resources.txt__game_37, resources.txt__game_38, resources.txt__game_39
+    .word resources.txt__game_40, resources.txt__game_41, resources.txt__game_42, resources.txt__game_43
+    .word resources.txt__game_44, resources.txt__game_45, resources.txt__game_46, resources.txt__game_47
+    .word resources.txt__game_48, resources.txt__game_49, resources.txt__game_50, resources.txt__game_51
+    .word resources.txt__game_52, resources.txt__game_53, resources.txt__game_54, resources.txt__game_55
+    .word resources.txt__game_56, resources.txt__game_57, resources.txt__game_58, resources.txt__game_59
+    .word resources.txt__game_60, resources.txt__game_61, resources.txt__game_62, resources.txt__game_63
+    .word resources.txt__game_64, resources.txt__game_65, resources.txt__game_66, resources.txt__game_67
+    .word resources.txt__game_68, resources.txt__game_69, resources.txt__game_70
 
 
 //---------------------------------------------------------------------------------------------------------------------

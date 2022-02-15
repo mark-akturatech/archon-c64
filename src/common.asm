@@ -893,38 +893,38 @@ intro_music:
         .word intro_pattern_V1_ptr, intro_pattern_V2_ptr, intro_pattern_V3_ptr
     #endif
     init_pattern_list_ptr: // Initial patterns for both intro and outro music
-        .word resources.music_pattern_1, resources.music_pattern_2, resources.music_pattern_3
+        .word resources.snd__music_1, resources.snd__music_2, resources.snd__music_3
     outro_pattern_ptr: // Pointers for outro music pattern list for each voice
         .word outro_pattern_V1_ptr, outro_pattern_V2_ptr, outro_pattern_V3_ptr
 
     // Music patternology.
     #if INCLUDE_INTRO
     intro_pattern_V1_ptr: // Intro music voice 1 pattern list
-        .word resources.music_pattern_4, resources.music_pattern_4, resources.music_pattern_10, resources.music_pattern_11
-        .word resources.music_pattern_1
+        .word resources.snd__music_4, resources.snd__music_4, resources.snd__music_10, resources.snd__music_11
+        .word resources.snd__music_1
     #endif
     outro_pattern_V1_ptr:
-        .word resources.music_pattern_19 // Outro music voice 1 pattern list
+        .word resources.snd__music_19 // Outro music voice 1 pattern list
     #if INCLUDE_INTRO
     intro_pattern_V2_ptr: // Intro music voice 2 pattern list
-        .word resources.music_pattern_5, resources.music_pattern_5, resources.music_pattern_12, resources.music_pattern_13
-        .word resources.music_pattern_2
+        .word resources.snd__music_5, resources.snd__music_5, resources.snd__music_12, resources.snd__music_13
+        .word resources.snd__music_2
     #endif
     outro_pattern_V2_ptr:
-        .word resources.music_pattern_21 // Outro music voice 2 pattern list
+        .word resources.snd__music_21 // Outro music voice 2 pattern list
     #if INCLUDE_INTRO
     intro_pattern_V3_ptr: // Intro music voice 3 pattern list
-        .word resources.music_pattern_6, resources.music_pattern_7, resources.music_pattern_7, resources.music_pattern_7
-        .word resources.music_pattern_8, resources.music_pattern_8, resources.music_pattern_9, resources.music_pattern_9
-        .word resources.music_pattern_6, resources.music_pattern_7, resources.music_pattern_7, resources.music_pattern_7
-        .word resources.music_pattern_8, resources.music_pattern_8, resources.music_pattern_9, resources.music_pattern_9
-        .word resources.music_pattern_14, resources.music_pattern_15, resources.music_pattern_15, resources.music_pattern_15
-        .word resources.music_pattern_16, resources.music_pattern_16, resources.music_pattern_16, resources.music_pattern_16
-        .word resources.music_pattern_17, resources.music_pattern_17, resources.music_pattern_18, resources.music_pattern_18
-        .word resources.music_pattern_3
+        .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
+        .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
+        .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
+        .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
+        .word resources.snd__music_14, resources.snd__music_15, resources.snd__music_15, resources.snd__music_15
+        .word resources.snd__music_16, resources.snd__music_16, resources.snd__music_16, resources.snd__music_16
+        .word resources.snd__music_17, resources.snd__music_17, resources.snd__music_18, resources.snd__music_18
+        .word resources.snd__music_3
     #endif
     outro_pattern_V3_ptr:
-        .word resources.music_pattern_20 // Outro music voice 3 pattern list        
+        .word resources.snd__music_20 // Outro music voice 3 pattern list        
 }
 
 .namespace math {

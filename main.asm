@@ -89,31 +89,31 @@ entry:
     // Configure defaults.
     lda #FLAG_DISABLE
     sta game.state.flag__ai_player_ctl // Two player
-    sta common.options.cnt__ai_player_selection // Clear AI selection option
-    sta common.options.flag__ai_player_ctl
+    sta common.options.cnt__ai_player_selection // Count is used to toggle between 3 options-reset to 1st option (none)
+    sta common.options.flag__ai_player_ctl // 00=none, 55=light, AA=dark, FF=both
     lda #PLAYER_LIGHT
     sta game.state.flag__is_first_player_light // Light player first
     tsx
-    stx _ptr__stack
+    stx private.ptr__stack // Store stack so we can restore it after each game loop (stop memory leaks?)
     lda #FLAG_ENABLE
 #if INCLUDE_INTRO
     sta intro.flag__enable // Play intro
 #endif
-    sta common.flag__pregame_state
+    sta common.flag__pregame_state // First intro state - scrolling icon
     .const TWELVE_SECONDS = $03
-    lda #TWELVE_SECONDS // Set number of large jiffies before game auto plays after intro
+    lda #TWELVE_SECONDS // Set number of large jiffies before game auto plays if no options selected
     sta board.countdown_timer
     //
     lda resources.flag__is_relocated
     bmi !skip+
     jsr resources.relocate
 !skip:
-    jsr _init
-    //
+    jsr private.init
+    // ...
 // 612C
 restart_game_loop:
-    // Ensure each game state starts with cleared sound, clean graphics and 00's in all dynamic variables.
-    ldx _ptr__stack
+    // Ensure each game state starts with reset stack, cleared sound, clean graphics and 00's in all dynamic variables.
+    ldx private.ptr__stack
     txs
     jsr common.stop_sound
     //
@@ -121,11 +121,11 @@ restart_game_loop:
     // Note that the logic below will clear past the end of the storage area up to #$ff. This is probably done as it
     // may be more efficient to clear a little bit of extra memory instead of having additional logic to clear the
     // exact number of bytes.
-    lda #<__ptr__variables_start
+    lda #<private.ptr__variables_start
     sta FREEZP+2
-    lda #>__ptr__variables_start
+    lda #>private.ptr__variables_start
     sta FREEZP+3
-    ldx #(>(__ptr__variables_end-__ptr__variables_start))+1 // Number of blocks to clear + 1
+    ldx #(>(private.ptr__variables_end - private.ptr__variables_start))+1
     lda #$00
     tay
 !loop:
@@ -165,18 +165,19 @@ restart_game_loop:
     sta game.imprisoned_data__icon_id_list // Clear imprisoned icons
     sta game.imprisoned_data__icon_id_list+1
     lda game.state.flag__is_first_player_light // Set first player
-    sta game.state.flag__is_light_turn
+    sta game.state.flag__is_light_turn // Set current turn (first player)
     //
     // Set default board phase color.
-    ldy #$03 // There are 8 phases (0 to 7) with 0 being the darked and 7 the lighted. $03 is in the middle(ish).
+    .const MIDDLE_PHASE = 3 // There are 8 phases with 0 being the darked and 7 the lighted. 3 is in the middle(ish).
+    ldy #MIDDLE_PHASE // Purple phase
     lda board.data.color_phase,y
-    sta game.curr_color_phase // Purple phase
+    sta game.curr_color_phase 
     //
 #if INCLUDE_INTRO
     // Display the game intro if it hasn't already been played.
     lda intro.flag__enable
     beq !skip+
-    jsr _play_intro
+    jsr play_intro
 #endif
 !skip:
     //
@@ -188,7 +189,7 @@ restart_game_loop:
     sta FRELO3
     lda #$0A
     sta FREHI3
-    lda #%1000_0001 // Confiugre voice 3 as noise waveform
+    lda #%1000_0001 // Configure voice 3 as noise waveform
     sta VCREG3
     lda #%1000_1111 // Turn off voice 3 and keep full volume on other voices
     sta SIGVOL
@@ -236,17 +237,17 @@ restart_game_loop:
     // column 1, 2 each row for light player and then repeated for dark player. The code below reads the sets two icons
     // in the row, clears the next 5 and then sets the last 2 icons and repeats for each row.
     lda #BOARD_NUM_PLAYER_ICONS
-    sta _idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
+    sta private.idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
     lda #$00
-    sta _idx__light_icon_type
+    sta private.idx__light_icon_type
     tax
 !row_loop:
     // Light icons.
     ldy #$02
 !loop:
-    lda _idx__light_icon_type
+    lda private.idx__light_icon_type
     sta board.curr_square_occupancy,x
-    inc _idx__light_icon_type
+    inc private.idx__light_icon_type
     inx
     dey
     bne !loop-
@@ -261,9 +262,9 @@ restart_game_loop:
     // Dark icons.
     ldy #$02
 !loop:
-    lda _idx__dark_icon_type
+    lda private.idx__dark_icon_type
     sta board.curr_square_occupancy,x
-    inc _idx__dark_icon_type
+    inc private.idx__dark_icon_type
     inx
     dey
     bne !loop-
@@ -297,125 +298,144 @@ restart_game_loop:
     // Let's play!
     jmp game.entry
 
-// 632D
-_init:
-    // Set VIC memory bank.
-    // Original code uses the furst 8kb of Bank #1 ($4000-$5FFF)
-    //
-    // Graphic assets are stored as follows (offsets shown from start of bank address):
-    //
-    //   0000 -+- intro character set
-    //   ...   |
-    //   ...   |   0400 -+- screen memory
-    //   ...   |   ...   |
-    //   ...   |   07e7 -+
-    //   ...   |   07e8 -+- sprite location memory
-    //   ...   |   ...   |
-    //   07ff -+   07ff -+
-    //   0800 -+- board character set
-    //   ...   |
-    //   ...   |
-    //   0fff -+
-    //   1000 -+- sprite memory (or 2000 for bank 0 and 2 as these banks copy the default charset in to 1000)
-    //   ...   |
-    //   ...   |
-    //   2000 -+
-    //
-    // As can be seen, the screen memory overlaps the first character set. This is OK as the first character set
-    // contains upper case only characters and therefore occupies only half of the memory of a full character set.
-    //
-    // Set VICII memory bank.
-    lda C2DDRA
-    ora #%0000_0011
-    sta C2DDRA // Enable data direction bits for setting memory bank
-    lda CI2PRA
-    and #%1111_1100
-    ora #VICBANK
-    sta CI2PRA // Set memory bank
-    //
-    // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
-    // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
-    lda #%0001_0010
-    sta VMCSB
-    //
-    // Set RAM visible at $A000-$BFFF.
-    // We don't actually need this as we fit everything in before $A000, but we'll leave it in.
-    lda R6510
-    and #%1111_1110
-    sta R6510
-    //
-    // Configure interrupt handler routines.
-    // The interrupt handler calls the standard system interrupt if a non-raster interrupt is detected. If a raster
-    // interrupt occurs, we will initially calls a minimalist interrupt routine. This routine will be replaced with
-    // other function specific routines throughout the application runtime (eg to handle joystick input, animations)
-    // etc. We use the raster interrupt as this allows us to trigger at the same time interval as the display is
-    // updated at a regular and consistent interval.
-    // To set the interrupts, we need to disable interrupts, configure the interrupt call pointers, stop raster scan
-    // interrupts and then point the interrupt handler away from the system handler to our new handler. We can then
-    // re-enable scan interupts and exit.
-    sei
-    lda #<common.complete_interrupt
-    sta ptr__raster_interrupt_fn
-    lda #>common.complete_interrupt
-    sta ptr__raster_interrupt_fn+1
-    lda IRQMASK
-    and #%0111_1110
-    sta IRQMASK
-    // Set interrupt handler.
-    lda #<_interrupt_interceptor
-    jsr _set_partial_interrupt
-    nop
-    nop
-    sta CINV+1
-    // Set raster line used to trigger on raster 
-    // As there are 262 lines, the line number is set by setting the highest bit of $D011 and the 8 bits in $D012.
-    lda SCROLY
-    and #%0111_1111
-    sta SCROLY
-    lda #251
-    sta RASTER
-    // Reenable raster interrupts.
-    lda IRQMASK
-    ora #%1000_0001
-    sta IRQMASK
-    cli
+// 4766
+// Copies the game state pointers (into, game, challenge) to data memory. The pointers are called at the end of each
+// game loop (ie the intro end, a player turn completes or a challenge completes). I assume the addresses are copied
+// so that they can be dynamically replaced while debugging. The original locations are retained so that the debug code
+// can call the correct game state after the debug code has executed.
+prep_game_states:
+    .const NUMBER_GAME_STATES = 3
+    ldx #(NUMBER_GAME_STATES * 2 - 1) // Zero based
+!loop:
+    lda private.ptr__game_state_fn_list_source,x
+    sta private.ptr__game_state_fn_list,x
+    dex
+    bpl !loop-
     rts
-
-// BC8B
-// I really don't know why the code below is split out. Since this routine is at the end of the application, I am
-// guessing it is here so they can add additional debugging code or something during development by calling a different
-// interrupt interceptor. 
-_set_partial_interrupt:
-    sta CINV
-    sta CBINV
-    lda #>_interrupt_interceptor
-    sta CBINV+1
-    rts
-
-// 637E
-// Check if the raster interrupt has occurred and call the appropriate interrupt handlers.
-_interrupt_interceptor:
-    lda VICIRQ
-    and #%0000_0001
-    beq !next+ // Non-raster?
-    sta VICIRQ // Indicate that we have handled the interrupt - if we don't set this, the kernel will wait until we do
-    jmp (ptr__raster_interrupt_fn)
-!next:
-    jmp (ptr__system_interrupt_fn)
 
 // 8010
 play_game:
-    jmp (ptr__game_state_fn_list)
+    jmp (private.ptr__game_state_fn_list)
 
 // 8013
 play_challenge:
-    jmp (ptr__game_state_fn_list+2)
+    jmp (private.ptr__game_state_fn_list+2)
 
 // 8016
 #if INCLUDE_INTRO
-_play_intro:
-    jmp (ptr__game_state_fn_list+4)
+play_intro:
+    jmp (private.ptr__game_state_fn_list+4)
 #endif
+
+//---------------------------------------------------------------------------------------------------------------------
+// Private functions.
+.namespace private {
+    // 632D
+    init:
+        // Set VIC memory bank.
+        // Original code uses the furst 8kb of Bank #1 ($4000-$5FFF)
+        //
+        // Graphic assets are stored as follows (offsets shown from start of bank address):
+        //
+        //   0000 -+- intro character set
+        //   ...   |
+        //   ...   |   0400 -+- screen memory
+        //   ...   |   ...   |
+        //   ...   |   07e7 -+
+        //   ...   |   07e8 -+- sprite location memory
+        //   ...   |   ...   |
+        //   07ff -+   07ff -+
+        //   0800 -+- board character set
+        //   ...   |
+        //   ...   |
+        //   0fff -+
+        //   1000 -+- sprite memory (or 2000 for bank 0 and 2 as these banks copy the default charset in to 1000)
+        //   ...   |
+        //   ...   |
+        //   2000 -+
+        //
+        // As can be seen, the screen memory overlaps the first character set. This is OK as the first character set
+        // contains upper case only characters and therefore occupies only half of the memory of a full character set.
+        //
+        // Set VICII memory bank.
+        lda C2DDRA
+        ora #%0000_0011
+        sta C2DDRA // Enable data direction bits for setting memory bank
+        lda CI2PRA
+        and #%1111_1100
+        ora #VICBANK
+        sta CI2PRA // Set memory bank
+        //
+        // Set text mode character memory to $0800-$0FFF (+VIC bank offset as set in CI2PRA).
+        // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
+        lda #%0001_0010
+        sta VMCSB
+        //
+        // Set RAM visible at $A000-$BFFF.
+        // We don't actually need this as we fit everything in before $A000, but we'll leave it in.
+        lda R6510
+        and #%1111_1110
+        sta R6510
+        //
+        // Configure interrupt handler routines.
+        // The interrupt handler calls the standard system interrupt if a non-raster interrupt is detected. If a raster
+        // interrupt occurs, we will initially calls a minimalist interrupt routine. This routine will be replaced with
+        // other function specific routines throughout the application runtime (eg to handle joystick input, animations)
+        // etc. We use the raster interrupt as this allows us to trigger at the same time interval as the display is
+        // updated at a regular and consistent interval.
+        // To set the interrupts, we need to disable interrupts, configure the interrupt call pointers, stop raster scan
+        // interrupts and then point the interrupt handler away from the system handler to our new handler. We can then
+        // re-enable scan interupts and exit.
+        sei
+        lda #<common.complete_interrupt
+        sta ptr__raster_interrupt_fn
+        lda #>common.complete_interrupt
+        sta ptr__raster_interrupt_fn+1
+        lda IRQMASK
+        and #%0111_1110
+        sta IRQMASK
+        // Set interrupt handler.
+        lda #<interrupt_interceptor
+        jsr set_partial_interrupt
+        nop
+        nop
+        sta CINV+1
+        // Set raster line used to trigger on raster 
+        // As there are 262 lines, the line number is set by setting the highest bit of $D011 and the 8 bits in $D012.
+        lda SCROLY
+        and #%0111_1111
+        sta SCROLY
+        lda #251
+        sta RASTER
+        // Reenable raster interrupts.
+        lda IRQMASK
+        ora #%1000_0001
+        sta IRQMASK
+        cli
+        rts
+
+    // BC8B
+    // I really don't know why the code below is split out. Since this routine is at the end of the application, I am
+    // guessing it is here so they can add additional debugging code or something during development by calling a
+    // different interrupt interceptor. 
+    set_partial_interrupt:
+        sta CINV
+        sta CBINV
+        lda #>interrupt_interceptor
+        sta CBINV+1
+        rts
+
+    // 637E
+    // Check if the raster interrupt has occurred and call the appropriate interrupt handlers.
+    interrupt_interceptor:
+        lda VICIRQ
+        and #%0000_0001
+        beq !next+ // Non-raster?
+        sta VICIRQ // Indicate that we have handled the interrupt
+        jmp (ptr__raster_interrupt_fn)
+    !next:
+        jmp (ptr__system_interrupt_fn)
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
@@ -423,16 +443,20 @@ _play_intro:
 // Assets are constant data. Assets are permanent and will not change during the program lifetime.
 .segment Assets
 
-// 4760
-// Pointer to each main game function.
-ptr__game_state_fn_list_source:
-    .word game.interrupt_handler
-    .word challenge.interrupt_handler
-#if INCLUDE_INTRO
-    .word intro.entry
-#else
-    .word $0000
-#endif
+//---------------------------------------------------------------------------------------------------------------------
+// Private assets.
+.namespace private {
+    // 4760
+    // Pointer to each main game function.
+    ptr__game_state_fn_list_source:
+        .word game.interrupt_handler
+        .word challenge.interrupt_handler
+    #if INCLUDE_INTRO
+        .word intro.entry
+    #else
+        .word $0000
+    #endif
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data in this area are not cleared on state change.
@@ -440,15 +464,6 @@ ptr__game_state_fn_list_source:
 // Dynamic data typically starts at BCC0 and continues to BCD2, however some lower addresses are used within the
 // application.
 .segment Data
-
-// 0334
-// Pointer to each main game function copied from the function list source. I assume they do this so that they can
-// repoint the function pointers after the game has loaded for testing and debugging purposes.
-ptr__game_state_fn_list: .word $0000, $0000, $000
-
-// BCC4
-// Stored stack pointer so that stack is reset on each state update.
-_ptr__stack: .byte $00
 
 // BCCC
 // Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
@@ -461,6 +476,19 @@ ptr__raster_interrupt_fn: .word $0000
 ptr__system_interrupt_fn: .word $0000
 
 //---------------------------------------------------------------------------------------------------------------------
+// Private data.
+.namespace private {
+    // 0334
+    // Pointer to each main game function copied from the function list source. I assume they do this so that they can
+    // repoint the function pointers after the game has loaded for testing and debugging purposes.
+    ptr__game_state_fn_list: .word $0000, $0000, $000
+
+    // BCC4
+    // Stored stack pointer so that stack is reset on each state update.
+    ptr__stack: .byte $00
+}
+
+//---------------------------------------------------------------------------------------------------------------------
 // Variable data is cleared completely on each game state change. 
 //---------------------------------------------------------------------------------------------------------------------
 // Variable data starts at BCD3 and continues to the end of the data area.
@@ -468,17 +496,24 @@ ptr__system_interrupt_fn: .word $0000
 // The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the
 // start of each game loop.
-.segment VariablesStart
-    __ptr__variables_start:
-.segment Variables
 
-// BF1A
-// Index in to the matrix of dark icon types.
-_idx__dark_icon_type: .byte $00
+//---------------------------------------------------------------------------------------------------------------------
+// Private variables.
+.namespace private {
+    .segment VariablesStart
+    ptr__variables_start:
 
-// BF1B
-// Index in to the matrix of light icon types.
-_idx__light_icon_type: .byte $00
+    .segment Variables
+    // ... Variables within other files will be inserted here ...
 
-.segment VariablesEnd
-    __ptr__variables_end:
+    // BF1A
+    // Index in to the matrix of dark icon types.
+    idx__dark_icon_type: .byte $00
+
+    // BF1B
+    // Index in to the matrix of light icon types.
+    idx__light_icon_type: .byte $00
+
+    .segment VariablesEnd
+    ptr__variables_end:
+}

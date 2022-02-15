@@ -4,357 +4,357 @@
 //---------------------------------------------------------------------------------------------------------------------
 
 // A2AC
-game_string_1:
+txt__game_1:
     .text "ALAS, MASTER, THIS ICON CANNOT MOVE"
     .byte STRING_CMD_END
 
 // A2D0
-game_string_2:
+txt__game_2:
     .text "DO YOU CHALLENGE THIS FOE?"
     .byte STRING_CMD_END
 
 // A2EB
-game_string_3:
+txt__game_3:
     .text "YOU HAVE MOVED YOUR LIMIT"
     .byte STRING_CMD_END
 
 // A305
-game_string_4:
+txt__game_4:
     .text "THE SQUARE AHEAD IS OCCUPIED"
     .byte STRING_CMD_END
 
 // A322
-game_string_6:
+txt__game_6:
     .text "THE LIGHT SIDE WINS"
     .byte STRING_CMD_END
 
 // A336
-game_string_7:
+txt__game_7:
     .text "THE DARK SIDE WINS"
     .byte STRING_CMD_END
 
 // A349
-game_string_8:
+txt__game_8:
     .text "IT IS A TIE"
     .byte STRING_CMD_END
 
 // A355
-game_string_9:
+txt__game_9:
     .text "THE FLOW OF TIME IS REVERSED"
     .byte STRING_CMD_END
 
 // A372
-game_string_10:
+txt__game_10:
     .text "WHICH ICON WILL YOU HEAL?"
     .byte STRING_CMD_END
 
 // A38C
-game_string_5:
+txt__game_5:
     .text "IT IS DONE"
     .byte STRING_CMD_END
 
 // A397
-game_string_11:
+txt__game_11:
     .text "WHICH ICON WILL YOU TELEPORT?"
     .byte STRING_CMD_END
 
 // A3B5
-game_string_12:
+txt__game_12:
     .text "WHERE WILL YOU TELEPORT IT?"
     .byte STRING_CMD_END
 
 // A3D1
-game_string_13:
+txt__game_13:
     .text @"CHOOSE AN ICON TO TRANSPOSE"
     .byte STRING_CMD_END
 
 // A3ED
-game_string_14:
+txt__game_14:
     .text "EXCHANGE IT WITH WHICH ICON?"
     .byte STRING_CMD_END
 
 // A40A
-game_string_15:
+txt__game_15:
     .text "WHAT ICON WILL YOU REVIVE?"
     .byte STRING_CMD_END
 
 // A425
-game_string_16:
+txt__game_16:
     .text "PLACE IT WITHIN THE CHARMED SQUARE"
     .byte STRING_CMD_END
 
 // A448
-game_string_17:
+txt__game_17:
     .text "WHICH FOE WILL YOU IMPRISON?"
     .byte STRING_CMD_END
 
 // A465
-game_string_18:
+txt__game_18:
     .text "ALAS, MASTER, THERE IS NO OPENING IN THECHARMED SQUARE. CONJURE ANOTHER SPELL"
     .byte STRING_CMD_END
 
 // A4B3
-game_string_25:
+txt__game_25:
     .text "SEND IT TO THE TARGET"
     .byte STRING_CMD_END
 
 // A4C9
-game_string_53:
+txt__game_53:
     .text "THAT SPELL WOULD BE WASTED AT THIS TIME"
     .byte STRING_CMD_END
 
 // A4F0
-game_string_54:
+txt__game_54:
     .text "SELECT A SPELL"
     .byte STRING_CMD_END
 
 // A500
-game_string_19:
+txt__game_19:
     .text "HAPPILY, MASTER, ALL YOUR ICONS LIVE.   PLEASE CONJURE A DIFFERENT SPELL"
     .byte STRING_CMD_END
 
 // A549
-game_string_20:
+txt__game_20:
     .text "ALAS, THIS ICON IS IMPRISONED"
     .byte STRING_CMD_END
 
 // A567
-game_string_21:
+txt__game_21:
     .text "AN AIR"
     .byte STRING_CMD_END
 
 // A56E
-game_string_22:
+txt__game_22:
     .text "A FIRE"
     .byte STRING_CMD_END
 
 // A575
-game_string_24:
+txt__game_24:
     .text "A WATER"
     .byte STRING_CMD_END
 
 // A57D
-game_string_23:
+txt__game_23:
     .text "AN EARTH"
     .byte STRING_CMD_END
 
 // A586
-game_string_26:
+txt__game_26:
     .text "THE WIZARD"
     .byte STRING_CMD_END
 
 // A591
-game_string_27:
+txt__game_27:
     .text "THE SORCERESS"
     .byte STRING_CMD_END
 
 // A59F
-game_string_0:
+txt__game_0:
     .text "OH, WOE! YOUR SPELLS ARE GONE!"
     .byte STRING_CMD_END
 
 //A5BE
-game_string_28:
+txt__game_28:
     .text "UNICORN (GROUND 4)"
     .byte STRING_CMD_END
 
 // A5D1
-game_string_29:
+txt__game_29:
     .text "WIZARD (TELEPORT 3)"
     .byte STRING_CMD_END
 
 // A5E5
-game_string_30:
+txt__game_30:
     .text "ARCHER (GROUND 3)"
     .byte STRING_CMD_END
 
 // A5F7
-game_string_31:
+txt__game_31:
     .text "GOLEM (GROUND 3)"
     .byte STRING_CMD_END
 
 // A608
-game_string_32:
+txt__game_32:
     .text "VALKYRIE (FLY 3)"
     .byte STRING_CMD_END
 
 // A619
-game_string_33:
+txt__game_33:
     .text "DJINNI (FLY 4)"
     .byte STRING_CMD_END
 
 // A628
-game_string_34:
+txt__game_34:
     .text "PHOENIX (FLY 5)"
     .byte STRING_CMD_END
 
 // A638
-game_string_35:
+txt__game_35:
     .text "KNIGHT (GROUND 3)"
     .byte STRING_CMD_END
 
 // A64A
-game_string_36:
+txt__game_36:
     .text "BASILISK (GROUND 3)"
     .byte STRING_CMD_END
 
 // A65E
-game_string_37:
+txt__game_37:
     .text "SORCERESS (TELEPORT 3)"
     .byte STRING_CMD_END
 
 // A675
-game_string_38:
+txt__game_38:
     .text "MANTICORE (GROUND 3)"
     .byte STRING_CMD_END
 
 // A68A
-game_string_39:
+txt__game_39:
     .text "TROLL (GROUND 3)"
     .byte STRING_CMD_END
 
 // A69B
-game_string_40:
+txt__game_40:
     .text "SHAPESHIFTER (FLY 5)"
     .byte STRING_CMD_END
 
 // A6B0
-game_string_41:
+txt__game_41:
     .text "DRAGON (FLY 4)"
     .byte STRING_CMD_END
 
 // A6BF
-game_string_42:
+txt__game_42:
     .text "BANSHEE (FLY 3)"
     .byte STRING_CMD_END
 
 // A6CF
-game_string_43:
+txt__game_43:
     .text "GOBLIN (GROUND 3)"
     .byte STRING_CMD_END
 
 // A6E1
-game_string_44:
+txt__game_44:
     .text "TELEPORT"
     .byte STRING_CMD_END
 
 // A6EA
-game_string_45:
+txt__game_45:
     .text "HEAL"
     .byte STRING_CMD_END
 
 // A6EF
-game_string_46:
+txt__game_46:
     .text "SHIFT TIME"
     .byte STRING_CMD_END
 
 // A6FA
-game_string_47:
+txt__game_47:
     .text "EXCHANGE"
     .byte STRING_CMD_END
 
 // A703
-game_string_48:
+txt__game_48:
     .text "SUMMON ELEMENTAL"
     .byte STRING_CMD_END
 
 // A714
-game_string_49:
+txt__game_49:
     .text "REVIVE"
     .byte STRING_CMD_END
 
 // A71B
-game_string_50:
+txt__game_50:
     .text "IMPRISON"
     .byte STRING_CMD_END
 
 // A724
-game_string_51:
+txt__game_51:
     .text "CEASE CONJURING"
     .byte STRING_CMD_END
 
 // A734
-game_string_52:
+txt__game_52:
     .text "POWER POINTS ARE PROOF AGAINST MAGIC"
     .byte STRING_CMD_END
 
 // A759
-game_string_55:
+txt__game_55:
     .text "COMPUTER "
     .byte STRING_CMD_END
 
 // A763
-game_string_56:
+txt__game_56:
     .text "LIGHT "
     .byte STRING_CMD_END
 
 // A76A
-game_string_57:
+txt__game_57:
     .text "TWO-PLAYER "
     .byte STRING_CMD_END
 
 // A776
-game_string_58:
+txt__game_58:
     .text "FIRST"
     .byte STRING_CMD_END
 
 
 // A77C
-game_string_59:
+txt__game_59:
     .text "DARK "
     .byte STRING_CMD_END
 
 // A782
-game_string_60:
+txt__game_60:
     .text "WHEN READY"
     .byte STRING_CMD_END
 
 // A78D
-game_string_61:
+txt__game_61:
     .text " PRESS "
     .byte STRING_CMD_END
 
 // A795
-game_string_62:
+txt__game_62:
     .text "SPELL IS CANCELED. CHOOSE ANOTHER"
     .byte STRING_CMD_END
 
 // A7B7
-game_string_63:
+txt__game_63:
     .text "THE GAME IS ENDED..."
     .byte STRING_CMD_END
 
 // A7CC
-game_string_64:
+txt__game_64:
     .text "IT IS A STALEMATE"
     .byte STRING_CMD_END
 
 // A7DE
-game_string_65:
+txt__game_65:
     .text " ELEMENTAL APPEARS!"
     .byte STRING_CMD_END
 
 // A7F2
-game_string_66:
+txt__game_66:
     .text " CONJURES A SPELL!"
     .byte STRING_CMD_END
 
 //A805
-game_string_67:
+txt__game_67:
     .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
     .byte STRING_CMD_END
 
 // A81F
-game_string_68:
+txt__game_68:
     .text "F7"
     .byte STRING_CMD_END
 
 // A822
-game_string_69:
+txt__game_69:
     .text "F5: "
     .byte STRING_CMD_END
 
 // A827
-game_string_70:
+txt__game_70:
     .text "F3: "
     .byte STRING_CMD_END

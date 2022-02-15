@@ -1370,11 +1370,11 @@ transport_icon:
     ldx #$00
     stx common.sound.new_note_delay
     //
-    lda #<resources.sound_pattern_transport
+    lda #<resources.snd__effect_transport
     sta OLDTXT
-    lda #>resources.sound_pattern_transport
+    lda #>resources.snd__effect_transport
     sta OLDTXT+1
-    lda resources.sound_pattern_transport+5 // This note increases in patch as animation runs
+    lda resources.snd__effect_transport+5 // This note increases in patch as animation runs
     sta data__temp_note_store
     jsr board.play_icon_sound
     // Configure sprite source and destination pointers (for line by line copy)
@@ -1470,10 +1470,10 @@ transport_icon_interrupt:
 // 95f4
 // Provised pointers to the sounds that may be made during game play.
 ptr__sound_game_effect_list:
-    .word resources.sound_pattern_hit_player_light   // 00
-    .word resources.sound_pattern_hit_player_dark    // 02
-    .word resources.sound_pattern_player_light_turn  // 04
-    .word resources.sound_pattern_player_dark_turn   // 06
+    .word resources.snd__effect_hit_player_light   // 00
+    .word resources.snd__effect_hit_player_dark    // 02
+    .word resources.snd__effect_player_light_turn  // 04
+    .word resources.snd__effect_player_dark_turn   // 06
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data

@@ -5,7 +5,7 @@
 
 // A8C3
 // A .... Game
-intro_string_3:
+txt__intro_3:
     .byte $10, $13
     .text "A"
     .byte STRING_CMD_NEWLINE, $18, $11
@@ -14,21 +14,21 @@ intro_string_3:
 
 // A87F
 // Top half of "Free Fall" logo.
-intro_string_4:
+txt__intro_4:
     .byte $0b
     .byte $64, $65, $68, $69, $6c, $6d, $6c, $6d, $00, $64, $65, $60, $61, $70, $71, $70, $71
     .byte STRING_CMD_END
 
 // A892
 // Bottom half of "Free Fall" logo.
-intro_string_5: 
+txt__intro_5: 
     .byte $0b
     .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
     .byte STRING_CMD_END
 
 // A8CE
 // By Anne Wesfall and Jon Freeman & Paul Reiche III
-intro_string_0:
+txt__intro_0:
     .byte $08, $0c
     .text @"BY\$00ANNE\$00WESTFALL"
     .byte STRING_CMD_NEWLINE, $0a, $0b
@@ -39,7 +39,7 @@ intro_string_0:
 
 // A907
 // Emptry string under authors - presumably here to allow text to be added for test versions etc
-intro_string_1:
+txt__intro_1:
     .byte $0f, $01
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
@@ -48,7 +48,7 @@ intro_string_1:
 
 // A931
 // Electronic Arts Logo
-intro_string_2:
+txt__intro_2:
     .byte $12, $01
     .byte $16, $17, $17, $18, $19, $1a, $1b, $1c
     .byte STRING_CMD_NEWLINE, $13, $01
