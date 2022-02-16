@@ -248,7 +248,7 @@ check_game_state:
     // Start game.
     lda #FLAG_DISABLE
     sta common.flag__pregame_state
-    jmp main.restart_game_loop
+    jmp main.game_loop
 !next:
     jsr board.display_options
     jmp check_game_state
@@ -597,11 +597,9 @@ game_over__show_winner:
     // Play outro music.
     lda #FLAG_ENABLE
     sta common.sound.flag__play_outro
-#if INCLUDE_INTRO
     .const index_state__end_intro = $04
     lda #index_state__end_intro
     sta intro.idx__substate_fn_ptr
-#endif
     sei
     lda #<board.interrupt_handler
     sta main.ptr__raster_interrupt_fn
@@ -635,7 +633,7 @@ game_over__show_winner:
     bpl !next+
     lda #FLAG_DISABLE
     sta common.flag__pregame_state
-    jmp main.restart_game_loop
+    jmp main.game_loop
 !next:
     jmp !loop-
 

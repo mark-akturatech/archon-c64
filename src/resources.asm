@@ -1,6 +1,6 @@
 .filenamespace resources
 //---------------------------------------------------------------------------------------------------------------------
-// Adds resources in the /assets directory in to build files.
+// Adds resources from the '/assets' directory in to build files.
 //---------------------------------------------------------------------------------------------------------------------
 // Resources are loaded at the start of the file so that they can be relocated as required to make room for graphics
 // memory. See below for further details.
@@ -10,7 +10,7 @@
 // Move resouces from temporary load location to the end of the application to free up space for the graphics
 // and screen display areas.
 relocate:
-    // Indicate that we have initialised the app, so we no don't need to run `prep` again if the app is restarted.
+    // Indicate that we have initialised the app so we don't run `prep` again if the app is restarted.
     lda #FLAG_ENABLE
     sta flag__is_relocated
     //
@@ -42,7 +42,7 @@ relocate:
     inc FREEZP+3
     dex
     bne !loop-
-    // Copy remaining bytes in the block.
+    // Copy remaining bytes in the last block.
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -75,22 +75,23 @@ relocate:
 //---------------------------------------------------------------------------------------------------------------------
 // Resources
 //---------------------------------------------------------------------------------------------------------------------
-// OK this is a little bit special. Archon loads a single file including all resources. The resources have a large
+// OK this is a little bit special. Archon loads from a single file including all resources. The resources have a large
 // number of sprites for the various movement and battle animations. Memory managament is therefore quite complex.
 // 
 // Archon requires 2 character maps and screen data in the first 4k of graphics memory (there are lots of characters for
 // each icon and logos etc) and spites in the second 4k (there are lots of sprites - enough for 2 characters to battle
-// and throw projectiles and animate 4 directions and animate firing). Anyway, so this means we need 8k.
+// and throw projectiles and animate 4 directions and animate firing). Anyway, so this means we need 8k of graphics
+// memory.
 //
 // We have limited options for placing graphics memory...VICII allows bank 0 ($0000), bank 1 ($4000), bank 2 ($8000)
 // and bank 3 ($C000)...
-// - We can use bank 0 however this is a little messy as we'd need to relocate the code that loads at $0801 onwards as
-//   the graphics will take up to $3000.
+// - We can't really use bank 0 as we need 8K and this would clobber all of zero page and would also mean we'd have to
+//   relocate the code that loaded in to $0801.
 // - We can use bank 1 however this requires us to either leave a big part of memory blank when we load the game (as the
-//   game loads at $0801 and continues through to a little over $8000) or relocate code after the game loads.
+//   game loads at $0801 and continues through to around $9000) or relocate code after the game loads.
 // - We can use bank 2 however the code loads past this point, so we'd need to relocate some code or assets in
 //   this area.
-// - We can't use $C000 as this will take up $C000-$DFFF - we need registers in $D000 range to control graphics and
+// - We can't use $C000 as this will take $C000-$DFFF - we need registers in $D000 range to control graphics and
 //   sound (ie this will only work if we need only 4kb of graphics).
 // 
 // The original source loads sprites in to memory just after $0801 up to $4000. It then loads the character maps in
@@ -102,29 +103,30 @@ relocate:
 // something similar here as well for consistency.
 //
 // Our memory map is dictated by the fixed character map locations ($4000 and $4800) and the graphic area used to
-// store sprites ($5000). We have therefore arranged the memory map as follows to try and stuff as many resources as
-// possible in and around the graphics memory so that only resources will need to be relocated and all our code can
-// remain inplace. This helps a lot with debugging and code readability.
+// store sprites ($5000). We have therefore arranged the memory map as follows to try and stuff resources in and around
+// the graphics memory so that only resources will need to be relocated and all our code can remain inplace. This
+// helps a lot with debugging and code readability.
 //
 // We've therefore stuffed the map as follows:
-//   - $080e-$3fff: In-place resouces (sprite icons and game strings)
-//   - $4000-$43ff: In-place character map 1 (intro character map)
-//   - $4400-$47ff: Relocated resources (intro logo sprites and intro/outro music). We need to relocate these resources
-//     as this area of memory is used for screen character display.
-//   - $5000-$5fff: Relocated resources (projectile sprites and elemental icon sprites). We need to relocate these
-//     resources as this area of memory will be used to store sprites that will be displayed on the screen.
-//   - $6000>     : Additional in-place resources if required.
+//   - $080e-$3fff: In-place resouces (sprite icons and strings).
+//   - $4000-$43ff: In-place character map 1 (intro character map).
+//   - $4400-$47ff: Resources requiring relocation (intro logo sprites and intro/outro music). We need to relocate
+//     these resources as this area of memory is used for screen character display.
+//   - $5000-$5fff: Resources requireing relocation (projectile sprites, elemental icon sprites and sound effects).
+//     We need to relocate these resources as this area of memory will be used to store sprites that will be displayed
+//     on the screen.
+//   - $6000>: Additional in-place resources if required (none required at this point).
 //
-// This results in a few wasted bytes, but all-in-all we do end up with a pretty well packed prg file in the end:
+// This results in a few wasted bytes, but all-in-all we do end up with a pretty well packed prg file:
 //   - $0801-$080d Basic upstart
 //   - $080e-$3ffa Resources
 //   - $4000-$43ff Character set 1
 //   - $4400-$47bf Relocted block #1
 //   - $4800-$4fff Character set 2
 //   - $5000-$5fb8 Relocted block #2
-//   - $6000-      Source code and assets
+//   - $6000>      Source code and assets
 //
-// The relocated resources are placed directly after the end of the code and asset blocks.
+// The relocated resources are placed directly after the end of the asset block.
 .segment Resources
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -145,22 +147,18 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
 // Message strings used during gameplay.
 #import "/assets/game_strings.asm"
 
-#if INCLUDE_INTRO
-    // A8C3
-    // Message strings used in the intro.
-    #import "/assets/intro_strings.asm"
-#endif
+// A8C3
+// Message strings used in the intro.
+#import "/assets/intro_strings.asm"
 
 //---------------------------------------------------------------------------------------------------------------------
 // 4000-43ff
 
 // Embed character map in place
 *=CHRMEM1 "Character set 1"
-#if INCLUDE_INTRO
-    // 4000
-    // Introduction character dot data including font and logos (Activision and Freefall).
-    .import binary "/assets/charset-intro.bin"
-#endif
+// 4000
+// Introduction character dot data including font and logos (Activision and Freefall).
+.import binary "/assets/charset-intro.bin"
 
 //---------------------------------------------------------------------------------------------------------------------
 // 4400-47ff (relocated)
@@ -175,9 +173,7 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     // Sprites are contained in the following order:
     // - 0-3: Archon logo (in 3 parts)
     // - 4-6: Freefall logo (in 2 parts)
-    #if INCLUDE_INTRO
-        prt__sprites_logo: .import binary "/assets/sprites-logos.bin"
-    #endif
+    prt__sprites_logo: .import binary "/assets/sprites-logos.bin"
 
     // 3D52
     // Music patterns for intro and outro music.
@@ -203,19 +199,19 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     prt__graphic_block_start:
 }
 .pseudopc private.prt__graphic_block_relocate {
+    // A15E
+    // Sound effect patterns used the icons for moving and attacking and gameplay after each turn.
+    #import "/assets/sound_effects.asm"
+
+    // AE23
+    // Icon sprites for the 4 summonable elementals. The sprites are arranged the same as `prt__sprites_icon`.
+    prt__sprites_elemental: .import binary "/assets/sprites-elementals.bin"
+
     // BACB
     // Sprites used by icons as projectiles within the battle arena.
     // The projectiles are only small and consume 32 bytes each. There is not a projectile sprite per icon as may
     // icons reuse the same projectile.
     ptr__sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
-
-    // AE23-BACA
-    // Icon sprites for the 4 summonable elementals. The sprites are arranged the same as `prt__sprites_icon`.
-    prt__sprites_elemental: .import binary "/assets/sprites-elementals.bin"
-
-    // A15E
-    // Sound effect patterns used the icons for moving and attacking and gameplay after each turn.
-    #import "/assets/sound_effects.asm"
 }
 .namespace private {
     prt__graphic_block_end:

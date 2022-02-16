@@ -6,27 +6,21 @@
 - Press `F3`, `F5` - will jump straight to options settings and select that option.
 - Press `F7` will immediately start the game with default options (2 player, light first).
 - Memory address `$A907` has 40 empty characters (`$00`) that are displayed under the author's names. This can be easily modified to display any message you want (up to one line long).
-- The intro has it's own character set (although only half a set). It is used to drag EA and Free fall logos.
-- The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc). The outro actually just plays the last phrase of the intro.
+- The intro has it's own character set (although only half a set). It is used to draw the EA and Free fall logos.
+- The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc). 
 
 ## Sprites
 
 - Sprites are smaller than usual - 54 bytes instead of 64. This is because only 54 bytes are needed to render a sprite big enough to fit within a square. It also uses less memory.
-- There are a lot of sprites. Each icon has several animartion frames for each direction, the attack weapon/projectile and the attack stance.
+- There are a lot of sprites. Each icon has several animation frames for each direction, the attack weapon/projectile and the attack stance.
 - Each icon is made up of 15 sprites (except shapeshifter). Each direction (east, north, south) comprises 4 sprites making up animation frames for walking/flying etc, and atatck frames for north, south, east, north east and south east.
 - Note that there are no sprites for west direction - the sprite copy algorithm takes a parameter that allows the sprite to be horizontally mirrored on copy, thus providing west direction sprites.
 - The shapeshifter only uses 10 sprites as it doesnt need any sprites for a challenge battle.
-- The "ARCHON" sprite at the top of the baord during gameplay is dynamically created using the character set dot data for each letter. Change address `$9274` to any 6 letters to display any string you like.
+- The "ARCHON" sprite at the top of the board during gameplay is dynamically created using the character set dot data for each letter. Change address `$9274` to any 6 letters to display any string you like and it'll be disaplyed at the top of the board.
 
 ## Game play
 
 - Press `Q` will quit the current game and return back to the options setting.
-- The initial strength of each icon is shown below (address `$8AB3`):
-  ```
-  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-  09, 0A, 05, 0F, 08, 0F, 0C, 05, 06, 0A, 08, 0E, 0A, 11, 08, 05, 0C, 0A, 11, 0E
-  ```
-  The addresses can be modifed however values above $11 can cause display issues.
 - The number of moves of each icon is shown below (address `$8AC7`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
@@ -34,8 +28,8 @@
   ```
   +$80 is added if icon can fly (ie jump over other icons); +$40 is added if icon can cast spells (if $C0 means can fly and cast).
   The addresses can be modifed however it cannot be increased above 5 as it will cause a buffer overrun.
-  Interestingkly, you can add flying and spell casting to any character you want. So change a sworder to $C5 and all sworders can now move 5 squares, cast spells (although there is only one spell usage table) and fly.
-- Icons regenerate 1 lost hit point when on strongest board color (eg light on white and dark on black).
+  Interestingly, you can add flying and spell casting to any character you want. So change a sworder to $C5 and all sworders can now move 5 squares, cast spells (although there is only one spell usage table) and fly.
+- Icons regenerate 1 lost hit point per round when on strongest board color (eg light on white and dark on black).
 - Icons on magic squares regenerate 1 lost hitpoint after each round.
 - It looks like the game was initially designed to have two additional colors in the board phases, but logic was introduced to skip two of them (in brackets below)...
   ```
@@ -46,9 +40,21 @@
 - You can stalemate a game if both players have 3 or less icons and a challenge hasn't occured within 12 rounds.
 - Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc. 
 The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golumns.
+  The icon offsets are defined below:
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
+  00, 01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F
+  ```
+- The outro music (music played after the game has finished) just plays the first and last last pattern of the intro music.
 
 ## Battle Arena
 
+- The initial strength of each icon is shown below (address `$8AB3`):
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+  09, 0A, 05, 0F, 08, 0F, 0C, 05, 06, 0A, 08, 0E, 0A, 11, 08, 05, 0C, 0A, 11, 0E
+  ```
+  The addresses can be modifed however values above $11 can cause display issues.
 - The damage caused by each icon is shown below (address `$8A9F`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
@@ -65,3 +71,8 @@ The addresses use the icon offset. You can change these without any consequence.
   $00 is for shapeshifter as it inherits opponent speed.
   The addresses can be modifed however high projectile speeds may skip too many pixels during each frame and the projectile could jump over the opponent.
   This is a fun table to play with. You can modify a knight for example by changing to $0F and now the knight can throw it's sword really fast.
+
+## Notes
+
+The following acronyms are used in the above tables:
+ - UN=Unicorn, WZ=Wizard, AR=Archer, GM=Golem, VK=Balkyrie, DJ=Djinni, PH=Phoenix, KN=Knight, BK=Basilisk, SR=Sourceress, MC=Manticore, TL=Troll, SS=Shape Shifter, DG=Dragon, BS=Banshee, GB=Goblin, AE=Air Elemental, FE=Fire Elemental, EE=Earth Elemental, WE=Water Elemental

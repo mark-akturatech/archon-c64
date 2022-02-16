@@ -345,7 +345,7 @@ revive_error:
     ldx #BOARD_NUM_PLAYER_ICONS // Set offset for player icon strength and type (0=light, 18=dark)
 !next:
     // Clear dead icon list.
-    ldy #$07 // Maximum 8 (zero offset) icon types
+    ldy #$07 // Maximum 8 (0 offset) icon types
     lda #DEAD_ICON_SLOT_UNUSED
 !loop:
     sta curr_dead_icon_offsets,y
@@ -517,7 +517,7 @@ clear_dead_icons_from_screen:
     sta FREEZP+3
     ldx #$10 // 16 rows of character data (up to 8 icons)
 !loop:
-    ldy #$02 // 3 characters per row (zero offset)
+    ldy #$02 // 3 characters per row (0 offset)
 !loop:
     lda #$00
     sta (FREEZP+2),y

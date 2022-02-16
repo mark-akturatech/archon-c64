@@ -1,6 +1,6 @@
 .filenamespace resources
 //---------------------------------------------------------------------------------------------------------------------
-// Contains message strings used during gameplay.
+// Contains text strings used during gameplay.
 //---------------------------------------------------------------------------------------------------------------------
 
 // A2AC
@@ -339,7 +339,9 @@ txt__game_66:
     .text " CONJURES A SPELL!"
     .byte STRING_CMD_END
 
-//A805
+// A805
+// Note this uses $00 as a space character so that the same string can be used on the intro screen using the
+// intro character set.
 txt__game_67:
     .text @"PRESS\$00RUN\$00KEY\$00TO\$00CONTINUE"
     .byte STRING_CMD_END

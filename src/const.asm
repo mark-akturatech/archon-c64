@@ -4,11 +4,6 @@
 #importonce
 
 //---------------------------------------------------------------------------------------------------------------------
-// Build control
-
-#define INCLUDE_INTRO // comment to build the application without the introduction/title sequence
-
-//---------------------------------------------------------------------------------------------------------------------
 // Keyboard key constants
 
 .const KEY_NONE = $40  // Matrix code returned from LSTX if no key pressed

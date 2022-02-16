@@ -2,13 +2,23 @@
 
 ## Purpose
 
-This project is reverse engineer of the iconic Commodore 64 game **Archon (c) 1983** by Free Fall Associates.
+This project the result of reverse engineering the iconic Commodore 64 game **Archon (c) 1983** by Free Fall Associates.
 
 The reporduction code is intended to be a true replication of the source logic with the exception of original memory locations.
 
-The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or method for reference.
+The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or function for reference.
 
 Extensive comments have been provided to help understand the source code.
+
+## Why?
+
+Archon formed a large part of my childhood. I spent many hours playing Archon with my friends and the AI was way ahead of it's time.
+
+I was recently thinking about source code from games like Archon being lost forever and decided to do something about it.
+
+It's likely noone will ever see this code, but at least I can show my respect by faithfully replicating the source and making every effort to understand and document every byte.
+
+Also, this is my first reverse engineering project and I wanted to spend time to develop standards and styles that can be carried over to other projects. I've refactored this code more than I can count, but I think the result was worth it.
 
 ## Additional Documentation
 
@@ -20,7 +30,7 @@ Additional documentation is provided in the following files:
 
 ## Development Environment
 
-Source code was replicated entirely within Visual Studio Code using the `KickAss (C64)` extension.
+Source code was replicated within Visual Studio Code using the `KickAss (C64)` extension.
 
 ## Conventions
 
@@ -44,36 +54,38 @@ Labels may also contain the following:
 - `_list` : The label is followed by two or more related items. For example, a list of colors or positions.
 - `_fn` : may be used with the ptr__ prefix to denote a pointer to a function/code.
 - `_ctl` : may be used with a flag__ prefix to denote that the flag could contain multiple values and will be used to control how the code will run (eg flag may contain an enum constant to increment a row, or a column or both).
-- `_cur_` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
+- `_cur` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
 
 #### Code Labels
 
 Lables used to identify code addresses will be named to appropriately describe the functionality of the proceeding code.
 
 Multilables will be used specifically for the following:
-- !skip : only when logic is being skipped as part of a condition check
+- !skip : logic is being skipped as part of a condition check
 - !loop : looping logic
 - !next : breaking out of a loop
 - !return : exiting from a subroutine
 Double or more jumps (eg jmp !loop++) will not be used.
 
-For readability, code lables within a subroutine that are not intended to be called from external to the subroutine will be treated as multilables (use multilabel identifier).
+For readability, code lables within a subroutine that are not intended to be called externallly to the subroutine will be treated as multilables (use multilabel identifier).
 
 #### Constants
 
 Constant labels will use all caps.
 
+IO and kernel address constants are named using labels defined in `Mapping the Commodore 64` book by Sheldon Leemon.
+
 ### Files
 
 Each file will implement a separate namespace.
 
-Code and labels that are not used outside of the file will be wrapped in a private namespace.
+Code and labels that are not used outside of the file will be wrapped in a private namespace wihtin the file.
 
 ### Multiple Use Memory
 
 The source uses some temporary memory addresses for multiple different purposes. For example `$BF24` may store the current color phase, a sprite animation frame or a sprite x position offset.
 
-To simplify code readability, we do not reuse temporary memory addresses.
+To simplify code readability, we do not reuse temporary memory addresses for more than one purpose.
 
 ### Magic Numbers
 
@@ -102,7 +114,9 @@ Some notes regarding the above tools:
 
 ## Entry Point
 
-Archon initially launches via a basic program with a sys command. The initial code just decrypts the code and moves stuff around. We will therefore not reverse engineer this part of the application.
+Archon initially launches via a basic program with a sys command. Running the program executes code that moves block of memory around. For readability, we will not implement this functionality and will instead start the reverse engineering effort when everthing is residing in the final memory location.
+
+We will use a snapshot with a breakpoint at address $6129 (after resources are relocated out of graphic memory) and we will begin disassembly at $6100.
 
 Below is a breif synopsis of what is going on here:
 
@@ -115,20 +129,16 @@ Basic program:
 
 Moves the entire code from the current loaded location to 0x68f7 to 0xffff. The move routine uses the zero page registers 0x00ae/af which hold the end address of the last loaded file byte and copies backwards from there. Therefore the app will not work if the file is not the exact correct size.
 
-The block then copies in to 0x00ab: 4c 00 01 01 80 0c 6a
-
-And finally copies 0x085f-0x095e to 0x0100-0x01ff and then executes 0x0100.
+The code then copies 0x085f-0x095e to 0x0100-0x01ff and then executes 0x0100.
 
 ### Block 3: 0100 to 01ff
 
-Some interesting logic lives here. All it does is move stuff around and performs copy logic. It takes the source code in 0x6a00 to 0xffff and moves it around to various memory locations. This block also copies data in to the character data area on our graphic block.
+Some interesting logic lives here. All it does is move stuff around and performs copy logic. It takes the source code in 0x6a00 to 0xffff and moves it around to various memory locations.
 
 It then executes 6100.
 
 ### Block 4: 6100 to 6128
 
-This moves sprite resources out of the area of memory we will use for graphics (4400 - 6000) to 095D. It also copies several constant values to many places in memory.
+This is the main game loop.
 
-However, we do one important thing here, we store CINV pointer locally for use in our interrupt handler
-
-We will use a snapshot of the app with a breakpoint at address $6129 (after 4400 block is moved), however we will begin disassembly at $6100.
+The logic first however moves resources out of the graphics memory area (4400-4800 and 5000-6000) as this area will be cleared and used for screen and sprite graphics.

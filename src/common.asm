@@ -36,7 +36,7 @@ process_key:
     sta flag__pregame_state
     lda options.flag__ai_player_ctl
     sta game.state.flag__ai_player_ctl
-    jmp main.restart_game_loop
+    jmp main.game_loop
 !next:
     cmp #KEY_F5
     bne !next+
@@ -45,7 +45,7 @@ process_key:
     eor #$FF
     sta game.state.flag__is_first_player_light
     jsr advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_loop
 !next:
     cmp #KEY_F3
     beq set_num_players
@@ -73,7 +73,7 @@ set_num_players:
     sta game.state.flag__ai_player_ctl
     sta options.flag__ai_player_ctl
     jsr advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_loop
 
 // 63F3
 // Skip board walk and display game options.
@@ -102,11 +102,9 @@ advance_intro_state:
     lda #$FF // Go straight to options
     sta flag__pregame_state
     // Skip intro.
-#if INCLUDE_INTRO    
     lda #FLAG_DISABLE
     sta intro.flag__enable
     sta intro.flag__exit_intro
-#endif
     rts
 
 // 644D
@@ -196,13 +194,11 @@ check_stop_keypess:
     cmp #KEY_Q
     beq !loop-
     jsr advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_loop
 !next:
-#if INCLUDE_INTRO
     lda intro.flag__exit_intro
     eor #$FF
     sta intro.flag__exit_intro
-#endif
 !loop:
     jsr STOP
     beq !loop-
@@ -691,7 +687,6 @@ get_next_command:
     sta (FREEZP+2),y
     jmp set_note
 set_state:
-#if INCLUDE_INTRO
     lda intro.idx__substate_fn_ptr
     inc intro.idx__substate_fn_ptr
     asl
@@ -700,10 +695,6 @@ set_state:
     sta intro.ptr__substate_fn
     lda intro.ptr__substate_fn_list+1,y
     sta intro.ptr__substate_fn+1
-#else
-    lda #FLAG_ENABLE
-    sta flag__enable_next_state
-#endif
     jmp get_next_command
 clear_note:
     ldy #$04
@@ -840,9 +831,7 @@ initialize_music:
     lda music.outro_pattern_ptr,y
     jmp !next+
 intro_music:
-#if INCLUDE_INTRO
     lda music.intro_pattern_ptr,y
-#endif
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial pattern on all 3 voices.
@@ -888,31 +877,24 @@ intro_music:
 //
 // NOTE: The music is split in to two parts so that we can fit it within the relocatable resource blocks.
 .namespace music {
-    #if INCLUDE_INTRO
     intro_pattern_ptr: // Pointers for intro music pattern list for each voice
         .word intro_pattern_V1_ptr, intro_pattern_V2_ptr, intro_pattern_V3_ptr
-    #endif
     init_pattern_list_ptr: // Initial patterns for both intro and outro music
         .word resources.snd__music_1, resources.snd__music_2, resources.snd__music_3
     outro_pattern_ptr: // Pointers for outro music pattern list for each voice
         .word outro_pattern_V1_ptr, outro_pattern_V2_ptr, outro_pattern_V3_ptr
 
     // Music patternology.
-    #if INCLUDE_INTRO
     intro_pattern_V1_ptr: // Intro music voice 1 pattern list
         .word resources.snd__music_4, resources.snd__music_4, resources.snd__music_10, resources.snd__music_11
         .word resources.snd__music_1
-    #endif
     outro_pattern_V1_ptr:
         .word resources.snd__music_19 // Outro music voice 1 pattern list
-    #if INCLUDE_INTRO
     intro_pattern_V2_ptr: // Intro music voice 2 pattern list
         .word resources.snd__music_5, resources.snd__music_5, resources.snd__music_12, resources.snd__music_13
         .word resources.snd__music_2
-    #endif
     outro_pattern_V2_ptr:
         .word resources.snd__music_21 // Outro music voice 2 pattern list
-    #if INCLUDE_INTRO
     intro_pattern_V3_ptr: // Intro music voice 3 pattern list
         .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
         .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
@@ -922,7 +904,6 @@ intro_music:
         .word resources.snd__music_16, resources.snd__music_16, resources.snd__music_16, resources.snd__music_16
         .word resources.snd__music_17, resources.snd__music_17, resources.snd__music_18, resources.snd__music_18
         .word resources.snd__music_3
-    #endif
     outro_pattern_V3_ptr:
         .word resources.snd__music_20 // Outro music voice 3 pattern list        
 }

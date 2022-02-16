@@ -5,7 +5,8 @@
 
 // 3D52
 // Music notes and commands.
-snd__music_1: // Notes (00 to FA) and commands (FB to FF) for music pattern
+// See comment on `common.play_music` for details on how sound patterns are interpreted.
+snd__music_1:
     .byte SOUND_CMD_SET_DELAY, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2
     .byte $0E, $EF, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $13, $EF, $15, $1F, $16, $60
     .byte $17, $B5
@@ -18,7 +19,6 @@ snd__music_3:
     .byte SOUND_CMD_SET_DELAY, $1C, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
     .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68, $08, $E1, $08, $61, $07, $E9, $07, $77
     .byte SOUND_CMD_NEXT_PATTERN
-#if INCLUDE_INTRO
 snd__music_4:
     .byte SOUND_CMD_NEXT_STATE, SOUND_CMD_SET_DELAY, $70, $19, $1E, SOUND_CMD_SET_DELAY, $38, $12, $D1
     .byte SOUND_CMD_SET_DELAY, $1C, $15, $1F, SOUND_CMD_SET_DELAY, $09, $12, $D1, $11, $C3, SOUND_CMD_SET_DELAY
@@ -96,7 +96,6 @@ snd__music_18:
     .byte $07, $E9, SOUND_CMD_RELEASE_NOTE, $0B, $DA, SOUND_CMD_RELEASE_NOTE, $0F, $D2, SOUND_CMD_RELEASE_NOTE
     .byte $0B, $DA, SOUND_CMD_RELEASE_NOTE
     .byte SOUND_CMD_NEXT_PATTERN
-#endif
 snd__music_19:
     .byte SOUND_CMD_SET_DELAY, $70, $19, $1E
     .byte SOUND_CMD_END

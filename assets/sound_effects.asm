@@ -4,6 +4,7 @@
 //---------------------------------------------------------------------------------------------------------------------
 
 // A15E
+// See comment on `common.play_music` for details on how sound patterns are interpreted.
 snd__effect_walk_large:
     .byte SOUND_CMD_NO_NOTE, $08, $34, SOUND_CMD_NO_NOTE, $20, $03, $81, SOUND_CMD_NO_NOTE, $08, $34
     .byte SOUND_CMD_NO_NOTE, $20, $01, $81
