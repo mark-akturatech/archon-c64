@@ -200,7 +200,7 @@ add_icon_to_board:
     bpl !loop-
     // Load sprites in to graphical memory. Add first 4 frames of the sprite icon set.
     lda #FLAG_ENABLE
-    sta common.sprite.flag__copy_animation_group
+    sta common.sprite.param__is_copy_animation_group
     and game.state.flag__is_light_turn
     sta common.data__icon_set_sprite_frame
     lda #$04

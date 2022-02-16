@@ -87,31 +87,31 @@ BasicUpstart2(entry)
 entry:
     // Configure defaults.
     lda #FLAG_DISABLE
-    sta game.state.flag__ai_player_ctl // Two player
-    sta common.options.cnt__ai_player_selection // Count is used to toggle between 3 options - select 1st option (none)
-    sta common.options.flag__ai_player_ctl // 00=none, 55=light, AA=dark, FF=both
-    lda #PLAYER_LIGHT
-    sta game.state.flag__is_first_player_light // Light player first
+    sta game.state.flag__ai_player_ctl // AI Off - ie Two player
+    sta common.options.cnt__ai_player_selection // Select first AI option (off, AI is light, AI is dark)
+    sta common.options.flag__ai_player_ctl // Select AI player (00=none, 55=light, AA=dark, FF=both)
+    lda #PLAYER_LIGHT_COLOR_STATE
+    sta game.state.data__curr_player_color // Set player color state to light (color 1 - green)
     tsx
     stx private.ptr__stack // Store stack so we can restore it after each game loop (stop memory leaks?)
     lda #FLAG_ENABLE
-    sta intro.flag__enable // Allow intro to be played (is reset after intro plays so that it isn't played again)
-    sta common.flag__pregame_state // First intro state - scrolling logos
+    sta intro.flag__enable // Allow intro to be played (flag is reset after intro plays so that it isn't played again)
+    sta common.flag__pregame_state // Set first intro state - scrolling logos
     .const TWELVE_SECONDS = $03
     lda #TWELVE_SECONDS // Set number of second before game autoplays if no option selected on options page
     sta board.countdown_timer
     //
     lda resources.flag__is_relocated
     bmi !skip+
-    jsr resources.relocate // Relocate loaded resources out graphical memory area
+    jsr resources.relocate // Relocate resources out graphical memory area
 !skip:
     jsr private.init // Configure graphics and interrupts
     // ...
 // 612C
-// The game loop is responsible for initializing the current game. The loop is called after each game phase (on
+// The game loop is responsible for initializing the current game. The loop is called after each game state (on
 // intro start, on option select, on game start and on game restart).
 game_loop:
-    // Ensure each game state starts with reset stack, cleared sound, clean graphics and 00's in all dynamic variables.
+    // Ensure each game state starts with reset stack, cleared sound, clean graphics and 00's in all variables.
     ldx private.ptr__stack
     txs
     jsr common.stop_sound
@@ -138,17 +138,26 @@ game_loop:
     jsr common.clear_sprites
     //
     // Set the initial strength of each icon.
-    // I should explain the board matrix here - the board matrix contains a 2x18 matix of icons in their initial board
-    // position. It contains the 2 full columns of light players and then 2 full columns of dark players.
-    // The matrix uses icon offsets (see constant.asm file for a list of icon offsets). The offset is basically an
+    // I should explain the initial board matrix here - the matrix contains a 2x18 matix of icons in their initial
+    // board square position. It contains 2 full columns of light players and 2 full columns of dark players.
+    // The matrix contains icon offsets (see constant.asm file for a list of icon offsets). The offset is basically an
     // offset in to the sprite resource, so $00 is the first sprite group (Unicorn), $01 the second (Wizard) and so
-    // on.
-    // All other icon matrices are therefore ordered in the same way. So `init_strength` has Unicorn as first byte,
-    // Wizard as second and so on.
-    ldx #(BOARD_TOTAL_NUM_ICONS - 1) // Total number of icons (0 offset)
+    // on. The matrix contains repeated icons (eg there are 7 Knights, 2 Unicorns etc).
+    // There are two types of icon matrices used:
+    // - Type: This matrix contains a byte for each type of icon (eg one byte for Unicorn, one for Knight etc). An
+    //   example here is the initial strength matrix. Every Knight starts with the same strength, so therefore we
+    //   only need to store an initial Knight strength once. The types of matrix are always ordered in offset order.
+    // - Piece: This matrix contains a byte for each piece on the board (eg 7 bytes for Knights as there are 7 Knights
+    //   on the board). An example is the current strength of each icon. These matrix are ordered in the same order
+    //   as the `init_matrix`, which is initial placement order.
+    // When reading from a piece matrix, to find the location within a type matrix we simply use the value in the
+    // piece matrix (the offset) as an offset in the type matrix. Eg we read initial board matrix position $03 and
+    // get a knight offset ($07) and we can then use that value to read the 7th value of any type matrix (eg strength,
+    // string description pointer, movement, speed etc) to get that value for a Knight.
+    ldx #(BOARD_TOTAL_NUM_ICONS - 1) // 0 offset (this means `0 to (x-1)` instead of `1 to x`)
 !loop:
     ldy board.icon.init_matrix,x
-    lda game.icon.init_strength,y
+    lda game.icon.init_strength,y 
     sta game.curr_icon_strength,x
     dex
     bpl !loop-
@@ -160,6 +169,8 @@ game_loop:
     sta common.flag__enable_next_state // Force any running interrupt routines to exit
     //
     // Clear board square occupancy data.
+    // The occupancy matrix is used to keep track of which icon is in which sqaure. Clearing this data effectively
+    // removes all icons from the board.
     ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
     sta board.curr_square_occupancy,x
@@ -168,11 +179,23 @@ game_loop:
     //
     sta game.imprisoned_data__icon_id_list // Clear imprisoned icon (light player)
     sta game.imprisoned_data__icon_id_list+1 // Clear imprisoned icon (dark player)
-    lda game.state.flag__is_first_player_light // Set first player
-    sta game.state.flag__is_light_turn // Set current turn (first player)
+    //
+    // Swap player's turn.
+    // The game uses $55 to represent light player and $AA for dark. The reason is that the value can be written to
+    // the board border character dot data to represent color 1 (green) or color 2 (blue) to indicate the current
+    // player. This is pretty clever - it is how they change the board border color (the ring of characters around
+    // the game board) by effectively writing a few bytes in to the character dot data.
+    // However, most FALSE/TRUE flags use <$80 for FALSE and >=$80 for TRUE (so can use BMI/BPL). Therefore, copying
+    // the player color (eg $55 for light) to `flag__is_light_turn` effectively puts FALSE in this flag therefore
+    // indicating that it is the dark players turn.
+    lda game.state.data__curr_player_color
+    sta game.state.flag__is_light_turn
     //
     // Set default board phase color.
-    .const MIDDLE_PHASE = 3 // There are 8 phases with 0 being the darked and 7 the lighted. 3 is in the middle(ish).
+    // There are 8 phases (well 6 to be precise - read below) with 0 being the darkesy and 7 the lightest. 3 is in
+    // the middle(ish) but slightly on the
+    // dark side.
+    .const MIDDLE_PHASE = 3
     ldy #MIDDLE_PHASE
     lda board.data.color_phase,y // Purple
     sta game.curr_color_phase 
@@ -211,26 +234,41 @@ game_loop:
     beq !skip+
     jsr board_walk.entry
 !skip:
+    // Default to copying individual icon frames only when creating a sprite set for a selected icon when using
+    // the `add_sprite_to_graphics` function.
+    // An animation group contains animations for movement in all directions, attack animation and projectile
+    // animations.
+    // We only need the full sprite sets in the battle arena, so for now, we'll default this feature to off.
+    lda #FLAG_DISABLE
+    sta common.sprite.param__is_copy_animation_group
     //
     lda #FLAG_DISABLE
-    sta common.sprite.flag__copy_animation_group // Animation groups only copied in challenge
-    lda #FLAG_DISABLE // Not necessary
     sta intro.flag__enable // Don't play intro again
     lda TIME+1
-    sta game.last_stored_time // Store time - used to start game if timeout on options page
+    sta game.last_stored_time // Store time - used to start an AI vs AI game if we timeout on the options page
     //
     // Clear used spell flags.
     .const NUMBER_SPELLS = 7
-    ldx #(NUMBER_SPELLS*2-1) // Total spells (14 total - zero based)
+    ldx #(NUMBER_SPELLS*2-1) // (0 based)
     lda #SPELL_UNUSED
 !loop:
     sta magic.flag__light_used_spells,x
     dex
     bpl !loop-
     //
-    // Set the board - This is done by setting each square to an index into the initial matrix which stores the icon in
-    // column 1, 2 each row for light player and then repeated for dark player. The code below reads the sets two icons
-    // in the row, clears the next 5 and then sets the last 2 icons and repeats for each row.
+    // Set the board by placing an index in to `board.init_matrix` list in each initially occupied square. The initial
+    // matrix contains a list of all icons in the correct board order (light in top part of list, dark in bottom).
+    // Therefore, writing 00 in square 1 will add a Valkyrie (first item in the init_matrix), 01 an archer and so on.
+    // The below creates a board occupancy matrix as follows (where $80 is empty):
+    //   00 01 80 80 80 80 80 12 13
+    //   02 03 80 80 80 80 80 14 15
+    //   04 05 80 80 80 80 80 16 17
+    //   06 07 80 80 80 80 80 18 19
+    //   08 09 80 80 80 80 80 1A 1B
+    //   0A 0B 80 80 80 80 80 1C 1D
+    //   0C 0D 80 80 80 80 80 1E 1F
+    //   0E 0F 80 80 80 80 80 20 21
+    //   10 11 80 80 80 80 80 22 23
     lda #BOARD_NUM_PLAYER_ICONS
     sta private.idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
     lda #$00
@@ -266,25 +304,35 @@ game_loop:
     cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
     bcc !row_loop-
     //
-    // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), the we cannot
-    // select a true "middle" starting point for the game (as we havve an even number of phases). Instead, we choose
-    // the phase on the darker side if light is first or the lighter side if dark is first. This should
-    // reduce any advantage that the first player has.
+    lda game.state.data__curr_player_color // 55 for light, aa for dark
+    eor #$FF // So now we have >=$80 for light and <$80 for dark player
+    sta game.flag__is_phase_towards_dark // Phase state and direction
+    sta game.state.flag__is_light_turn // Set current player
+    //
+    // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), therefore we cannot
+    // select a true "middle" starting point for the game (as we have an even number of phases). Instead, we choose
+    // the phase on the darker side if light is first or the lighter side if dark is first. This should reduce any
+    // advantage that the first player has.
     // Further, the phase direction (from light to dark or vice versa) starts in the favor of the second player.
     // The phase starts in the direction of light to dark if light is first and dark to light if dark is first.
-    lda game.state.flag__is_first_player_light
-    eor #$FF
-    sta game.flag__phase_direction_board // Phase state and direction (lighter if dark first, darker if light first)
-    sta game.state.flag__is_light_turn // Set current player // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WHY IS IT INVERTED
-    // Set starting board color.
-    lda #$06 // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! FIGURE OUT WHY / 2
+    // OK, lets explain phases here... the game transitions between phases as time goes on. On the board, the phases
+    // go from light to dark and then dark to light and light to dark again and so on. The phases are used to show the
+    // color in the middle of the board. A light player is stronger in light phases and vice versa. Phases are also
+    // used in the battle arena to add, remove and change obstacles within the arena.
+    // The phases count up in increments of 2 (ie 0, 2, 6, 8, C and E). This is to simplify the logic within the
+    // battle arena. However for the board phases, we really want to step up in increments of 1. So here we have to
+    // divide the phase by 2 to determine the phase color index.
+    // Oh and notice it jumps from 2 to 6 and 8 to C - there are two phases (and 2 colors) that arent used at all.
+    // These can be enabled and the game works with 2 additional board and arena obstacle colors which is cool.
+    .const LIGHT_PHASE_X2 = 06
+    lda #LIGHT_PHASE_X2
     ldy game.state.flag__is_light_turn
     bpl !next+
     clc
-    adc #$02
+    adc #$02 // Make phase darker
 !next:
-    sta game.data__phase_cycle_board // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WHY IS PHASE 2x!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    lsr
+    sta game.data__phase_cycle_board
+    lsr // Remember we need to divide by 2 to get the color index
     tay
     lda board.data.color_phase,y
     sta game.curr_color_phase // Purple if light first, green if dark first
@@ -295,11 +343,11 @@ game_loop:
 
 // 4766
 // Copies the game state pointers (into, game, challenge) to data memory. The pointers are called at the end of each
-// game loop (ie the intro end, a player turn completes or a challenge completes). I assume the addresses are copied
-// so that they can be dynamically replaced while debugging.
+// game state (ie the intro end, a player turn completes or a challenge completes). I assume the addresses are copied
+// so that they can be replaced while debugging.
 prep_game_states:
     .const NUMBER_GAME_STATES = 3
-    ldx #(NUMBER_GAME_STATES * 2 - 1) // Zero based
+    ldx #(NUMBER_GAME_STATES * 2 - 1) // (0 based)
 !loop:
     lda private.ptr__game_state_fn_list_source,x
     sta private.ptr__game_state_fn_list,x
@@ -408,7 +456,7 @@ play_intro:
 
     // BC8B
     // Since this routine is at the end of the application, I am guessing this function allows additional debugging
-    // code to be added in runtime. 
+    // code to be added in runtime without overwriting used memory/code. 
     // Requires:
     // - A: Low byte of interrupt interceptor function memory address
     // Sets:

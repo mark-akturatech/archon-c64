@@ -1485,7 +1485,7 @@ ptr__sound_game_effect_list:
 
     // BCC2
     // Is positive (55) for light, negative (AA) for dark.
-    flag__is_first_player_light: .byte $00
+    data__curr_player_color: .byte $00
 
     // BCC6
     // Is positive for light, negative for dark.
@@ -1503,7 +1503,7 @@ flag__phase_direction:
     .byte $00
     .byte $00
 // Color phase direction (<$80: light to dark; >=$80: dark to light)
-flag__phase_direction_board:
+flag__is_phase_towards_dark:
     .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1674,7 +1674,7 @@ data__icon_counter: .byte $00
 last_stored_time: .byte $00
 
 // BF3D
-// State cycle counters (counts up and down using numbers 0, 2, 6, 8, E and C).
+// State cycle counters (counts up and down using numbers 0, 2, 6, 8, C and E).
 data__phase_cycle: 
     .byte $00
     .byte $00

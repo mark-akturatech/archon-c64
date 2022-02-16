@@ -65,7 +65,7 @@ entry:
     import_sprites:
         // Copy in icon frames for chase scene
         lda #FLAG_ENABLE
-        sta common.sprite.flag__copy_animation_group
+        sta common.sprite.param__is_copy_animation_group
         lda #BYTERS_PER_STORED_SPRITE
         sta common.sprite.copy_length
         lda common.sprite.mem_ptr_24

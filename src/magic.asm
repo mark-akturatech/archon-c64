@@ -155,9 +155,9 @@ end_spell_selection:
 
 // 68C5
 spell_select_shift_time:
-    lda game.flag__phase_direction_board
+    lda game.flag__is_phase_towards_dark
     eor #$FF
-    sta game.flag__phase_direction_board
+    sta game.flag__is_phase_towards_dark
     lda #STRING_REVERED_TIME
     bpl end_spell_selection
 

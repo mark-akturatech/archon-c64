@@ -27,8 +27,8 @@
 // Flag constants
 .const FLAG_DISABLE = $00; // Off
 .const FLAG_ENABLE = $80; // Enabled
-.const PLAYER_LIGHT = $55
-.const PLAYER_DARK = $AA
+.const PLAYER_LIGHT_COLOR_STATE = $55 // Value loaded in to character dot data to represent character color 1
+.const PLAYER_DARK_COLOR_STATE = $AA // Value loaded in to character dot data to represent character color 2
 
 // Phase cycle constants
 .const PHASE_CYCLE_LENGTH = $0E // Length of colour cycle (7 colors forward, then 7 colors in reverse)

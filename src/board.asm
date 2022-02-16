@@ -42,7 +42,7 @@ test_magic_square_selected:
     pha
     lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
     sta game.flag__icon_destination_valid
-    ldy #$04 // 5 magic squares (zero based)
+    ldy #$04 // 5 magic squares (0 based)
 !loop:
     lda data.magic_square_col,y
     cmp data__curr_row
@@ -169,7 +169,7 @@ display_two_player:
     lda #STRING_F5
     jsr write_text
     lda #STRING_LIGHT
-    ldy game.state.flag__is_first_player_light
+    ldy game.state.data__curr_player_color
     bpl !next+
     lda #STRING_DARK
 !next:

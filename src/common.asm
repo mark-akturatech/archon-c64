@@ -41,9 +41,9 @@ process_key:
     cmp #KEY_F5
     bne !next+
     // Toggle first player.
-    lda game.state.flag__is_first_player_light
+    lda game.state.data__curr_player_color
     eor #$FF
-    sta game.state.flag__is_first_player_light
+    sta game.state.data__curr_player_color
     jsr advance_intro_state
     jmp main.game_loop
 !next:
@@ -65,7 +65,7 @@ set_num_players:
     // This just gets a flag that is 55 for light, AA for dark and 0 for no AI. The flag has two purposes: we can
     // use beq, bpl, bmi to test the tri-state and also 55 and AA are used to set the color used by the board border
     // to represent the current player.
-    lda game.state.flag__is_first_player_light
+    lda game.state.data__curr_player_color
     cmp options.flag__ai_player_ctl
     bne !next+
     eor #$FF
@@ -354,7 +354,7 @@ add_sprite_to_graphics:
     lda sprite.copy_source_hi_ptr,x
     adc sprite.frame_offset+1,y
     sta FREEZP+1
-    lda sprite.flag__copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
+    lda sprite.param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
     bmi move_sprite
     cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light bullets, 3 for dark bullets
     bcc move_sprite
@@ -1088,7 +1088,7 @@ flag__pregame_state: .byte $00
     copy_length: .byte $00 // Number of bytes to copy for the given sprite
 
     // BF49
-    flag__copy_animation_group: .byte $00 // Set #$80 to copy individual icon frame in to graphical memory
+    param__is_copy_animation_group: .byte $00 // Set #$80 to copy individual icon frame in to graphical memory
 }
 
 .namespace sound {
