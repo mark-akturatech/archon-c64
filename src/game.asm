@@ -1296,7 +1296,7 @@ display_message:
     txa
     pha
     ldx #CHARS_PER_SCREEN_ROW
-    lda message_id
+    lda flag__new_square_selected
     and #$7F
     jsr board.write_text
     pla
@@ -1555,10 +1555,6 @@ imprisoned_data__icon_id_list: .byte $00, $00
 // BD3D
 // Is set to non-zero if a new board square was selected.
 flag__new_square_selected: .byte $00
-
-// BD3D
-// ID of selected spell used as an offset when calling spell logic
-message_id: .byte $00
 
 // BD55
 // Interrrupt response saved after interrupt was completed.

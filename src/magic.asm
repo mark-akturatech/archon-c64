@@ -94,7 +94,7 @@ config_used_spell_ptr:
 // 6843
 spell_select_teleport:
     lda #STRING_TELEPORT_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
     sta game.curr_icon_total_moves
@@ -112,7 +112,7 @@ spell_select_teleport:
     jmp skip_teleport_message
 !next:
     lda #STRING_TELEPORT_WHERE
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
 skip_teleport_message:
     ldy board.data__curr_board_row
@@ -133,7 +133,7 @@ skip_teleport_message:
 // 6899
 spell_select_heal:
     lda #STRING_HEAL_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
     sta game.curr_icon_total_moves
@@ -147,7 +147,7 @@ spell_select_heal:
 
 // 68B9
 end_spell_selection:
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     ldx #$80 // ~2 sec
     jsr common.wait_for_jiffy
@@ -164,7 +164,7 @@ spell_select_shift_time:
 // 68D1
 spell_select_exchange:
     lda #STRING_TRANSPOSE_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #$FF // Clear selected icon
     sta common.data__icon_type
@@ -180,7 +180,7 @@ spell_select_exchange:
     lda common.data__icon_type
     sta temp_selected_icon_store // First selected icon
     lda #STRING_EXCHANGE_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #ACTION_SELECT_ICON
     jsr spell_select_destination
@@ -310,8 +310,8 @@ allow_summon_elemental:
     cmp game.flag__is_light_turn
     beq !next+
     lda #STRING_SEND_WHERE
-    sta game.message_id
-    sta temp_message_id_store
+    sta game.flag__new_square_selected
+    sta temp_flag__new_square_selected_store
     jsr game.display_message
 !next:
     lda common.idx__icon_offset
@@ -440,7 +440,7 @@ check_dead_type_loop:
     jsr board.render_sprite
     // Allow user to select a dead icon.
     lda #STRING_REVIVE_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #$00
     sta game.curr_icon_total_moves
@@ -458,8 +458,8 @@ check_dead_type_loop:
     sta common.data__icon_type
     tax
     lda #STRING_CHARMED_WHERE
-    sta game.message_id
-    sta temp_message_id_store
+    sta game.flag__new_square_selected
+    sta temp_flag__new_square_selected_store
     jsr game.display_message
     ldy common.idx__icon_offset
     lda game.data__icon_strength_list,y
@@ -549,7 +549,7 @@ spell_select_imprison:
     beq display_spell_wasted
     //
     lda #STRING_IMPRISON_WHICH
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     lda #$00 // Immediately return after selection (ie don't allow selected icon to be moved)
     sta game.curr_icon_total_moves
@@ -566,7 +566,7 @@ spell_select_imprison:
     jmp end_spell_selection
 display_spell_wasted:
     lda #STRING_SPELL_WASTED
-    sta game.message_id
+    sta game.flag__new_square_selected
     jsr game.display_message
     jmp spell_complete
 
@@ -728,8 +728,8 @@ spell_select_destination:
     // Summon elemental or revive spell
     ldx #$40 // ~1 sec
     jsr common.wait_for_jiffy
-    lda temp_message_id_store
-    sta game.message_id
+    lda temp_flag__new_square_selected_store
+    sta game.flag__new_square_selected
     jsr game.display_message
     jmp !loop-
 complete_destination_selection:
@@ -1039,7 +1039,7 @@ prt__spell_fn: .word $0000
 
 // BD71
 // Temporary message ID storage.
-temp_message_id_store: .byte $00
+temp_flag__new_square_selected_store: .byte $00
 
 // BD7B
 // Temporary counter storage.
