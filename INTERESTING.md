@@ -7,7 +7,7 @@
 - Press `F7` will immediately start the game with default options (2 player, light first).
 - Memory address `$A907` has 40 empty characters (`$00`) that are displayed under the author's names. This can be easily modified to display any message you want (up to one line long).
 - The intro has it's own character set (although only half a set). It is used to draw the EA and Free fall logos.
-- The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc). 
+- The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc).
 
 ## Sprites
 
@@ -38,7 +38,7 @@
   The additional colors can be enabled by writing a `$00` to addresses `$6599` and `$65D0`.
 - You can draw a game if the last two icons challenge and both kill each other in battle.
 - You can stalemate a game if both players have 3 or less icons and a challenge hasn't occured within 12 rounds.
-- Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc. 
+- Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc.
 The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golumns.
   The icon offsets are defined below:
   ```

@@ -1,12 +1,12 @@
 .filenamespace common
 //---------------------------------------------------------------------------------------------------------------------
-// Contains common routines used by intro, board and battle arena states.
+// Common routines used by intro, board and battle arena states.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Common
 
 // 638E
 // Description:
-// - Complete the current interrupt by restoring the registers pushed on to the stack by the 
+// - Complete the current interrupt by restoring the registers pushed on to the stack by the
 complete_interrupt:
     pla
     tay
@@ -34,16 +34,16 @@ process_key:
     lda #FLAG_DISABLE
     sta board.countdown_timer
     sta flag__pregame_state
-    lda options.flag__ai_player_ctl
-    sta game.state.flag__ai_player_ctl
+    lda flag__ai_player_selection
+    sta game.flag__ai_player_ctl
     jmp main.game_loop
 !next:
     cmp #KEY_F5
     bne !next+
     // Toggle first player.
-    lda game.state.data__curr_player_color
+    lda game.data__curr_player_color
     eor #$FF
-    sta game.state.data__curr_player_color
+    sta game.data__curr_player_color
     jsr advance_intro_state
     jmp main.game_loop
 !next:
@@ -52,26 +52,26 @@ process_key:
     rts
 set_num_players:
     // Toggle between two players, player light, player dark
-    lda options.cnt__ai_player_selection
+    lda cnt__ai_selection
     clc
     adc #$01 // Not sure why we just don't `inc` here instead of adding
     cmp #$03
     bcc !next+
     lda #$00
 !next:
-    sta options.cnt__ai_player_selection
+    sta cnt__ai_selection
     cmp #$00
     beq !next+
     // This just gets a flag that is 55 for light, AA for dark and 0 for no AI. The flag has two purposes: we can
     // use beq, bpl, bmi to test the tri-state and also 55 and AA are used to set the color used by the board border
     // to represent the current player.
-    lda game.state.data__curr_player_color
-    cmp options.flag__ai_player_ctl
+    lda game.data__curr_player_color
+    cmp flag__ai_player_selection
     bne !next+
     eor #$FF
 !next:
-    sta game.state.flag__ai_player_ctl
-    sta options.flag__ai_player_ctl
+    sta game.flag__ai_player_ctl
+    sta flag__ai_player_selection
     jsr advance_intro_state
     jmp main.game_loop
 
@@ -112,27 +112,27 @@ advance_intro_state:
 // - Determine sprite source data address for a given icon, set the sprite color and direction and enable.
 // Prerequisites:
 // - X: Sprite number (0 - 4)
-// - `icon.offset,x`: contains the sprite group pointer offset (see `sprite.icon_offset` for details).
-// - `icon.type,x`: contains the sprite icons type.
+// - `idx__icon_offset,x`: contains the sprite group pointer offset (see `ptr__icon_sprite_mem_offset_list` for details).
+// - `data__icon_type,x`: contains the sprite icons type.
 // Sets:
-// - `sprite.copy_source_lo_ptr`: Lo pointer to memory containing the sprite definition start address.
-// - `sprite.copy_source_hi_ptr`: Hi pointer to memory containing the sprite definition start address.
-// - `sprite.init_animation_frame`: set to #$00 for right facing icons and #$11 for left facing.
+// - `ptr__sprite_source_lo_list`: Lo pointer to memory containing the sprite definition start address.
+// - `ptr__sprite_source_hi_list`: Hi pointer to memory containing the sprite definition start address.
+// - `param__sprite_source_frame`: set to #$00 for right facing icons and #$11 for left facing.
 // - Sprite + X is enabled and color configured
 sprite_initialize:
-    lda icon.offset,x
+    lda idx__icon_offset,x
     asl
     tay
-    lda sprite.icon_offset,y
-    sta sprite.copy_source_lo_ptr,x
-    lda sprite.icon_offset+1,y
-    sta sprite.copy_source_hi_ptr,x
-    lda icon.type,x
+    lda ptr__icon_sprite_mem_offset_list,y
+    sta ptr__sprite_source_lo_list,x
+    lda ptr__icon_sprite_mem_offset_list+1,y
+    sta ptr__sprite_source_hi_list,x
+    lda data__icon_type,x
     cmp #AIR_ELEMENTAL // Is sprite an elemental?
     bcc !next+
     and #$03
     tay
-    lda sprite.elemental_color,y
+    lda data__elemental_icon_color_list,y
     bpl intialize_enable_sprite
 !next:
     ldy #$00 // Set Y to 0 for light icon, 1 for dark icon
@@ -140,18 +140,18 @@ sprite_initialize:
     bcc !next+
     iny
 !next:
-    lda sprite.icon_color,y
+    lda data__player_icon_color_list,y
 intialize_enable_sprite:
     sta SP0COL,x
-    lda math.pow2,x
+    lda data__math_pow2,x
     ora SPENA
     sta SPENA
-    lda icon.offset,x
+    lda idx__icon_offset,x
     and #$08 // Icons with bit 8 set are dark icons
     beq !next+
     lda #$11 // Left facing icon
 !next:
-    sta sprite.init_animation_frame,x
+    sta param__sprite_source_frame,x
     rts
 
 // 6490
@@ -214,15 +214,15 @@ stop_sound:
     txa
     asl
     tay
-    lda sound.voice_io_addr,y
+    lda ptr__voice_ctl_addr_list,y
     sta FREEZP+2
-    lda sound.voice_io_addr+1,y
+    lda ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
     ldy #$04
     lda #$00
     sta (FREEZP+2),y
-    sta sound.flag__enable_voice,x
-    sta sound.new_note_delay,x
+    sta flag__enable_player_sound,x
+    sta data__voice_note_delay,x
     dex
     bpl !loop-
     rts
@@ -259,10 +259,10 @@ add_sprite_set_to_graphics:
     txa
     asl
     tay
-    lda sprite.mem_ptr_00,y
+    lda ptr__sprite_00_mem,y
     sta FREEZP+2
-    sta _ptr__sprite_mem_lo
-    lda sprite.mem_ptr_00+1,y
+    sta ptr__sprite_mem_lo
+    lda ptr__sprite_00_mem+1,y
     sta FREEZP+3
     cpx #$02
     bcc add_icon_frames_to_graphics // Copy icon or projectile frames?
@@ -270,7 +270,7 @@ add_sprite_set_to_graphics:
     txa
     and #$01
     tay
-    lda icon.offset,y
+    lda idx__icon_offset,y
     and #$07
     cmp #$06
     bne add_projectile_frames_to_graphics // Banshee/Phoenix?
@@ -328,10 +328,10 @@ skip_frames_84_to_8C:
     sta data__icon_set_sprite_frame
 add_next_frame_to_graphics:
     // Incremement frame grpahics pointer to point to next sprite memory location.
-    lda _ptr__sprite_mem_lo
+    lda ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
-    sta _ptr__sprite_mem_lo
+    sta ptr__sprite_mem_lo
     sta FREEZP+2
     bcc add_individual_frame_to_graphics
     inc FREEZP+3
@@ -347,14 +347,14 @@ add_sprite_to_graphics:
     // This is done by first reading the sprite source offset of the icon set and then adding the frame offset.
     asl
     tay
-    lda sprite.frame_offset,y
+    lda data__icon_sprite_frame_mem_offset_list,y
     clc
-    adc sprite.copy_source_lo_ptr,x
+    adc ptr__sprite_source_lo_list,x
     sta FREEZP
-    lda sprite.copy_source_hi_ptr,x
-    adc sprite.frame_offset+1,y
+    lda ptr__sprite_source_hi_list,x
+    adc data__icon_sprite_frame_mem_offset_list+1,y
     sta FREEZP+1
-    lda sprite.param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
+    lda param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
     bmi move_sprite
     cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light bullets, 3 for dark bullets
     bcc move_sprite
@@ -364,12 +364,12 @@ add_sprite_to_graphics:
     // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
     and #$01
     tay
-    lda icon.offset,y
+    lda idx__icon_offset,y
     and #$07
     cmp #$06
     bne !next+
     lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 255 (0 offset)
-    sta sprite.copy_length
+    sta param__sprite_source_size
     jmp move_sprite
 !next:
     // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
@@ -395,7 +395,7 @@ no_invert_attack_frame:
     inc FREEZP+2
     inc FREEZP+2
     iny
-    cpy sprite.copy_length
+    cpy param__sprite_source_size
     bcc !loop-
     rts
 move_sprite:
@@ -406,7 +406,7 @@ move_sprite:
     lda (FREEZP),y
     sta (FREEZP+2),y
     iny
-    cpy sprite.copy_length
+    cpy param__sprite_source_size
     bcc !loop-
     rts
 // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
@@ -452,7 +452,7 @@ move_sprite_and_invert:
     lda data__temp_storage+5
     sta (FREEZP+2),y
     iny
-    cpy sprite.copy_length
+    cpy param__sprite_source_size
     bcc move_sprite_and_invert
     rts
 invert_bytes:
@@ -515,9 +515,9 @@ wait_for_key:
 // Sets:
 // - Clears the 56th and 57th sprite position graphical memory (with 00).
 clear_mem_sprite_56_57:
-    lda sprite.mem_ptr_56
+    lda ptr__sprite_56_mem
     sta FREEZP+2
-    lda sprite.mem_ptr_56+1
+    lda ptr__sprite_56_mem+1
     sta FREEZP+3
     lda #$00
     ldy #(BYTES_PER_SPRITE*2)
@@ -533,9 +533,9 @@ clear_mem_sprite_56_57:
 // Sets:
 // - Clears the 48th sprite position graphical memory (with 00).
 clear_mem_sprite_48:
-    lda sprite.mem_ptr_48
+    lda ptr__sprite_48_mem
     sta FREEZP+2
-    lda sprite.mem_ptr_48+1
+    lda ptr__sprite_48_mem+1
     sta FREEZP+3
     ldy #(BYTES_PER_SPRITE-1)
     lda #$00
@@ -551,9 +551,9 @@ clear_mem_sprite_48:
 // Sets:
 // - Clears the 24th sprite position graphical memory (with 00).
 clear_mem_sprite_24:
-    lda sprite.mem_ptr_24
+    lda ptr__sprite_24_mem
     sta FREEZP+2
-    lda sprite.mem_ptr_24+1
+    lda ptr__sprite_24_mem+1
     sta FREEZP+3
     ldy #(BYTES_PER_SPRITE - 1)
     lda #$00
@@ -614,30 +614,30 @@ play_music:
     txa
     asl
     tay
-    lda sound.note_data_fn_ptr,y
-    sta sound.voice_note_fn_ptr
-    lda sound.note_data_fn_ptr+1,y
-    sta sound.voice_note_fn_ptr+1
-    lda sound.voice_io_addr,y
+    lda ptr__voice_play_fn_list,y
+    sta prt__voice_note_fn
+    lda ptr__voice_play_fn_list+1,y
+    sta prt__voice_note_fn+1
+    lda ptr__voice_ctl_addr_list,y
     sta FREEZP+2
-    lda sound.voice_io_addr+1,y
+    lda ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
-    lda sound.pattern_data_fn_ptr,y
-    sta sound.curr_pattern_data_fn_ptr
-    lda sound.pattern_data_fn_ptr+1,y
-    sta sound.curr_pattern_data_fn_ptr+1
+    lda ptr__voice_pattern_fn_list,y
+    sta prt__voice_pattern_data
+    lda ptr__voice_pattern_fn_list+1,y
+    sta prt__voice_pattern_data+1
     //
-    lda sound.note_delay_counter,x
+    lda cnt__voice_note_delay,x
     beq delay_done
     cmp #$02
     bne decrease_delay
     // Release note just before delay expires.
-    lda sound.curr_voice_ctl,x
+    lda data__voice_control,x
     and #%1111_1110
     ldy #$04
     sta (FREEZP+2),y
 decrease_delay:
-    dec sound.note_delay_counter,x
+    dec cnt__voice_note_delay,x
     bne skip_command
 delay_done:
     jsr get_next_command
@@ -676,7 +676,7 @@ get_next_command:
     // then loads that in to the voice lo frequency control.
     pha
     ldy #$04
-    lda sound.curr_voice_ctl,x
+    lda data__voice_control,x
     and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
     ldy #$01
@@ -702,27 +702,27 @@ clear_note:
     jmp !return+
 set_delay:
     jsr get_note
-    sta sound.new_note_delay,x
+    sta data__voice_note_delay,x
     jmp get_next_command
 release_note:
     ldy #$04
-    lda sound.curr_voice_ctl,x
+    lda data__voice_control,x
     and #%1111_1110 // Start gate release on current note
     sta (FREEZP+2),y
 set_note:
     ldy #$04
-    lda sound.curr_voice_ctl,x // Set default note control value for voice
+    lda data__voice_control,x // Set default note control value for voice
     sta (FREEZP+2),y
 !return:
-    lda sound.new_note_delay,x
-    sta sound.note_delay_counter,x
+    lda data__voice_note_delay,x
+    sta cnt__voice_note_delay,x
     rts
 
 // A13E
 // Read note from current music loop and increment the note pointer.
 get_note: // Get note for current voice and increment note pointer
     ldy #$00
-    jmp (sound.voice_note_fn_ptr)
+    jmp (prt__voice_note_fn)
 
 // A143
 get_note_V1: // Get note for voice 1 and increment note pointer
@@ -753,7 +753,7 @@ get_note_V3: // Get note for voice 3 and increment note pointer
 // Read a pattern for the current music loop and increment the pattern pointer.
 get_next_pattern: // Get pattern for current voice and increment pattern pointer
     ldy #$00
-    jmp (sound.curr_pattern_data_fn_ptr)
+    jmp (prt__voice_pattern_data)
 
 // ACDFD
 get_pattern_V1: // Get pattern for voice 1 and increment pattern pointer
@@ -826,16 +826,16 @@ initialize_music:
     // Configure music pointers.
     ldy #$05
 !loop:
-    lda sound.flag__play_outro
+    lda param__is_play_outro
     bpl intro_music
-    lda music.outro_pattern_ptr,y
+    lda ptr__outro_voice_init_pattern_list,y
     jmp !next+
 intro_music:
-    lda music.intro_pattern_ptr,y
+    lda ptr__intro_voice_init_pattern_list,y
 !next:
     sta VARTAB,y
     // Both intro and outro music start with the same initial pattern on all 3 voices.
-    lda music.init_pattern_list_ptr,y
+    lda ptr__common_voice_init_pattern_list,y
     sta OLDTXT,y
     dey
     bpl !loop-
@@ -843,21 +843,21 @@ intro_music:
     ldx #$02
 !loop:
     lda #$00
-    sta sound.note_delay_counter,x
+    sta cnt__voice_note_delay,x
     txa
     asl
     tay
-    lda sound.voice_io_addr,y
+    lda ptr__voice_ctl_addr_list,y
     sta FREEZP+2
-    lda sound.voice_io_addr+1,y
+    lda ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
     ldy #$06
-    lda sound.sustain,x
+    lda data__voice_sustain_value_list,x
     sta (FREEZP+2),y
-    lda sound.control,x
-    sta sound.curr_voice_ctl,x
+    lda data__voice_control_value_list,x
+    sta data__voice_control,x
     dey
-    lda sound.attack,x
+    lda data__voice_attack_value_list,x
     sta (FREEZP+2),y
     dex
     bpl !loop-
@@ -876,260 +876,256 @@ intro_music:
 // When the pattern finishes, it looks at the next pattern in the list and continues until a FE command is reached.
 //
 // NOTE: The music is split in to two parts so that we can fit it within the relocatable resource blocks.
-.namespace music {
-    intro_pattern_ptr: // Pointers for intro music pattern list for each voice
-        .word intro_pattern_V1_ptr, intro_pattern_V2_ptr, intro_pattern_V3_ptr
-    init_pattern_list_ptr: // Initial patterns for both intro and outro music
-        .word resources.snd__music_1, resources.snd__music_2, resources.snd__music_3
-    outro_pattern_ptr: // Pointers for outro music pattern list for each voice
-        .word outro_pattern_V1_ptr, outro_pattern_V2_ptr, outro_pattern_V3_ptr
+//
+// Pointers for intro music pattern list for each voice.
+ptr__intro_voice_init_pattern_list:
+    .word ptr__intro_voice1_pattern_list, ptr__intro_voice2_pattern_list, ptr__intro_voice3_pattern_list
+//
+// Initial patterns for both intro and outro music.
+// After this pattern is played, the music will continue to play the intro or outro patters as required.
+ptr__common_voice_init_pattern_list:
+    .word resources.snd__music_1, resources.snd__music_2, resources.snd__music_3
+//
+// Pointers for outro music pattern list for each voice.
+ptr__outro_voice_init_pattern_list:
+    .word ptr__outro_voice1_pattern_list, ptr__outro_voice2_pattern_list, ptr__outro_voice3_pattern_list
 
-    // Music patternology.
-    intro_pattern_V1_ptr: // Intro music voice 1 pattern list
-        .word resources.snd__music_4, resources.snd__music_4, resources.snd__music_10, resources.snd__music_11
-        .word resources.snd__music_1
-    outro_pattern_V1_ptr:
-        .word resources.snd__music_19 // Outro music voice 1 pattern list
-    intro_pattern_V2_ptr: // Intro music voice 2 pattern list
-        .word resources.snd__music_5, resources.snd__music_5, resources.snd__music_12, resources.snd__music_13
-        .word resources.snd__music_2
-    outro_pattern_V2_ptr:
-        .word resources.snd__music_21 // Outro music voice 2 pattern list
-    intro_pattern_V3_ptr: // Intro music voice 3 pattern list
-        .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
-        .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
-        .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
-        .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
-        .word resources.snd__music_14, resources.snd__music_15, resources.snd__music_15, resources.snd__music_15
-        .word resources.snd__music_16, resources.snd__music_16, resources.snd__music_16, resources.snd__music_16
-        .word resources.snd__music_17, resources.snd__music_17, resources.snd__music_18, resources.snd__music_18
-        .word resources.snd__music_3
-    outro_pattern_V3_ptr:
-        .word resources.snd__music_20 // Outro music voice 3 pattern list        
-}
+// Music patternology.
+// Intro music voice 1 pattern list.
+ptr__intro_voice1_pattern_list:
+    .word resources.snd__music_4, resources.snd__music_4, resources.snd__music_10, resources.snd__music_11
+    .word resources.snd__music_1
+// Outro music voice 1 pattern list.
+ptr__outro_voice1_pattern_list:
+    .word resources.snd__music_19 
+// Intro music voice 2 pattern list.
+ptr__intro_voice2_pattern_list:
+    .word resources.snd__music_5, resources.snd__music_5, resources.snd__music_12, resources.snd__music_13
+    .word resources.snd__music_2
+ptr__outro_voice2_pattern_list:
+// Outro music voice 2 pattern list.
+    .word resources.snd__music_21
+// Intro music voice 3 pattern list.
+ptr__intro_voice3_pattern_list:
+    .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
+    .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
+    .word resources.snd__music_6, resources.snd__music_7, resources.snd__music_7, resources.snd__music_7
+    .word resources.snd__music_8, resources.snd__music_8, resources.snd__music_9, resources.snd__music_9
+    .word resources.snd__music_14, resources.snd__music_15, resources.snd__music_15, resources.snd__music_15
+    .word resources.snd__music_16, resources.snd__music_16, resources.snd__music_16, resources.snd__music_16
+    .word resources.snd__music_17, resources.snd__music_17, resources.snd__music_18, resources.snd__music_18
+    .word resources.snd__music_3
+// Outro music voice 3 pattern list.
+ptr__outro_voice3_pattern_list:
+    .word resources.snd__music_20
 
-.namespace math {
-    // 8DC3
-    pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
-}
+// 8B27
+// Source offset of the first frame of each icon sprite. An icon set comprises of multiple sprites (nominally 15)
+// to provide animations for each direction and action. One icon, the Shape Shifter, comprises only 10 sprites
+// though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
+ptr__icon_sprite_mem_offset_list:
+    // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
+    .fillword 13, resources.prt__sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
+    // DG
+    .fillword 1, resources.prt__sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+    // BS, GB
+    .fillword 2, resources.prt__sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+    // AE, FE, EE, WE
+    .fillword 4, resources.prt__sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
 
-.namespace sprite {
-    // 8DBF
-    offset_00: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
+// 8BDA
+// Color of each elemental (air, fire, earth, water).
+data__elemental_icon_color_list: .byte LIGHT_GRAY, RED, BROWN, BLUE
 
-    // 8DC0
-    offset_24: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
+// 8DBF
+// Sprite 0 screen pointer.
+ptr__sprite_00_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+00
 
-    // 8DC1
-    offset_48: .byte (VICGOFF/BYTES_PER_SPRITE)+48 // Sprite 48 screen pointer
+// 8DC0
+// Sprite 24 screen pointer.
+ptr__sprite_24_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+24
 
-    // 8DC2
-    offset_56: .byte (VICGOFF/BYTES_PER_SPRITE)+56 // Sprite 56 screen pointer
+// 8DC1
+// Sprite 48 screen pointer.
+ptr__sprite_48_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+48
 
-    // 8DCB
-    mem_ptr_00: // Pointer to sprite 0 graphic memory area
-        .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
+// 8DC2
+// Sprite 56 screen pointer.
+ptr__sprite_56_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+56
 
-    // 8DCD
-    mem_ptr_24: // Pointer to sprite 24 (dec) graphic memory area
-        .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
+// 8DC3
+data__math_pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
 
-    // 8DCF
-    mem_ptr_48: // Pointer to sprite 48 (dec) graphic memory area
-        .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
+// 8DCB
+// Pointer to sprite 0 graphic memory area.
+ptr__sprite_00_mem: .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
 
-    // 8DD1
-    mem_ptr_56: // Pointer to sprite 56 (dec) graphic memory area
-        .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
+// 8DCD
+// Pointer to sprite 24 graphic memory area.
+ptr__sprite_24_mem: .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
 
-    // 8B27
-    // Source offset of the first frame of each icon sprite. An icon set comprises of multiple sprites (nominally 15)
-    // to provide animations for each direction and action. One icon, the Shape Shifter, comprises only 10 sprites
-    // though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
-    icon_offset:
-        // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, resources.prt__sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
-        // DG
-        .fillword 1, resources.prt__sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
-        // BS, GB
-        .fillword 2, resources.prt__sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+// 8DCF
+// Pointer to sprite 48 graphic memory area.
+ptr__sprite_48_mem: .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
 
-        // AE, FE, EE, WE
-        .fillword 4, resources.prt__sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
+// 8DD1
+// Pointer to sprite 56 graphic memory area.
+ptr__sprite_56_mem: .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
 
-    // 8BDA
-    elemental_color: // Color of each elemental (air, fire, earth, water)
-        .byte LIGHT_GRAY, RED, BROWN, BLUE
+// 8D44
+// Memory offset of each sprite frame within a sprite set.
+// In description below:
+// - m-=movement frame, a-=attack frame, p-=projectile (bullet, sword etc) frame
+// - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
+// - numbers represent the animation frame. eg movement frames have 4 animations each
+data__icon_sprite_frame_mem_offset_list:
+        //   m-e1   m-e2   m-e3   m-e4   m-s1   m-s2   m-s3   m-s4
+    .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
+        //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
+    .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
+    //    a-s    p-e    p-n    p-ne   p-se
+    .word $02F4, $0008, $0000, $0010, $0018
 
-    // 8D44
-    // Memory offset of each sprite frame within a sprite set.
-    // In description below:
-    // - m-=movement frame, a-=attack frame, p-=projectile (bullet, sword etc) frame
-    // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
-    // - numbers represent the animation frame. eg movement frames have 4 animations each
-    frame_offset:
-         //   m-e1   m-e2   m-e3   m-e4   m-s1   m-s2   m-s3   m-s4
-        .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
-         //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
-        .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
-        //    a-s    p-e    p-n    p-ne   p-se
-        .word $02F4, $0008, $0000, $0010, $0018
+// 906F
+// Color of icon based on side (light, dark).
+data__player_icon_color_list: .byte YELLOW, LIGHT_BLUE
 
-    // 906F
-    icon_color: // Color of icon based on side (light, dark)
-        .byte YELLOW, LIGHT_BLUE
-}
+// A0A5
+// Pointer to function to get note and incremement note pointer for each voice
+ptr__voice_play_fn_list: .word get_note_V1, get_note_V2, get_note_V3
 
-.namespace screen {
-    // BF19
-    color_mem_offset: .byte >(COLRAM-SCNMEM) // Screen offset to color ram
-}
+// A0AB
+// Address offsets for each SID voice control address.
+ptr__voice_ctl_addr_list: .word FRELO1, FRELO2, FRELO3
 
-.namespace sound {
-    // A0A5
-    note_data_fn_ptr: // Pointer to function to get note and incremement note pointer for each voice
-        .word get_note_V1, get_note_V2, get_note_V3
+// AD6A
+// Voice sustain values.
+data__voice_sustain_value_list: .byte $a3, $82, $07
 
-    // A0AB
-    voice_io_addr: .word FRELO1, FRELO2, FRELO3 // Address offsets for each SID voice control address
+// AD6D
+// Voice control values.
+data__voice_control_value_list: .byte $21, $21, $21
 
-    // AD6A
-    sustain: .byte $a3, $82, $07 // Voice sustain values
+// AD70
+// Voice attack values.
+data__voice_attack_value_list: .byte $07, $07, $07
 
-    // AD6D
-    control: .byte $21, $21, $21 // Voice control values
+// AD7D
+// Pointer to function to get pattern and incremement note pointer for each voice.
+ptr__voice_pattern_fn_list: .word get_pattern_V1, get_pattern_V2, get_pattern_V3
 
-    // AD70
-    attack: .byte $07, $07, $07 // Voice attack values
-
-    // AD7D
-    pattern_data_fn_ptr: // Pointer to function to get pattern and incremement note pointer for each voice
-        .word get_pattern_V1, get_pattern_V2, get_pattern_V3
-}
+// BF19
+// Screen offset to color ram.
+data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data
 //---------------------------------------------------------------------------------------------------------------------
 .segment Data
 
-.namespace options {
-    // BCC1
-    // Temporary AI selection flag. Is incremented when AI option is selected up to $02 before wrapping back to $00.
-    // Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
-    cnt__ai_player_selection: .byte $00
+// BCC1
+// Temporary AI selection flag. Is incremented when AI option is selected up to $02 before wrapping back to $00.
+// Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
+cnt__ai_selection: .byte $00
 
-    // BCC5
-    // The AI selection is used to generate a flag representing the side played by the AI.
-    // Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both.
-    // Both is selected after a selection timeout.
-    flag__ai_player_ctl: .byte $00
-}
+// BCC3
+// Pre-game intro state ($80 = intro, $00 = in game, $ff = options).
+flag__pregame_state: .byte $00
+
+// BCC5
+// The AI selection is used to generate a flag representing the side played by the AI.
+// Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both.
+// Both is selected after a selection timeout.
+flag__ai_player_selection: .byte $00
 
 // BCD0
 // Is set to $80 to indicate that the game state should be changed to the next state.
 flag__enable_next_state: .byte $00
-    
-// BCC3
-// Pre-game intro state ($80 = intro, $00 = in game, $ff = options).
-flag__pregame_state: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-.namespace icon {
-    // BF29
-    offset: .byte $00, $00, $00, $00 // Icon sprite group offset used to determine which sprite to copy
+// BCD4
+// Low byte pointer to sprite frame source data.
+ptr__sprite_source_lo_list: .byte $00, $00, $00, $00
 
-    // BF2D
-    type: .byte $00, $00, $00, $00 // Type of icon (See `icon types` constants)
-}
+// BCD8
+// High byte pointer to sprite frame source data.
+ptr__sprite_source_hi_list: .byte $00, $00, $00, $00
 
-.namespace sprite {
-    // BCE3
-    init_animation_frame: .byte $00, $00, $00, $00 // Initial animation for up to 4 sprites
+// BCDF
+// Number of bytes to copy for the given sprite.
+param__sprite_source_size: .byte $00
 
-    // BCE7
-    // Current animation frame.
-    curr_animation_frame: .byte $00
+// BCE3
+// Initial animation for up to 4 sprites.
+param__sprite_source_frame: .byte $00, $00, $00, $00
 
-    // BCE8
-    // Delay between color changes when color scrolling avatar sprites
-    animation_delay: .byte $00
+// BCE7
+// Current animation frame.
+cnt__curr_sprite_frame: .byte $00, $00, $00, $00 // TODO: look at moving this?
 
-    // BCE9
-    // Number of moves left in y plane in current direction (will reverse direction on 0)
-    y_move_counter: .byte $00
+// BCE8
+// Delay between color changes when color scrolling avatar sprites.
+cnt__curr_sprite_delay: .byte $00
 
-    // BCEA
-    // Number of moves left in x plane in current direction (will reverse direction on 0)
-    x_move_counter: .byte $00
+// BD3E
+// Current sprite x-position.
+pos__sprite_x_list: .byte $00, $00, $00, $00, $00, $00, $00, $00 // TODO: look at moving this?
 
-    // BD15
-    // Final set position of sprites after completion of animation.
-    final_y_pos: .byte $00, $00
+// BD46
+// Current sprite y-position.
+pos__sprite_y_list: .byte $00, $00, $00, $00, $00, $00, $00, $00 // TODO: look at moving this?
 
-    // BD3E
-    // Current sprite x-position.
-    curr_x_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
+// BD66
+// Function pointer to retrieve a note for the current voice.
+prt__voice_note_fn: .word $0000
 
-    // BD46
-    // Current sprite y-position.
-    curr_y_pos: .byte $00, $00, $00, $00, $00, $00, $00, $00
+// BF08
+// Pointer to function to read current pattern for current voice.
+prt__voice_pattern_data: .word $0000
 
-    // BCD4
-    copy_source_lo_ptr: .byte $00, $00, $00, $00 // Low byte pointer to sprite frame source data
+// BF08
+// Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2).
+flag__enable_player_sound: .byte $00, $00
 
-    // BCD8
-    copy_source_hi_ptr: .byte $00, $00, $00, $00 // High byte pointer to sprite frame source data
+// BF0B
+// New note delay timer.
+data__voice_note_delay: .byte $00, $00, $00
 
-    // BCDF
-    copy_length: .byte $00 // Number of bytes to copy for the given sprite
-
-    // BF49
-    param__is_copy_animation_group: .byte $00 // Set #$80 to copy individual icon frame in to graphical memory
-}
-
-.namespace sound {
-    // BD66
-    // Function pointer to retrieve a note for the current voice. 
-    voice_note_fn_ptr: .word $0000
-
-    // BF08
-    // Pointer to function to read current pattern for current voice.
-    curr_pattern_data_fn_ptr: .word $0000
-    
-    // BF08
-    // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2).
-    flag__enable_voice: .byte $00, $00
-
-    // BF0B
-    // New note delay timer.
-    new_note_delay: .byte $00, $00, $00
-
-    // BF4A
-    // Current note delay countdown.
-    note_delay_counter: .byte $00, $00, $00
-
-    // BF4D
-    // Current voice control value.
-    curr_voice_ctl: .byte $00, $00, $00
-
-    // BF50
-    // Is 00 for title music and 80 for game end music.
-    flag__play_outro: .byte $00
-}
+// BF1A
+// Temporary data storage area used for sprite manipulation.
+data__temp_storage: .byte $00, $00, $00, $00, $00, $00
 
 // BF23
 // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
 // bytes) when adding chasing icon sprites.
-_ptr__sprite_mem_lo: .byte $00
+ptr__sprite_mem_lo: .byte $00
 
 // BF24
 // Frame offset of sprite icon set. Add #$80 to invert the frame on copy.
 data__icon_set_sprite_frame: .byte $00
 
-// BF1A
-// Temporary data storage area used for sprite manipulation.
-data__temp_storage: .byte $00, $00, $00, $00, $00, $00
+// BF29
+idx__icon_offset: .byte $00, $00, $00, $00 // Icon sprite group offset used to determine which sprite to copy
+
+// BF2D
+data__icon_type: .byte $00, $00, $00, $00 // Type of icon (See `icon types` constants)
+
+// BF49
+// Set #$80 to copy individual icon frame in to graphical memory.
+param__is_copy_animation_group: .byte $00
+
+// BF4A
+// Current note delay countdown.
+cnt__voice_note_delay: .byte $00, $00, $00
+
+// BF4D
+// Current voice control value.
+data__voice_control: .byte $00, $00, $00
+
+// BF50
+// Is 00 for title music and 80 for game end music.
+param__is_play_outro: .byte $00

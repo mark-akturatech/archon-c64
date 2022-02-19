@@ -1,6 +1,6 @@
 .filenamespace board
 //---------------------------------------------------------------------------------------------------------------------
-// Contains common routines used for rendering the game board.
+// Game board rendering.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Common
 
@@ -13,23 +13,23 @@
 //   $01: Retrieve sound for two player icons (when in battle)
 // - Y: Current player offset (0 for light, 1 for dark, 0 when X is $01)
 // Sets:
-// - `sound.pattern_lo_ptr`: Lo byte pointer to sound pattern
-// - `sound.pattern_hi_ptr`: Hi byte pointer to sound pattern
+// - `ptr__player_sound_pattern_lo_list`: Lo byte pointer to sound pattern
+// - `ptr__player_sound_pattern_hi_list`: Hi byte pointer to sound pattern
 // Preserves:
 // - X
 get_sound_for_icon:
-    ldy common.icon.offset,x
-    lda sound.icon_pattern,y
+    ldy common.idx__icon_offset,x
+    lda idx__sound_movement_pattern,y
     tay
     lda prt__sound_icon_effect_list,y
-    sta sound.pattern_lo_ptr,x
+    sta ptr__player_sound_pattern_lo_list,x
     lda prt__sound_icon_effect_list+1,y
-    sta sound.pattern_hi_ptr,x
+    sta ptr__player_sound_pattern_hi_list,x
     rts
 
 // 62FF
 // Description:
-// - Detects if the selected square is a magic sqaure.
+// - Detects if the selected square is a magic square.
 // Prerequisites:
 // - `data__curr_row`: row of the square to test.
 // - `data__curr_column`: column of the square to test.
@@ -44,10 +44,10 @@ test_magic_square_selected:
     sta game.flag__icon_destination_valid
     ldy #$04 // 5 magic squares (0 based)
 !loop:
-    lda data.magic_square_col,y
+    lda data__magic_square_col_list,y
     cmp data__curr_row
     bne !next+
-    lda data.magic_square_row,y
+    lda data__magic_square_row_list,y
     cmp data__curr_column
     beq magic_square_selected
 !next:
@@ -70,12 +70,12 @@ no_magic_square_selected:
 // - Y: Board row
 // - X: Sprite number $00 to $07 ($04 is special - see below)
 // Sets:
-// - `common.sprite.curr_x_pos,x` and `common.sprite.curr_y_pos,x` with the calculated position.
+// - `common.pos__sprite_x_list,x` and `common.pos__sprite_y_list,x` with the calculated position.
 // - A: Sprite X position
 // - Y: Sprite Y position
 // Notes:
-// - If X is set to $04, then the position is not stored in `common.sprite.curr_x_pos,x` and
-//   `common.sprite.curr_y_pos,x`.
+// - If X is set to $04, then the position is not stored in `common.pos__sprite_x_list,x` and
+//   `common.pos__sprite_y_list,x`.
 convert_coord_sprite_pos:
     // Calculate X position.
     pha
@@ -92,7 +92,7 @@ convert_coord_sprite_pos:
     adc #$1A
     cpx #$04
     bcs !next+
-    sta common.sprite.curr_x_pos,x
+    sta common.pos__sprite_x_list,x
 !next:
     pha
     // Calculate Y position.
@@ -105,7 +105,7 @@ convert_coord_sprite_pos:
     adc #$17
     cpx #$04
     bcs !next+
-    sta common.sprite.curr_y_pos,x
+    sta common.pos__sprite_y_list,x
 !next:
     tay
     pla
@@ -147,12 +147,12 @@ display_options:
     ldx #$01
     lda #STRING_F3
     jsr write_text
-    lda common.options.flag__ai_player_ctl
+    lda common.flag__ai_player_selection
     beq display_two_player
     lda #STRING_COMPUTER
     jsr write_text
     lda #STRING_LIGHT
-    ldy common.options.flag__ai_player_ctl
+    ldy common.flag__ai_player_selection
     bpl !next+
     lda #STRING_DARK
     bpl !next+
@@ -169,7 +169,7 @@ display_two_player:
     lda #STRING_F5
     jsr write_text
     lda #STRING_LIGHT
-    ldy game.state.data__curr_player_color
+    ldy game.data__curr_player_color
     bpl !next+
     lda #STRING_DARK
 !next:
@@ -224,18 +224,18 @@ surrounding_squares_coords:
 // Prerequisites:
 // - `data__curr_board_row`: Row offset of board square.
 // - `data__curr_board_col`: Column offset of board square.
-// - `icon.type`: Type of icon to add to the square.
+// - `data__icon_type`: Type of icon to add to the square.
 // Sets:
 // - `curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 add_icon_to_matrix:
     ldy data__curr_board_row
-    lda data.row_occupancy_lo_ptr,y
+    lda ptr__board_row_occupancy_lo,y
     sta OLDLIN
-    lda data.row_occupancy_hi_ptr,y
+    lda ptr__board_row_occupancy_hi,y
     sta OLDLIN+1
     //
     ldy data__curr_board_col
-    lda common.icon.type
+    lda common.data__icon_type
     sta (OLDLIN),y
     rts
 
@@ -244,9 +244,9 @@ add_icon_to_matrix:
 // - Places a sprite at a given location and enables the sprite.
 // Prerequisites:
 // - X: sprite number to be enabled.
-// - `common.sprite.curr_x_pos`: Screen X location of the sprite.
-// - `common.sprite.curr_y_pos`: Screen Y location of the sprite.
-// - `common.sprite.curr_animation_frame`: Current frame number (0 to 4) of animated sprite
+// - `common.pos__sprite_x_list`: Screen X location of the sprite.
+// - `common.pos__sprite_y_list`: Screen Y location of the sprite.
+// - `common.cnt__curr_sprite_frame`: Current frame number (0 to 4) of animated sprite
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
@@ -256,11 +256,11 @@ render_sprite:
     txa
     asl
     tay
-    lda common.sprite.curr_animation_frame,x
+    lda common.cnt__curr_sprite_frame,x
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
-    adc common.sprite.init_animation_frame,x
-    adc common.sprite.offset_00,x
+    adc common.param__sprite_source_frame,x
+    adc common.ptr__sprite_00_offset,x
     sta SPTMEM,x
 
 // 8D80
@@ -269,22 +269,22 @@ render_sprite:
 // Prerequisites:
 // - X: sprite number to be enabled.
 // - Y: 2 * the sprite number to be enabled.
-// - `common.sprite.curr_x_pos`: Screen X location of the sprite.
-// - `common.sprite.curr_y_pos`: Screen Y location of the sprite.
+// - `common.pos__sprite_x_list`: Screen X location of the sprite.
+// - `common.pos__sprite_y_list`: Screen Y location of the sprite.
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
 // - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 render_sprite_preconf:
-    lda common.sprite.curr_y_pos,x
+    lda common.pos__sprite_y_list,x
     clc
     adc #$32
     sta SP0Y,y
     //
-    lda common.sprite.curr_x_pos,x
+    lda common.pos__sprite_x_list,x
     clc
-    adc common.sprite.curr_x_pos,x
+    adc common.pos__sprite_x_list,x
     sta data__temp_sprite_y_store
     lda #$00
     adc #$00
@@ -296,11 +296,11 @@ render_sprite_preconf:
     adc #$00
     beq !next+
     lda MSIGX
-    ora common.math.pow2,x
+    ora common.data__math_pow2,x
     sta MSIGX
     rts
 !next:
-    lda common.math.pow2,x
+    lda common.data__math_pow2,x
     eor #$FF
     and MSIGX
     sta MSIGX
@@ -319,7 +319,7 @@ set_player_color:
     lda #>(CHRMEM2+player_dot_data_offset)
     sta FREEZP+3
     ldy #$07
-    lda game.state.flag__is_light_turn
+    lda game.flag__is_light_turn
 !loop:
     sta (FREEZP+2),y
     dey
@@ -333,11 +333,11 @@ set_player_color:
 draw_board:
     ldx #$02
 !loop:
-    lda data.square_colors__icon,x
+    lda data__board_cell_bg_color_list,x
     sta BGCOL0,x
     dex
     bpl !loop-
-    lda data.square_colors__icon
+    lda data__board_cell_bg_color_list
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
@@ -348,23 +348,23 @@ draw_row:
     sta data__curr_column
     ldy data__curr_row
     //
-    lda data.row_screen_offset_lo_ptr,y
+    lda ptr__screen_row_offset_lo,y
     sta FREEZP+2 // Screen offset
     sta VARPNT // Color memory offset
-    lda data.row_screen_offset_hi_ptr,y
+    lda ptr__screen_row_offset_hi,y
     sta FREEZP+3
     clc
-    adc common.screen.color_mem_offset
+    adc common.data__color_mem_offset
     sta VARPNT+1
     //
-    lda data.row_occupancy_lo_ptr,y
+    lda ptr__board_row_occupancy_lo,y
     sta FREEZP // Square occupancy
-    lda data.row_occupancy_hi_ptr,y
+    lda ptr__board_row_occupancy_hi,y
     sta FREEZP+1
     //
-    lda data.row_color_offset_lo_ptr,y
+    lda ptr__color_row_offset_lo,y
     sta CURLIN // Square color
-    lda data.row_color_offset_hi_ptr,y
+    lda ptr__color_row_offset_hi,y
     sta CURLIN+1
     //
 draw_square:
@@ -385,7 +385,7 @@ render_icon:
     lda (FREEZP),y
     bmi !next+ // if $80 (blank)
     tax
-    lda icon.init_matrix,x  // Get icon dot data offset
+    lda data__piece_icon_offset_list,x  // Get icon dot data offset
 !next:
     sta render_square_icon_offset
     bmi draw_empty_square
@@ -414,7 +414,7 @@ render_square:
     // and call `render_square_row` again to draw the next two characters.
     lda (CURLIN),y
     bmi !next+
-    lda data.square_colors__square+1
+    lda data__board_player_cell_color_list+1
     bpl !skip+
 !next:
     lda game.curr_color_phase
@@ -466,16 +466,16 @@ draw_square_part: // Draws 3 characters of the current row.
 draw_border:
     .const BORDER_CHARACTER = $C0
     // Draw top border.
-    lda data.row_screen_offset_lo_ptr
+    lda ptr__screen_row_offset_lo
     sec
     sbc #(CHARS_PER_SCREEN_ROW+1) // 1 row and 1 character before start of board
     sta FREEZP+2 // Screen offset
     sta FORPNT // Color memory offset
-    lda data.row_screen_offset_hi_ptr
+    lda ptr__screen_row_offset_hi
     sbc #$00
     sta FREEZP+3
     clc
-    adc common.screen.color_mem_offset
+    adc common.data__color_mem_offset
     sta FORPNT+1
     ldy #(BOARD_NUM_COLS*3+1) // 9 squares (3 characters per square) + 1 character each side of board (0 based)
 !loop:
@@ -541,17 +541,17 @@ draw_border:
 // Creates sprites in 56 and 57 from character dot data (creates "ARCHON"), position the sprites above the board,
 // set the sprite color to current player color and enable as sprite 2 and 3.
 create_logo:
-    lda common.sprite.mem_ptr_56
+    lda common.ptr__sprite_56_mem
     sta FREEZP+2 // Sprite location
     sta data__temp_storage
     sta data__temp_storage+1
-    lda common.sprite.mem_ptr_56+1
+    lda common.ptr__sprite_56_mem+1
     sta FREEZP+3
     lda #$03 // Number of letters per sprite
     sta data__temp_storage+2
     ldx #$00
 convert_logo_character:
-    lda sprite.logo_string,x // Get logo letter
+    lda txt__game_name,x // Get logo letter
     // Convert character to dot data offset.
     and #$3F
     asl
@@ -599,7 +599,7 @@ copy_character_to_sprite:
     sta SP2X
     lda #$B4
     sta SP3X
-    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use common.sprite.offset_56 but source doesn't :(
+    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use common.ptr__sprite_56_offset but source doesn't :(
     sta SPTMEM+2
     lda #((VICGOFF/BYTES_PER_SPRITE)+57)
     sta SPTMEM+3
@@ -609,14 +609,14 @@ copy_character_to_sprite:
 // Create the sprite used to indicate a magic board square.
 // The sprite is stored in sprite offset 48.
 create_magic_square_sprite:
-    lda common.sprite.mem_ptr_48
+    lda common.ptr__sprite_48_mem
     sta FREEZP+2
-    lda common.sprite.mem_ptr_48+1
+    lda common.ptr__sprite_48_mem+1
     sta FREEZP+3
     ldx #$00
     ldy #$00
 !loop:
-    lda sprite.magic_sqauare_data,x
+    lda data__magic_square_sprite_source,x
     sta (FREEZP+2),y
     iny
     iny
@@ -639,13 +639,13 @@ draw_magic_square:
 !next:
     .const SPRITE_NUMBER=7
     sty magic_square_counter
-    lda sprite.magic_square_x_pos,y
-    sta common.sprite.curr_x_pos+SPRITE_NUMBER
-    lda sprite.magic_square_y_pos,y
-    sta common.sprite.curr_y_pos+SPRITE_NUMBER
+    lda pos__magic_square_x_list,y
+    sta common.pos__sprite_x_list+SPRITE_NUMBER
+    lda pos__magic_square_y_list,y
+    sta common.pos__sprite_y_list+SPRITE_NUMBER
     //
     ldx #SPRITE_NUMBER
-    lda common.sprite.offset_48
+    lda common.ptr__sprite_48_offset
     sta SPTMEM+SPRITE_NUMBER
     ldy #(SPRITE_NUMBER*2)
     jmp render_sprite_preconf
@@ -653,9 +653,9 @@ draw_magic_square:
 
 // 92EB
 create_selection_square:
-    lda common.sprite.mem_ptr_24
+    lda common.ptr__sprite_24_mem
     sta FREEZP+2 // Sprite location
-    lda common.sprite.mem_ptr_24+1
+    lda common.ptr__sprite_24_mem+1
     sta FREEZP+3
     ldy #$00
     jsr selection_square__vert_line
@@ -727,8 +727,8 @@ clear_last_text_row:
 // - Plays an icon movement or attack sound.
 // Prerequisites:
 // - OLDTXT/OLDTXT+1: Pointer to sound pattern.
-// - `common.sound.flag__enable_voice`: $00 to disable sound for light player, $80 to enable sound
-// - `common.sound.flag__enable_voice+1`: $00 to disable sound for dark player, $80 to enable sound
+// - `common.flag__enable_player_sound`: $00 to disable sound for light player, $80 to enable sound
+// - `common.flag__enable_player_sound+1`: $00 to disable sound for dark player, $80 to enable sound
 // Notes:
 // - See `get_note_data` below for special commands within sound pattern.
 play_icon_sound:
@@ -737,7 +737,7 @@ play_icon_sound:
     // the same time.
     // If 00, then means don't play sound for that icon.
 !loop:
-    lda common.sound.flag__enable_voice,x
+    lda common.flag__enable_player_sound,x
     beq !next+
     jsr play_voice
 !next:
@@ -745,21 +745,21 @@ play_icon_sound:
     bpl !loop-
     rts
 play_voice:
-    lda common.sound.new_note_delay,x
+    lda common.data__voice_note_delay,x
     beq configure_voice
-    dec common.sound.new_note_delay,x
+    dec common.data__voice_note_delay,x
     bne !return+
 configure_voice:
     txa
     asl
     tay
-    lda common.sound.note_data_fn_ptr,y
-    sta common.sound.voice_note_fn_ptr
-    lda common.sound.note_data_fn_ptr+1,y
-    sta common.sound.voice_note_fn_ptr+1
-    lda common.sound.voice_io_addr,y
+    lda common.ptr__voice_play_fn_list,y
+    sta common.prt__voice_note_fn
+    lda common.ptr__voice_play_fn_list+1,y
+    sta common.prt__voice_note_fn+1
+    lda common.ptr__voice_ctl_addr_list,y
     sta FREEZP+2 // SID voice address
-    lda common.sound.voice_io_addr+1,y
+    lda common.ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
 get_next_note:
     jsr common.get_note
@@ -781,7 +781,7 @@ get_note_data:
     // - 03: Frequency Lo
     // - 04: Frequency Hi
     // - 05: Voice control (wafeform etc)
-    sta common.sound.new_note_delay,x
+    sta common.data__voice_note_delay,x
     jsr common.get_note
     ldy #$05
     sta (FREEZP+2),y
@@ -803,17 +803,17 @@ repeat_pattern:
     txa
     asl
     tay
-    lda sound.pattern_lo_ptr,x
+    lda ptr__player_sound_pattern_lo_list,x
     sta OLDTXT,y
-    lda sound.pattern_hi_ptr,x
+    lda ptr__player_sound_pattern_hi_list,x
     sta OLDTXT+1,y
     jmp get_next_note
 stop_sound:
     ldy #$04
     lda #$00
     sta (FREEZP+2),y
-    sta common.sound.flag__enable_voice,x
-    sta common.sound.new_note_delay,x
+    sta common.flag__enable_player_sound,x
+    sta common.data__voice_note_delay,x
     rts
 
 // AE12
@@ -832,128 +832,121 @@ interrupt_handler__play_music:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-.namespace data {
-    .const ROW_START_OFFSET = $7e
-    .const ROWS_PER_SQUARE = 2
+.const ROW_START_OFFSET = $7e
+.const ROWS_PER_SQUARE = 2
+.enum { DARK = BOARD_DARK_SQUARE, LITE = BOARD_LIGHT_SQUARE, VARY = BOARD_VARY_SQUARE }
 
-    // 0B5D
-    .enum { DARK = BOARD_DARK_SQUARE, LITE = BOARD_LIGHT_SQUARE, VARY = BOARD_VARY_SQUARE }
-    square_color: // Board square colors
-        .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
-        .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
-        .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
-        .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
-        .byte LITE, VARY, VARY, VARY, VARY, VARY, VARY, VARY, DARK
-        .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
-        .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
-        .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
-        .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
+// 0B5D
+// Board square colors.
+data__board_square_color_list:
+    .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
+    .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
+    .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
+    .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
+    .byte LITE, VARY, VARY, VARY, VARY, VARY, VARY, VARY, DARK
+    .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
+    .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
+    .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
+    .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
 
-    // 6323
-    magic_square_col: .byte $00, $04, $04, $04, $08 // Column of each magic square (used with magic_square_row)
+// 6323
+// Column of each magic square (used with magic_square_row).
+data__magic_square_col_list: .byte $00, $04, $04, $04, $08
 
-    // 6328
-    magic_square_row: .byte $04, $00, $04, $08, $04 // Row of each magic square (used with magic_square_col)
+// 6328
+// Row of each magic square (used with magic_square_col).
+data__magic_square_row_list: .byte $04, $00, $04, $08, $04
 
-    // 8BD2
-    color_phase: // Colors used for each board game phase
-        .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
+// 8BD2
+data__phase_color_list: // Colors used for each board game phase
+    .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
 
-    // 9071
-    square_colors__square: // Board square colors
-        .byte BLACK, WHITE
+// 9071
+// Board square colors.
+data__board_player_cell_color_list: .byte BLACK, WHITE
 
-    // 9073
-    square_colors__icon: // Board background colors used when rendering the player board
-        .byte BLACK, YELLOW, LIGHT_BLUE
+// 9073
+// Board background colors used when rendering the player board. 
+data__board_cell_bg_color_list:  .byte BLACK, YELLOW, LIGHT_BLUE
 
-    // BEAE
-    row_screen_offset_lo_ptr: // Low byte screen memory offset of start of each board row
-        .fill BOARD_NUM_COLS, <(ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
+// BEAE
+// Low byte screen memory offset of start of each board row
+ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
 
-    // BEB7
-    row_screen_offset_hi_ptr: // High byte screen memory offset of start of each board row
-        .fill BOARD_NUM_COLS, >(SCNMEM+ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
+// BEB7
+// High byte screen memory offset of start of each board row.
+ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*ROWS_PER_SQUARE*CHARS_PER_SCREEN_ROW)
 
-    // BED2
-    row_color_offset_lo_ptr: // Low byte memory offset of square color data for each board row
-        .fill BOARD_NUM_COLS, <(square_color+i*BOARD_NUM_COLS)
+// BED2
+// Low byte memory offset of square color data for each board row.
+ptr__color_row_offset_lo: .fill BOARD_NUM_ROWS, <(data__board_square_color_list+i*BOARD_NUM_COLS)
 
-    // BEDB
-    row_color_offset_hi_ptr: // High byte memory offset of square color data for each board row
-        .fill BOARD_NUM_COLS, >(square_color+i*BOARD_NUM_COLS)
+// BEDB
+// High byte memory offset of square color data for each board row.
+ptr__color_row_offset_hi: .fill BOARD_NUM_ROWS, >(data__board_square_color_list+i*BOARD_NUM_COLS)
 
-    // BEC0
-    // Low byte memory offset of square occupancy data for each board row
-    row_occupancy_lo_ptr:
-        .fill BOARD_NUM_COLS, <(curr_square_occupancy+i*BOARD_NUM_COLS)
+// BEC0
+// Low byte memory offset of square occupancy data for each board row.
+ptr__board_row_occupancy_lo: .fill BOARD_NUM_ROWS, <(curr_square_occupancy+i*BOARD_NUM_COLS)
 
-    // BEC9
-    // High byte memory offset of square occupancy data for each board row
-    row_occupancy_hi_ptr:
-        .fill BOARD_NUM_COLS, >(curr_square_occupancy+i*BOARD_NUM_COLS)        
-}
+// BEC9
+// High byte memory offset of square occupancy data for each board row.
+ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(curr_square_occupancy+i*BOARD_NUM_COLS)
 
-.namespace sprite {
-    // 9274
-    logo_string: // Logo string that is converted to a sprite using character set dot data as sprite source data
-        .text "ARCHON"
+// 9274
+// Logo string that is converted to a sprite using character set dot data as sprite source data.
+txt__game_name: .text "ARCHON"
 
-    // 929B
-    magic_sqauare_data: // Sprite data used to create the magic square icon
-        .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
+// 929B
+// Sprite data used to create the magic square icon.
+data__magic_square_sprite_source: .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
 
-    // 92E1
-    magic_square_x_pos: .byte $4A, $1A, $4A, $4A, $7A // Sprite X position of each magic square
+// 92E1
+pos__magic_square_x_list: .byte $4A, $1A, $4A, $4A, $7A // Sprite X position of each magic square
 
-    // 92E6
-    magic_square_y_pos: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
-}
+// 92E6
+pos__magic_square_y_list: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
 
-.namespace sound {
-    // 8BBE
-    // Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
-    // Uses icon offset as index.
-    icon_pattern:
-        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-        .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
-}
+// 8BBE
+// Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
+// Uses icon offset as index.
+idx__sound_movement_pattern:
+    //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+    .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
 
-.namespace icon {
-    // 8AC7
-    // Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
-    // icon can fly.
-    number_moves:
-        //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
-        .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
-        //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
-        .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
+// 8AC7
+// Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
+// icon can fly.
+data__icon_num_moves_list:
+    //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
+    .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
+    //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
+    .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
 
-    // 8AFF
-    // Matrix used to determine offset of each icon type AND determine which pieces occupy which squares on initial
-    // setup.
-    // This is a little bit odd - the numbers below are indexes used to retrieve an address from
-    // `sprite.icon_offset` to determine the source sprite memory address. The `Icon Type` are actually an offset
-    // in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling us to
-    // read the 6th word of the sprite icon offset to determine the first frame of the Phoenix icon set.
-    // NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial icon setup
-    // with 2 bytes represeting two columns of each row. The setup starts with all the light pieces, then dark.
-    init_matrix:
-        .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
-        .byte DJINNI_OFFSET, KNIGHT_OFFSET, WIZARD_OFFSET, KNIGHT_OFFSET, PHOENIX_OFFSET, KNIGHT_OFFSET
-        .byte UNICORN_OFFSET, KNIGHT_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, VALKYRIE_OFFSET, ARCHER_OFFSET
-        .byte MANTICORE_OFFSET, BANSHEE_OFFSET, GOBLIN_OFFSET, TROLL_OFFSET, GOBLIN_OFFSET, BASILISK_OFFSET
-        .byte GOBLIN_OFFSET, SHAPESHIFTER_OFFSET, GOBLIN_OFFSET, SORCERESS_OFFSET, GOBLIN_OFFSET, DRAGON_OFFSET
-        .byte GOBLIN_OFFSET, BASILISK_OFFSET, GOBLIN_OFFSET, TROLL_OFFSET, MANTICORE_OFFSET, BANSHEE_OFFSET
-        .byte AIR_ELEMENTAL_OFFSET, FIRE_ELEMENTAL_OFFSET, EARTH_ELEMENTAL_OFFSET, WATER_ELEMENTAL_OFFSET
+// 8AFF
+// Matrix used to determine offset of each icon type AND determine which pieces occupy which squares on initial
+// setup.
+// This is a little bit odd - the numbers below are indexes used to retrieve an address from
+// `ptr__icon_sprite_mem_offset_list` to determine the source sprite memory address. The `Icon Type` are actually an offset
+// in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling us to
+// read the 6th word of the sprite icon offset to determine the first frame of the Phoenix icon set.
+// NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial icon setup
+// with 2 bytes represeting two columns of each row. The setup starts with all the light pieces, then dark.
+data__piece_icon_offset_list:
+    .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
+    .byte DJINNI_OFFSET, KNIGHT_OFFSET, WIZARD_OFFSET, KNIGHT_OFFSET, PHOENIX_OFFSET, KNIGHT_OFFSET
+    .byte UNICORN_OFFSET, KNIGHT_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, VALKYRIE_OFFSET, ARCHER_OFFSET
+    .byte MANTICORE_OFFSET, BANSHEE_OFFSET, GOBLIN_OFFSET, TROLL_OFFSET, GOBLIN_OFFSET, BASILISK_OFFSET
+    .byte GOBLIN_OFFSET, SHAPESHIFTER_OFFSET, GOBLIN_OFFSET, SORCERESS_OFFSET, GOBLIN_OFFSET, DRAGON_OFFSET
+    .byte GOBLIN_OFFSET, BASILISK_OFFSET, GOBLIN_OFFSET, TROLL_OFFSET, MANTICORE_OFFSET, BANSHEE_OFFSET
+    .byte AIR_ELEMENTAL_OFFSET, FIRE_ELEMENTAL_OFFSET, EARTH_ELEMENTAL_OFFSET, WATER_ELEMENTAL_OFFSET
 
-    // 8B7C
-    // The ID of the string used to represent each icon type using icon offset as index.
-    // eg UNICORN has 00 offset and it's text representation is STRING_28.
-    string_id:
-        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
-        .byte 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
-}
+// 8B7C
+// The ID of the string used to represent each icon type using icon offset as index.
+// eg UNICORN has 00 offset and it's text representation is STRING_28.
+ptr__icon_name_string_id_list:
+    //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
+    .byte 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
 
 // 8B94
 // Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
@@ -993,7 +986,6 @@ ptr__txt__game_list:
     .word resources.txt__game_64, resources.txt__game_65, resources.txt__game_66, resources.txt__game_67
     .word resources.txt__game_68, resources.txt__game_69, resources.txt__game_70
 
-
 //---------------------------------------------------------------------------------------------------------------------
 // Data
 //---------------------------------------------------------------------------------------------------------------------
@@ -1007,22 +999,21 @@ countdown_timer: .byte $00 // Countdown timer (~4s tick) used to automate action
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-.namespace sound {
-    // BF12
-    pattern_lo_ptr: .byte $00, $00 // Lo byte pointer to sound pattern for current icon
-
-    // BF14
-    pattern_hi_ptr: .byte $00, $00 // Hi byte pointer to sound pattern for current icon
-}
-
-
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified
 // square only.
 flag__render_square_ctl: .byte $00
 
+// BD30
+// Points to the music playing function for playing the outro music during an interrupt.
+ptr__play_music_fn: .word $0000
+
 // BD4E
 render_square_icon_offset: .byte $00 // Set flag to #$80+ to inhibit icon draw or icon offset to draw the icon
+
+// BD7B
+// Temporary counter storage.
+data__curr_count: .byte $00
 
 // BD7C
 // Board square occupant data (#$80 for no occupant).
@@ -1035,24 +1026,25 @@ surrounding_square_row:
 surrounding_square_column:
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00
 
-// BF44
-magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
+// BF12
+// Lo byte pointer to sound pattern for current icon.
+ptr__player_sound_pattern_lo_list: .byte $00, $00
 
-// BF24
-// Color code used to render.
-data__curr_square_color_code: .byte $00
+// BF14
+// Hi byte pointer to sound pattern for current icon.
+ptr__player_sound_pattern_hi_list: .byte $00, $00
 
 // BF1A
 // Index to character dot data for current board icon part (icons are 6 caharcters).
 data__board_icon_char_offset: .byte $00
 
 // BF1A
+// Temporary data storage area used for creating the icon logo sprite.
+data__temp_storage: .byte $00, $00, $00
+
+// BF1A
 // Temporary storage of interim calculation used to convert a board position to a sprite location.
 data__temp_sprite_x_calc_store: .byte $00
-
-// BD7B
-// Temporary counter storage.
-data__curr_count: .byte $00
 
 // BF20
 // Temporary storage of calculated initial Y position of a newly places sprite.
@@ -1062,9 +1054,9 @@ data__temp_sprite_y_store: .byte $00
 // Temporary storage of calculated initial X position of a newly places sprite.
 data__temp_sprite_x_store: .byte $00
 
-// BF1A
-// Temporary data storage area used for creating the icon logo sprite.
-data__temp_storage: .byte $00, $00, $00
+// BF24
+// Color code used to render.
+data__curr_square_color_code: .byte $00
 
 // BF25
 data__curr_icon_row: // Intitial board row of selected icon
@@ -1090,6 +1082,5 @@ data__curr_row: // Current board row
 data__curr_column: // Current board column
     .byte $00
 
-// BD30
-// Points to the music playing function for playing the outro music during an interrupt.
-ptr__play_music_fn: .word $0000
+// BF44
+magic_square_counter: .byte $00 // Current magic square (1-5) being rendered

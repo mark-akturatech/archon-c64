@@ -77,7 +77,7 @@ relocate:
 //---------------------------------------------------------------------------------------------------------------------
 // OK this is a little bit special. Archon loads from a single file including all resources. The resources have a large
 // number of sprites for the various movement and battle animations. Memory managament is therefore quite complex.
-// 
+//
 // Archon requires 2 character maps and screen data in the first 4k of graphics memory (there are lots of characters for
 // each icon and logos etc) and spites in the second 4k (there are lots of sprites - enough for 2 characters to battle
 // and throw projectiles and animate 4 directions and animate firing). Anyway, so this means we need 8k of graphics
@@ -93,9 +93,9 @@ relocate:
 //   this area.
 // - We can't use $C000 as this will take $C000-$DFFF - we need registers in $D000 range to control graphics and
 //   sound (ie this will only work if we need only 4kb of graphics).
-// 
+//
 // The original source loads sprites in to memory just after $0801 up to $4000. It then loads the character maps in
-// place ($4000-$43ff and $4800-$4fff), and has the remaining sprites (and some music data) from $5000 to $5fff. 
+// place ($4000-$43ff and $4800-$4fff), and has the remaining sprites (and some music data) from $5000 to $5fff.
 // The data between $5000 to $5fff is relocated to memory under basic ROM after the application starts using code
 // fit between $4400 and $47ff. $4400-$47ff and $5000-$5fff is then cleared.
 //

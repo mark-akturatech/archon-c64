@@ -4,7 +4,7 @@
 // Archon (c) 1983
 //---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
-// Reverse engineer of C64 Archon (c) 1983 by Free Fall Associates.
+// Reverse engineered source code for C64 Archon (c) 1983 by Free Fall Associates.
 //
 // Full resepct to the awesome authors:
 // - Anne Westfall, Jon Freeman, Paul Reiche III
@@ -87,11 +87,11 @@ BasicUpstart2(entry)
 entry:
     // Configure defaults.
     lda #FLAG_DISABLE
-    sta game.state.flag__ai_player_ctl // AI Off - ie Two player
-    sta common.options.cnt__ai_player_selection // Select first AI option (off, AI is light, AI is dark)
-    sta common.options.flag__ai_player_ctl // Select AI player (00=none, 55=light, AA=dark, FF=both)
+    sta game.flag__ai_player_ctl // AI Off - ie Two player
+    sta common.cnt__ai_selection // Select first AI option (off, AI is light, AI is dark)
+    sta common.flag__ai_player_selection // Select AI player (00=none, 55=light, AA=dark, FF=both)
     lda #PLAYER_LIGHT_COLOR_STATE
-    sta game.state.data__curr_player_color // Set player color state to light (color 1 - green)
+    sta game.data__curr_player_color // Set player color state to light (color 1 - green)
     tsx
     stx private.ptr__stack // Store stack so we can restore it after each game loop (stop memory leaks?)
     lda #FLAG_ENABLE
@@ -137,8 +137,8 @@ game_loop:
     jsr common.clear_screen
     jsr common.clear_sprites
     //
-    // Set the initial strength of each icon.
-    // I should explain the initial board matrix here - the matrix contains a 2x18 matix of icons in their initial
+    // Set the initial strength of each icon piece.
+    // I should explain the board setup matrix here - the matrix contains a 2x18 matix of icons in their initial
     // board square position. It contains 2 full columns of light players and 2 full columns of dark players.
     // The matrix contains icon offsets (see constant.asm file for a list of icon offsets). The offset is basically an
     // offset in to the sprite resource, so $00 is the first sprite group (Unicorn), $01 the second (Wizard) and so
@@ -156,12 +156,12 @@ game_loop:
     // string description pointer, movement, speed etc) to get that value for a Knight.
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // 0 offset (this means `0 to (x-1)` instead of `1 to x`)
 !loop:
-    ldy board.icon.init_matrix,x
-    lda game.icon.init_strength,y 
+    ldy board.data__piece_icon_offset_list,x
+    lda game.data__icon_strength_list,y
     sta game.curr_icon_strength,x
     dex
     bpl !loop-
-    //    
+    //
     // Skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
     // tile color scheme or row occupancy. We have instead included these as assets as it is much more readable.
     // 621A
@@ -169,9 +169,9 @@ game_loop:
     sta common.flag__enable_next_state // Force any running interrupt routines to exit
     //
     // Clear board square occupancy data.
-    // The occupancy matrix is used to keep track of which icon is in which sqaure. Clearing this data effectively
+    // The occupancy matrix is used to keep track of which icon is in which square. Clearing this data effectively
     // removes all icons from the board.
-    ldx #(BOARD_NUM_COLS*BOARD_NUM_ROWS-1) // Empty (9x9 grid) squares (0 offset)
+    ldx #(BOARD_SIZE-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
     sta board.curr_square_occupancy,x
     dex
@@ -188,8 +188,8 @@ game_loop:
     // However, most FALSE/TRUE flags use <$80 for FALSE and >=$80 for TRUE (so can use BMI/BPL). Therefore, copying
     // the player color (eg $55 for light) to `flag__is_light_turn` effectively puts FALSE in this flag therefore
     // indicating that it is the dark players turn.
-    lda game.state.data__curr_player_color
-    sta game.state.flag__is_light_turn
+    lda game.data__curr_player_color
+    sta game.flag__is_light_turn
     //
     // Set default board phase color.
     // There are 8 phases (well 6 to be precise - read below) with 0 being the darkesy and 7 the lightest. 3 is in
@@ -197,8 +197,8 @@ game_loop:
     // dark side.
     .const MIDDLE_PHASE = 3
     ldy #MIDDLE_PHASE
-    lda board.data.color_phase,y // Purple
-    sta game.curr_color_phase 
+    lda board.data__phase_color_list,y // Purple
+    sta game.curr_color_phase
     //
     // Display the game intro if it hasn't already been played.
     lda intro.flag__enable
@@ -240,7 +240,7 @@ game_loop:
     // animations.
     // We only need the full sprite sets in the battle arena, so for now, we'll default this feature to off.
     lda #FLAG_DISABLE
-    sta common.sprite.param__is_copy_animation_group
+    sta common.param__is_copy_animation_group
     //
     lda #FLAG_DISABLE
     sta intro.flag__enable // Don't play intro again
@@ -252,7 +252,7 @@ game_loop:
     ldx #(NUMBER_SPELLS*2-1) // (0 based)
     lda #SPELL_UNUSED
 !loop:
-    sta magic.flag__light_used_spells,x
+    sta magic.flag__light_used_spells_list,x
     dex
     bpl !loop-
     //
@@ -301,13 +301,13 @@ game_loop:
     inx
     dey
     bne !loop-
-    cpx #(BOARD_NUM_COLS*BOARD_NUM_ROWS)
+    cpx #BOARD_SIZE
     bcc !row_loop-
     //
-    lda game.state.data__curr_player_color // 55 for light, aa for dark
+    lda game.data__curr_player_color // 55 for light, aa for dark
     eor #$FF // So now we have >=$80 for light and <$80 for dark player
     sta game.flag__is_phase_towards_dark // Phase state and direction
-    sta game.state.flag__is_light_turn // Set current player
+    sta game.flag__is_light_turn // Set current player
     //
     // The board has an even number of phases (8 in total, but two are disabled, so 6 in reality), therefore we cannot
     // select a true "middle" starting point for the game (as we have an even number of phases). Instead, we choose
@@ -326,7 +326,7 @@ game_loop:
     // These can be enabled and the game works with 2 additional board and arena obstacle colors which is cool.
     .const LIGHT_PHASE_X2 = 06
     lda #LIGHT_PHASE_X2
-    ldy game.state.flag__is_light_turn
+    ldy game.flag__is_light_turn
     bpl !next+
     clc
     adc #$02 // Make phase darker
@@ -334,7 +334,7 @@ game_loop:
     sta game.data__phase_cycle_board
     lsr // Remember we need to divide by 2 to get the color index
     tay
-    lda board.data.color_phase,y
+    lda board.data__phase_color_list,y
     sta game.curr_color_phase // Purple if light first, green if dark first
     //
     // Let's play!
@@ -456,7 +456,7 @@ play_intro:
 
     // BC8B
     // Since this routine is at the end of the application, I am guessing this function allows additional debugging
-    // code to be added in runtime without overwriting used memory/code. 
+    // code to be added in runtime without overwriting used memory/code.
     // Requires:
     // - A: Low byte of interrupt interceptor function memory address
     // Sets:
@@ -535,7 +535,7 @@ ptr__system_interrupt_fn: .word $0000
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variable data is cleared completely on each game state change. 
+// Variable data is cleared completely on each game state change.
 //---------------------------------------------------------------------------------------------------------------------
 // Variable data starts at BCD3 and continues to the end of the data area.
 //

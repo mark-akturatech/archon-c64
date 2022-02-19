@@ -1,6 +1,6 @@
 .filenamespace intro
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for displaying and animating the introduction/title sequence.
+// Introduction/title sequence.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Intro
 
@@ -59,32 +59,32 @@ entry:
         sta common.flag__enable_next_state
         jsr common.play_music
         jmp (ptr__substate_fn)
-    
+
     // A98F
     // Imports sprites in to graphics area.
     import_sprites:
         // Copy in icon frames for chase scene
         lda #FLAG_ENABLE
-        sta common.sprite.param__is_copy_animation_group
+        sta common.param__is_copy_animation_group
         lda #BYTERS_PER_STORED_SPRITE
-        sta common.sprite.copy_length
-        lda common.sprite.mem_ptr_24
+        sta common.param__sprite_source_size
+        lda common.ptr__sprite_24_mem
         sta FREEZP+2
         sta ptr__sprite_mem_lo
-        lda common.sprite.mem_ptr_24+1
+        lda common.ptr__sprite_24_mem+1
         sta FREEZP+3
         .const ICON_ANIMATION_FRAMES = 4
         ldx #(ICON_ANIMATION_FRAMES - 1) // 0 offset
     !icon_loop:
         ldy data__icon_id_list,x
-        sty common.icon.type
-        lda board.icon.init_matrix,y
-        sta common.icon.offset,x
+        sty common.data__icon_type
+        lda board.data__piece_icon_offset_list,y
+        sta common.idx__icon_offset,x
         jsr common.sprite_initialize
         lda flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
         sta common.data__icon_set_sprite_frame
         lda #ICON_ANIMATION_FRAMES
-        sta common.sprite.init_animation_frame
+        sta common.param__sprite_source_frame
     !frame_loop:
         jsr common.add_sprite_to_graphics
         lda ptr__sprite_mem_lo
@@ -96,14 +96,14 @@ entry:
         inc FREEZP+3
     !next:
         inc common.data__icon_set_sprite_frame
-        dec common.sprite.init_animation_frame
+        dec common.param__sprite_source_frame
         bne !frame_loop-
         dex
         bpl !icon_loop-
         // Add Archon and Avatar logo sprites
-        lda common.sprite.mem_ptr_00
+        lda common.ptr__sprite_00_mem
         sta FREEZP+2
-        lda common.sprite.mem_ptr_00+1
+        lda common.ptr__sprite_00_mem+1
         sta FREEZP+3
         lda #<resources.prt__sprites_logo
         sta FREEZP
@@ -140,18 +140,18 @@ entry:
         sta SP0COL,x
         lda pos__logo_sprite_x_list,x
         sta SP0X,y
-        sta common.sprite.curr_x_pos,x
+        sta common.pos__sprite_x_list,x
         lda pos__logo_sprite_y_list,x
         sta SP0Y,y
-        sta common.sprite.curr_y_pos,x
+        sta common.pos__sprite_y_list,x
         dex
         bpl !loop-
         // Final y-pos of Archon title sprites afters animate from bottom of screen.
         lda #$45
-        sta common.sprite.final_y_pos
+        sta data__sprite_final_y_pos_list
         // Final y-pos of Freefall logo sprites afters animate from top of screen.
         lda #$DA
-        sta common.sprite.final_y_pos+1
+        sta data__sprite_final_y_pos_list+1
         rts
 
     // AACF
@@ -251,7 +251,7 @@ entry:
         lda #>SCNMEM // Screen memory hi byte
         sta FREEZP+3 // Screen memory pointer
         clc
-        adc common.screen.color_mem_offset // Derive color memory address
+        adc common.data__color_mem_offset // Derive color memory address
         sta FORPNT+1  // color memory pointer
         bit flag__string_pos_ctl
         bvc !next+ // flag = $c0
@@ -279,15 +279,15 @@ entry:
     state__scroll_title:
         ldx #$01 // process two sprites groups ("avatar" comprises 3 sprites and "freefall" comprises 2)
     !loop:
-        lda common.sprite.curr_y_pos+3,X
-        cmp common.sprite.final_y_pos,x
+        lda common.pos__sprite_y_list+3,X
+        cmp data__sprite_final_y_pos_list,x
         beq !next+ // stop moving if at final position
         bcs !scroll_up+
         //-- scroll down
         adc #$02
         // Only updates the first sprite current position in the group. Not sure why as scroll up updates the position of
         // all sprites in the group.
-        sta common.sprite.curr_y_pos+3,x
+        sta common.pos__sprite_y_list+3,x
         ldy #$04
     !move_loop:
         sta SP4Y,y // move sprite 4 and 5
@@ -300,7 +300,7 @@ entry:
         sbc #$02
         ldy #$03
     !update_pos:
-        sta common.sprite.curr_y_pos,y
+        sta common.pos__sprite_y_list,y
         dey
         bpl !update_pos-
         ldy #$06
@@ -380,8 +380,8 @@ entry:
         sta ptr__substate_fn+1
         // Initialize sprite registers used to bounce the logo in the next state.
         lda #$0E
-        sta common.sprite.x_move_counter
-        sta common.sprite.y_move_counter
+        sta cnt__sprite_x_moves_left
+        sta cnt__sprite_y_moves_left
         lda #$FF
         sta flag__sprite_x_direction
         jmp common.complete_interrupt
@@ -394,47 +394,47 @@ entry:
         bpl !next+
         lda #$FF // -1 (up)
     !next:
-        sta pos__sprite_y
+        sta pos__curr_sprite_y
         //
         lda #$01 // +1 (right)
         ldy flag__sprite_x_direction
         bpl !next+
         lda #$FF // -1 (left)
     !next:
-        sta pos__sprite_x
+        sta pos__curr_sprite_x
         // Move all 3 sprites that make up the Avatar logo.
         ldx #$03
         ldy #$06
     !loop:
-        lda common.sprite.curr_y_pos,x
+        lda common.pos__sprite_y_list,x
         // Add the direction pointer to the current sprite positions.
         // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for left direction.
         clc
-        adc pos__sprite_y
-        sta common.sprite.curr_y_pos,x
+        adc pos__curr_sprite_y
+        sta common.pos__sprite_y_list,x
         sta SP0Y,y
-        lda common.sprite.curr_x_pos,x
+        lda common.pos__sprite_x_list,x
         clc
-        adc pos__sprite_x
-        sta common.sprite.curr_x_pos,x
+        adc pos__curr_sprite_x
+        sta common.pos__sprite_x_list,x
         sta SP0X,y
         dey
         dey
         dex
         bpl !loop-
         // Reset the x and y position and reverse direction.
-        dec common.sprite.y_move_counter
+        dec cnt__sprite_y_moves_left
         bne !next+
         lda #$07
-        sta common.sprite.y_move_counter
+        sta cnt__sprite_y_moves_left
         lda flag__sprite_y_direction
         eor #$FF
         sta flag__sprite_y_direction
     !next:
-        dec common.sprite.x_move_counter
+        dec cnt__sprite_x_moves_left
         bne state__avatar_color_scroll
         lda #$1C
-        sta common.sprite.x_move_counter
+        sta cnt__sprite_x_moves_left
         lda flag__sprite_x_direction
         eor #$FF
         sta flag__sprite_x_direction
@@ -445,12 +445,12 @@ entry:
     // even rows of alternating colors (col1, col2, col1, col2 etc). Here we set the first color (anded so it is between
     // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
     state__avatar_color_scroll:
-        inc common.sprite.animation_delay
-        lda common.sprite.animation_delay
+        inc common.cnt__curr_sprite_delay
+        lda common.cnt__curr_sprite_delay
         and #$07
         bne !return+
-        inc common.sprite.curr_animation_frame
-        lda common.sprite.curr_animation_frame
+        inc common.cnt__curr_sprite_frame
+        lda common.cnt__curr_sprite_frame
         and #$0F
         sta SPMC0
         clc
@@ -482,9 +482,9 @@ entry:
         // Confifure sprite colors and positions
         ldx #$03
     !loop:
-        lda common.sprite.curr_x_pos,x
+        lda common.pos__sprite_x_list,x
         lsr
-        sta common.sprite.curr_x_pos,x
+        sta common.pos__sprite_x_list,x
         lda data__icon_sprite_color_list,x
         sta SP0COL,x
         dex
@@ -497,40 +497,40 @@ entry:
         ldx #$03
         // Animate on every other frame.
         // The code below just toggles a flag back and forth between the minus state.
-        lda common.sprite.animation_delay
+        lda common.cnt__curr_sprite_delay
         eor #$FF
-        sta common.sprite.animation_delay
+        sta common.cnt__curr_sprite_delay
         bmi !return+
-        inc common.sprite.curr_animation_frame // Counter is used to set the animation frame
+        inc common.cnt__curr_sprite_frame // Counter is used to set the animation frame
         //Move icon sprites.
     !loop:
         txa
         asl
         tay
-        lda common.sprite.curr_x_pos,x
+        lda common.pos__sprite_x_list,x
         cmp pos__icon_sprite_final_x_list,x
         beq !next+
         clc
         adc flag__icon_sprite_direction_list,x
-        sta common.sprite.curr_x_pos,x
+        sta common.pos__sprite_x_list,x
         asl // Move by two pixels at a time
         sta SP0X,y
         // C64 requires 9 bits for sprite X position. Therefore sprite is set using sprite X position AND we may need to
         // set the nineth bit in MSIGX (offset bit by spreit enumber).
         bcc !clear_msb+
         lda MSIGX
-        ora common.math.pow2,x
+        ora common.data__math_pow2,x
         sta MSIGX
         jmp !skip+
     !clear_msb:
-        lda common.math.pow2,x
+        lda common.data__math_pow2,x
         eor #$FF
         and MSIGX
         sta MSIGX
         // Set the sprite pointer to point to one of four sprites used for each icon. A different frame is shown on
         // each movement.
     !skip:
-        lda common.sprite.curr_animation_frame
+        lda common.cnt__curr_sprite_frame
         and #$03 // 1-4 animation frames
         clc
         adc ptr__icon_sprite_mem_list,x
@@ -566,6 +566,20 @@ ptr__substate_fn_list:
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
+    // A8A5
+    // Pointer to string data for each string.
+    ptr__txt__intro_list:
+        .word resources.txt__intro_0, resources.txt__intro_1, resources.txt__intro_2, resources.txt__intro_3
+        .word resources.txt__intro_4, resources.txt__intro_4, resources.txt__intro_4, resources.txt__intro_4
+        .word resources.txt__intro_5, resources.txt__game_67
+
+    // A8B9
+    // Color of each string.
+    data__string_color_list:
+        .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE
+        .byte DARK_GRAY, GRAY, LIGHT_GRAY, WHITE
+        .byte WHITE, ORANGE
+
     // A97A
     // Initial sprite y-position for intro logo sprites.
     pos__logo_sprite_y_list: .byte $ff, $ff, $ff, $ff, $30, $30, $30
@@ -605,20 +619,6 @@ ptr__substate_fn_list:
     // ADBE
     // Initial color of chase scene icon sprites.
     data__icon_sprite_color_list: .byte YELLOW, LIGHT_BLUE, YELLOW, LIGHT_BLUE
-
-    // A8A5
-    // Pointer to string data for each string.
-    ptr__txt__intro_list: 
-        .word resources.txt__intro_0, resources.txt__intro_1, resources.txt__intro_2, resources.txt__intro_3
-        .word resources.txt__intro_4, resources.txt__intro_4, resources.txt__intro_4, resources.txt__intro_4
-        .word resources.txt__intro_5, resources.txt__game_67
-
-    // A8B9
-    // Color of each string.
-    data__string_color_list:
-        .byte YELLOW, LIGHT_BLUE, LIGHT_BLUE, WHITE
-        .byte DARK_GRAY, GRAY, LIGHT_GRAY, WHITE
-        .byte WHITE, ORANGE
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -650,9 +650,21 @@ ptr__substate_fn: .word $0000
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.
 .namespace private {
+    // BCE9
+    // Number of moves left in y plane in current direction (will reverse direction on 0).
+    cnt__sprite_y_moves_left: .byte $00
+
+    // BCEA
+    // Number of moves left in x plane in current direction (will reverse direction on 0).
+    cnt__sprite_x_moves_left: .byte $00
+    
     // BD0D
     // Is positive number for right direction, negative for left direction.
     flag__sprite_x_direction: .byte $00
+
+    // BD15
+    // Final set position of sprites after completion of animation.
+    data__sprite_final_y_pos_list: .byte $00, $00
 
     // BD3A
     // Offset of current intro message being rendered.
@@ -660,7 +672,7 @@ ptr__substate_fn: .word $0000
 
     // BD59
     // Is positive number for down direction, negative for up direction.
-    flag__sprite_y_direction: .byte $00 
+    flag__sprite_y_direction: .byte $00
 
     // BF1A
     // Color of the current intro string being rendered.
@@ -676,7 +688,7 @@ ptr__substate_fn: .word $0000
 
     // BF23
     // Current sprite Y position of bouncing Archon sprite.
-    pos__sprite_y: .byte $00
+    pos__curr_sprite_y: .byte $00
 
     // BF23
     // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
@@ -685,7 +697,7 @@ ptr__substate_fn: .word $0000
 
     // BF24
     // Current sprite X position of bouncing Archon sprite.
-    pos__sprite_x: .byte $00
+    pos__curr_sprite_x: .byte $00
 
     // BF30
     // Current screen line used while rendering repeated strings.
@@ -696,3 +708,4 @@ ptr__substate_fn: .word $0000
     // column is #06 and row supplied in x).
     flag__string_pos_ctl: .byte $00
 }
+

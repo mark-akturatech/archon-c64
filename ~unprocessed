@@ -2,7 +2,7 @@
 
 
     // Copy sprite projectile sprites
-7B99  BC 29 BF   ldy common.icon.offset,x
+7B99  BC 29 BF   ldy common.idx__icon_offset,x
 7B9C  B9 8B 8A   lda W8A8B,y
 7B9F  9D 01 BD   sta WBD01,x
 7BA2  B9 9F 8A   lda W8A9F,y
@@ -17,11 +17,11 @@
 
 // set strength
 7BB7  BC 2D BF   ldy board_icon_type,x
-7BBA  B9 FF 8A   lda board.icon.init_matrix,y
+7BBA  B9 FF 8A   lda board.data__piece_icon_offset_list,y
 7BBD  C9 0C      cmp #SHAPESHIFTER_OFFSET
 7BBF  D0 0E      bne W7BCF
 // elemental
-7BC1  AC 29 BF   ldy common.icon.offset
+7BC1  AC 29 BF   ldy common.idx__icon_offset
 7BC4  C0 10      cpy #$10
 7BC6  90 02      bcc W7BCA
 7BC8  A0 0C      ldy #$0C
@@ -57,7 +57,7 @@ W7BE8:
 
 W7BEF:
 7BEF  9D 05 BD   sta WBD05,x
-7BF2  BC 29 BF   ldy common.icon.offset,x
+7BF2  BC 29 BF   ldy common.idx__icon_offset,x
 7BF5  C0 06      cpy #$06
 7BF7  D0 0E      bne W7C07
 7BF9  AD 1C D0   lda SPMC
@@ -75,7 +75,7 @@ W7C0A:
 W7C15:
 7C15  9D 09 BD   sta game_curr_icon_move_speed,x
 7C18  9D 21 BD   sta WBD21,x
-7C1B  BD 29 BF   lda common.icon.offset,x
+7C1B  BD 29 BF   lda common.idx__icon_offset,x
 7C1E  C9 12      cmp #$12
 7C20  F0 06      beq W7C28
 7C22  29 17      and #$17
@@ -86,7 +86,7 @@ W7C28:
 7C2A  9D 09 BD   sta game_curr_icon_move_speed,x
 W7C2D:
 7C2D  20 EB 62   jsr board_get_sound_for_piece
-7C30  BC 29 BF   ldy common.icon.offset,x
+7C30  BC 29 BF   ldy common.idx__icon_offset,x
 7C33  B9 AA 8B   lda board_sound_attack_phrase,y
 7C36  A8        tay
 7C37  B9 94 8B   lda board_sound_phrase_ptr,y
@@ -176,26 +176,26 @@ W7CB1:
 // piece will get bonus strength based on the number of spells
 // cast??? even if teh caster is dead. what?
 W7F05:
-7F05  48         pha                        
-7F06  A0 00      ldy  #$00                  
-7F08  8C 23 BF   sty  data__used_spell_count 
-7F0B  AD 26 BF   lda  temp_data__curr_board_row 
-7F0E  C9 04      cmp  #$04                  
-7F10  D0 13      bne  W7F25                 
-7F12  E0 00      cpx  #$00                  
-7F14  F0 02      beq  W7F18                 
-7F16  A0 08      ldy  #$08                  
+7F05  48         pha
+7F06  A0 00      ldy  #$00
+7F08  8C 23 BF   sty  data__used_spell_count
+7F0B  AD 26 BF   lda  temp_data__curr_board_row
+7F0E  C9 04      cmp  #$04
+7F10  D0 13      bne  W7F25
+7F12  E0 00      cpx  #$00
+7F14  F0 02      beq  W7F18
+7F16  A0 08      ldy  #$08
 W7F18:
-7F18  CC 28 BF   cpy  temp_data__curr_board_col 
-7F1B  D0 08      bne  W7F25                 
-7F1D  C0 08      cpy  #$08                  
-7F1F  D0 01      bne  W7F22                 
-7F21  88         dey                        
+7F18  CC 28 BF   cpy  temp_data__curr_board_col
+7F1B  D0 08      bne  W7F25
+7F1D  C0 08      cpy  #$08
+7F1F  D0 01      bne  W7F22
+7F21  88         dey
 W7F22:
-7F22  20 05 72   jsr  game_count_used_spells 
+7F22  20 05 72   jsr  game_count_used_spells
 W7F25:
-7F25  68         pla                        
-7F26  60         rts   
+7F25  68         pla
+7F26  60         rts
 
 
 
@@ -205,9 +205,9 @@ W7F25:
 // 40 = non projectile, surround weapon
 // 00 = shapeshifter - it gets speed of opponent
 W8A8B:
-    .byte $07, $05, $04, $03, $03, $05, $40, $20 
-    .byte $07, $06, $03, $03, $00, $04, $40, $20 
-    .byte $04, $05, $03, $03          
+    .byte $07, $05, $04, $03, $03, $05, $40, $20
+    .byte $07, $06, $03, $03, $00, $04, $40, $20
+    .byte $04, $05, $03, $03
 
 07, 05, 04, 03, 03, 04, 64, 32
 07, 06, 03, 03, 00, 04, 64, 32
@@ -216,8 +216,8 @@ W8A8B:
 // Damage.
 // 00 = shapeshifter - it gets damage of opponent
 W8A9F:
-    .byte $07, $0A, $05, $0A, $07, $06, $02, $05 
-    .byte $09, $08, $04, $0A, $00, $0B, $01, $05 
+    .byte $07, $0A, $05, $0A, $07, $06, $02, $05
+    .byte $09, $08, $04, $0A, $00, $0B, $01, $05
     .byte $05, $09, $09, $06
 
 07, 10, 05, 10, 07, 06, 02, 05
@@ -233,10 +233,10 @@ W8A9F:
 W8B4F:
     .byte <$095D
 W8B50:
-    .byte >$095D, <$097D, >$097D, <$099D, >$099D, <$09BD, >$09BD, <$09DD 
-    .byte >$09DD, <$09FD, >$09FD, <$20C6, >$20C6, <$0A3D, >$0A3D, <$0A5D 
-    .byte >$0A5D, <$0A7D, >$0A7D, <$0A9D, >$0A9D, <$09BD, >$09BD, <$0ADD 
-    .byte >$0ADD, <$0AFD, >$0AFD, <$3908, >$3908, <$0B3D, >$0B3D, <$09FD 
-    .byte >$09FD, <$0ADD, >$0ADD, <$09BD, >$09BD, <$0ADD, >$0ADD 
+    .byte >$095D, <$097D, >$097D, <$099D, >$099D, <$09BD, >$09BD, <$09DD
+    .byte >$09DD, <$09FD, >$09FD, <$20C6, >$20C6, <$0A3D, >$0A3D, <$0A5D
+    .byte >$0A5D, <$0A7D, >$0A7D, <$0A9D, >$0A9D, <$09BD, >$09BD, <$0ADD
+    .byte >$0ADD, <$0AFD, >$0AFD, <$3908, >$3908, <$0B3D, >$0B3D, <$09FD
+    .byte >$09FD, <$0ADD, >$0ADD, <$09BD, >$09BD, <$0ADD, >$0ADD
 
 

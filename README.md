@@ -36,7 +36,7 @@ Source code was replicated within Visual Studio Code using the `KickAss (C64)` e
 
 ### Labels
 
-#### Variable Labels 
+#### Variable Labels
 
 Variable lables will be prefixed with the following:
 - `data__` : Calculated or derived results or data stored for use later.
@@ -54,7 +54,7 @@ Labels may also contain the following:
 - `_list` : The label is followed by two or more related items. For example, a list of colors or positions.
 - `_fn` : may be used with the ptr__ prefix to denote a pointer to a function/code.
 - `_ctl` : may be used with a flag__ prefix to denote that the flag could contain multiple values and will be used to control how the code will run (eg flag may contain an enum constant to increment a row, or a column or both).
-- `_cur` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
+- `_curr` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
 
 #### Code Labels
 
@@ -109,7 +109,7 @@ Extensive use of the following tools were used to help with this project:
 
 Some notes regarding the above tools:
 - Kick Assembler is just amazing. It is feature packed and bullet proof. I don't normally personally comment on tools in the README file but I just needed to say somehwere that I am really impressed with Kick Assembler.
-- Jc64Dis is also impressive. It has some bugs and memory leaks and sometimes corrupts the project (gotta save often), but it is also feature packed and perfect for disassembling C64 code. It isn't as populat as Infiltrator or Ghidra etc, but I highly recommend it. 
+- Jc64Dis is also impressive. It has some bugs and memory leaks and sometimes corrupts the project (gotta save often), but it is also feature packed and perfect for disassembling C64 code. It isn't as populat as Infiltrator or Ghidra etc, but I highly recommend it.
 - I use VSCode for many projects (including my daytime job). It is an awesome IDE and I truely recommend it to anyone independant of the language used.
 
 ## Entry Point

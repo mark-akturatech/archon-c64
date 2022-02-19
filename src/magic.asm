@@ -1,6 +1,6 @@
 .filenamespace magic
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for selecting and casting spells within the game.
+// Selecting and casting spells within the game.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Game
 
@@ -11,14 +11,14 @@ select_spell:
     sta temp_row_store
     lda board.data__curr_icon_col
     sta temp_column_store
-    lda game.state.flag__ai_player_ctl
-    cmp game.state.flag__is_light_turn
+    lda game.flag__ai_player_ctl
+    cmp game.flag__is_light_turn
     bne select_spell_start
     jmp ai.magic_select_spell
 select_spell_start:
     // Configure player.
     ldy #$00
-    lda game.state.flag__is_light_turn
+    lda game.flag__is_light_turn
     bpl !next+
     iny
 !next:
@@ -45,7 +45,7 @@ select_spell_start:
     sty data__curr_spell_id
     jsr board.clear_text_area
     ldy data__curr_spell_id
-    lda data.spell_string_id,y
+    lda ptr__spell_string_id_list,y
     ldx #$0A
     jsr board.write_text
     ldy data__curr_spell_id
@@ -58,9 +58,9 @@ select_spell_start:
     tya
     asl
     tay
-    lda data.spell_cast_fn_ptr,y
+    lda ptr__spell_cast_fn_list,y
     sta prt__spell_fn
-    lda data.spell_cast_fn_ptr+1,y
+    lda ptr__spell_cast_fn_list+1,y
     sta prt__spell_fn+1
     jmp (prt__spell_fn)
     //
@@ -77,7 +77,7 @@ cancel_spell_selection:
 // Prerequisites:
 // - `game.curr_player_offset`: Current player (0 for light, 1 for dark).
 // Sets:
-// - `CURLIN`: Pointer to spell used array (one byte for each spell type). See `flag__light_used_spells` for order
+// - `CURLIN`: Pointer to spell used array (one byte for each spell type). See `flag__light_used_spells_list` for order
 //   of bytes.
 // Preserves:
 // - X
@@ -85,9 +85,9 @@ config_used_spell_ptr:
     lda game.curr_player_offset
     asl
     tay
-    lda data.used_spell_ptr,y
+    lda ptr__player_used_spell_list_list,y
     sta CURLIN
-    lda data.used_spell_ptr+1,y
+    lda ptr__player_used_spell_list_list+1,y
     sta CURLIN+1
     rts
 
@@ -101,8 +101,8 @@ spell_select_teleport:
     lda #ACTION_SELECT_FREE_PLAYER_ICON
     jsr spell_select_destination
     //
-    lda game.state.flag__ai_player_ctl
-    cmp game.state.flag__is_light_turn
+    lda game.flag__ai_player_ctl
+    cmp game.flag__is_light_turn
     bne !next+
     // 685D  AD 6E BE   lda WBE6E // TODO
     // 6860  8D 51 BD   sta WBD51
@@ -139,9 +139,9 @@ spell_select_heal:
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_PLAYER_ICON
     jsr spell_select_destination
-    ldx common.icon.type
-    ldy board.icon.init_matrix,x
-    lda game.icon.init_strength,y
+    ldx common.data__icon_type
+    ldy board.data__piece_icon_offset_list,x
+    lda game.data__icon_strength_list,y
     sta game.curr_icon_strength,x
     lda #STRING_SPELL_DONE
 
@@ -167,7 +167,7 @@ spell_select_exchange:
     sta game.message_id
     jsr game.display_message
     lda #$FF // Clear selected icon
-    sta common.icon.type
+    sta common.data__icon_type
     lda #$00
     sta game.curr_icon_total_moves
     lda #ACTION_SELECT_ICON
@@ -177,7 +177,7 @@ spell_select_exchange:
     sta board.data__curr_icon_row
     lda board.data__curr_board_col
     sta board.data__curr_icon_col
-    lda common.icon.type
+    lda common.data__icon_type
     sta temp_selected_icon_store // First selected icon
     lda #STRING_EXCHANGE_WHICH
     sta game.message_id
@@ -197,7 +197,7 @@ spell_select_exchange:
     jsr board.draw_board
     ldx #$30 // ~0.75 seconds
     jsr common.wait_for_jiffy
-    ldx common.icon.type
+    ldx common.data__icon_type
     ldy board.data__curr_icon_row
     lda board.data__curr_icon_col
     jsr set_occupied_square
@@ -212,13 +212,13 @@ spell_select_elemental:
     // Check if there are any enemy icons located on non-magic squares. If not, the spell will be wasted and an alert
     // shown. The check is a bit rough - it starts at occupancy location 80 ($50) which is the last square on the board
     // (0 offset) and works backwards. An array of magic square locations is stored in
-    // `game.data.magic_sqaure_occupancy_index`. If the counter is decremented to the magic square location, the next
+    // `game.idx__magic_sqaure_cell`. If the counter is decremented to the magic square location, the next
     // magic square is stored and the occupancy check is skipped. This repeats until all squares have been checked.
-    // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic sqaures skipped) and
+    // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic squares skipped) and
     // no enemey piece is found, then we show a spell wasted message.
     ldx #(BOARD_SIZE-1)
-    ldy #$04 // Number magic sqaures (0 offset)
-    lda game.data.magic_sqaure_occupancy_index+4
+    ldy #$04 // Number magic squares (0 offset)
+    lda game.idx__magic_sqaure_cell+4
     sta temp__data_store
 !loop:
     cpx temp__data_store // Up to next magic square?
@@ -226,7 +226,7 @@ spell_select_elemental:
     dey
     bmi check_next_square // No more magic squares
     // Store next magic square location.
-    lda game.data.magic_sqaure_occupancy_index,y
+    lda game.idx__magic_sqaure_cell,y
     sta temp__data_store
     jmp check_next_square
 !next:
@@ -235,7 +235,7 @@ spell_select_elemental:
     bmi check_next_square // No icon
     cmp #MANTICORE // First dark player icon id
     php
-    lda game.state.flag__is_light_turn
+    lda game.flag__is_light_turn
     bpl !next+
     plp
     bcc allow_summon_elemental
@@ -273,10 +273,10 @@ allow_summon_elemental:
     clc
     adc #AIR_ELEMENTAL // Elemental ID
     tax
-    stx common.icon.type
-    ldy board.icon.init_matrix,x
-    sty common.icon.offset
-    lda game.icon.init_strength,y
+    stx common.data__icon_type
+    ldy board.data__piece_icon_offset_list,x
+    sty common.idx__icon_offset
+    lda game.data__icon_strength_list,y
     sta game.curr_icon_strength,x
     // Display elemental type.
     jsr board.clear_text_area
@@ -297,24 +297,24 @@ allow_summon_elemental:
     jsr board.convert_coord_sprite_pos
     jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.sprite.copy_length
+    sta common.param__sprite_source_size
     jsr common.add_sprite_set_to_graphics
     lda game.curr_player_offset
     beq !next+
     lda #$11 // Left facing icon
 !next:
-    sta common.sprite.init_animation_frame
+    sta common.param__sprite_source_frame
     jsr board.render_sprite
     //
-    lda game.state.flag__ai_player_ctl
-    cmp game.state.flag__is_light_turn
+    lda game.flag__ai_player_ctl
+    cmp game.flag__is_light_turn
     beq !next+
     lda #STRING_SEND_WHERE
     sta game.message_id
     sta temp_message_id_store
     jsr game.display_message
 !next:
-    lda common.icon.offset
+    lda common.idx__icon_offset
     cmp #EARTH_ELEMENTAL_OFFSET
     bne !next+
     lda #$40 // Slow down animation speed for earth elemental
@@ -348,7 +348,7 @@ revive_error:
     ldy #$07 // Maximum 8 (0 offset) icon types
     lda #DEAD_ICON_SLOT_UNUSED
 !loop:
-    sta curr_dead_icon_offsets,y
+    sta curr_dead_icon_offset_list,y
     dey
     bpl !loop-
     // Populate dead icon list.
@@ -357,19 +357,19 @@ revive_error:
 !loop:
     lda game.curr_icon_strength,x
     bne !next+
-    lda board.icon.init_matrix,x
+    lda board.data__piece_icon_offset_list,x
     // Check if icon type is already in the list (eg 2 of the same type may have been killed).
     ldy data__number_dead_icons
 check_dead_type_loop:
-    cmp curr_dead_icon_offsets,y
+    cmp curr_dead_icon_offset_list,y
     beq !next+
     dey
     bpl check_dead_type_loop
     // Store the dead icon in the list.
     ldy data__number_dead_icons
-    sta curr_dead_icon_offsets,y
+    sta curr_dead_icon_offset_list,y
     txa
-    sta curr_dead_icon_types,y
+    sta curr_dead_icon_type_list,y
     iny
     sty data__number_dead_icons
     cpy #$08 // Dead icon list full?
@@ -388,7 +388,7 @@ check_dead_type_loop:
 !next:
     // Set screen and color memory pointers for displaying the dead icon list.
     lda #(CHARS_PER_SCREEN_ROW*3)
-    ldy game.state.flag__is_light_turn
+    ldy game.flag__is_light_turn
     bpl !next+
     lda #(CHARS_PER_SCREEN_ROW*3+CHARS_PER_SCREEN_ROW-4)
 !next:
@@ -404,7 +404,7 @@ check_dead_type_loop:
     sta data__dead_icon_index
 !loop:
     ldy data__dead_icon_index
-    lda curr_dead_icon_offsets,y
+    lda curr_dead_icon_offset_list,y
     pha
     asl
     asl
@@ -432,11 +432,11 @@ check_dead_type_loop:
     jsr board.convert_coord_sprite_pos
     sec
     sbc #$02
-    sta common.sprite.curr_x_pos+1
+    sta common.pos__sprite_x_list+1
     tya
     sec
     sbc #$01
-    sta common.sprite.curr_y_pos+1
+    sta common.pos__sprite_y_list+1
     jsr board.render_sprite
     // Allow user to select a dead icon.
     lda #STRING_REVIVE_WHICH
@@ -452,17 +452,17 @@ check_dead_type_loop:
     ldx #$00
     jsr board.convert_coord_sprite_pos
     ldy board.data__curr_board_row
-    lda curr_dead_icon_offsets,y
-    sta common.icon.offset
-    lda curr_dead_icon_types,y
-    sta common.icon.type
+    lda curr_dead_icon_offset_list,y
+    sta common.idx__icon_offset
+    lda curr_dead_icon_type_list,y
+    sta common.data__icon_type
     tax
     lda #STRING_CHARMED_WHERE
     sta game.message_id
     sta temp_message_id_store
     jsr game.display_message
-    ldy common.icon.offset
-    lda game.icon.init_strength,y
+    ldy common.idx__icon_offset
+    lda game.data__icon_strength_list,y
     sta game.curr_icon_strength,x // Restore icon health
     ldx #$00
     stx game.flag__selected_sprite
@@ -539,7 +539,7 @@ spell_select_imprison:
     // Check if color is strongest opposing color. If so, the icon will be immidiately released from prison and
     // therefore the spell will be wasted.
     ldy #PHASE_CYCLE_LENGTH
-    lda game.state.flag__is_light_turn
+    lda game.flag__is_light_turn
     bmi !next+
     ldy #$00
 !next:
@@ -556,7 +556,7 @@ spell_select_imprison:
     lda #ACTION_SELECT_OPPOSING_ICON
     jsr spell_select_destination
     ldx #$00
-    lda common.icon.type
+    lda common.data__icon_type
     cmp #MANTICORE // First dark player
     bcc !next+
     inx
@@ -675,7 +675,7 @@ display_spell:
     // Display the name of the spell.
     ldx #(CHARS_PER_SCREEN_ROW+10)
     ldy temp__data_store
-    lda data.spell_string_id,y
+    lda ptr__spell_string_id_list,y
     jsr board.write_text
     rts
 
@@ -717,8 +717,8 @@ spell_select_destination:
     jsr game.wait_for_state_change
     lda game.flag__interrupt_response
     bmi !return+
-    lda game.state.flag__ai_player_ctl
-    cmp game.state.flag__is_light_turn
+    lda game.flag__ai_player_ctl
+    cmp game.flag__is_light_turn
     beq !return+
     ldy data__curr_spell_id
     cpy #SPELL_ID_SUMMON_ELEMENTAL
@@ -750,9 +750,9 @@ complete_destination_selection:
 // - `board.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 set_occupied_square:
     pha
-    lda board.data.row_occupancy_lo_ptr,y
+    lda board.ptr__board_row_occupancy_lo,y
     sta OLDLIN
-    lda board.data.row_occupancy_hi_ptr,y
+    lda board.ptr__board_row_occupancy_hi,y
     sta OLDLIN+1
     pla
     tay
@@ -776,7 +776,7 @@ count_used_spells:
     sta data__used_spell_count
     ldx #$07
 !loop:
-    lda flag__light_used_spells,y
+    lda flag__light_used_spells_list,y
     cmp #SPELL_USED
     bne !next+
     inc data__used_spell_count
@@ -800,9 +800,9 @@ spell_select:
     // Set spell action dynamic function.
     asl
     tax
-    lda data.spell_action_fn_ptr,x
+    lda ptr__spell_action_fn_list,x
     sta prt__spell_fn
-    lda data.spell_action_fn_ptr+1,x
+    lda ptr__spell_action_fn_list+1,x
     sta prt__spell_fn+1
     pla
     pha
@@ -839,9 +839,9 @@ spell_abort_magic_square:
 spell_select_icon:
     pla
     bmi !return+ // Unoccupied square selected
-    cmp common.icon.type
+    cmp common.data__icon_type
     beq !return+
-    sta common.icon.type
+    sta common.data__icon_type
 spell_check_icon_is_free:
     cmp game.imprisoned_data__icon_id_list
     beq !next+
@@ -872,10 +872,10 @@ spell_select_square:
 spell_select_player_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta common.icon.type
+    sta common.data__icon_type
     tay
-    lda board.icon.init_matrix,y
-    eor game.state.flag__is_light_turn
+    lda board.data__piece_icon_offset_list,y
+    eor game.flag__is_light_turn
     and #$08
     bne !return- // Not current player icon
     asl game.flag__icon_destination_valid
@@ -890,7 +890,7 @@ spell_select_challenge_icon:
     jmp game.check_icon_destination
 
 // 8839
-// Allow player to select a square surrounding the spell caster (charmed sqaure).
+// Allow player to select a square surrounding the spell caster (charmed square).
 // Action command: `ACTION_SELECT_CHARMED_SQUARE` ($84)
 spell_select_charmed_square:
     pla
@@ -930,10 +930,10 @@ spell_select_charmed_square:
 spell_select_opposing_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta common.icon.type
+    sta common.data__icon_type
     tay
-    lda board.icon.init_matrix,y
-    eor game.state.flag__is_light_turn
+    lda board.data__piece_icon_offset_list,y
+    eor game.flag__is_light_turn
     and #$08
     beq !return- // Not opposing player icon
     asl game.flag__icon_destination_valid
@@ -946,13 +946,13 @@ spell_select_opposing_icon:
 spell_select_free_player_icon:
     pla
     bmi !return- // Unoccupied square selected
-    sta common.icon.type
+    sta common.data__icon_type
     tay
-    lda board.icon.init_matrix,y
-    eor game.state.flag__is_light_turn
+    lda board.data__piece_icon_offset_list,y
+    eor game.flag__is_light_turn
     and #$08
     bne !return- // Not current player icon
-    lda common.icon.type
+    lda common.data__icon_type
     jmp spell_check_icon_is_free
 
 // 8899
@@ -963,10 +963,10 @@ spell_select_revive_icon:
     ldy board.data__curr_board_row
     cpy #$08 // Max 8 icons in dead icon list
     bcs !return-
-    lda curr_dead_icon_offsets,y
+    lda curr_dead_icon_offset_list,y
     cmp #DEAD_ICON_SLOT_UNUSED
     beq !return-
-    sta common.icon.type
+    sta common.data__icon_type
     asl game.flag__icon_destination_valid
     rts
 
@@ -975,31 +975,29 @@ spell_select_revive_icon:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-.namespace data {
-    // 67A0
-    // Location of used spell arrays for each player
-    used_spell_ptr:
-        .word flag__light_used_spells, flag__dark_used_spells
+// 67A0
+// Location of used spell arrays for each player
+ptr__player_used_spell_list_list:
+    .word flag__light_used_spells_list, flag__dark_used_spell_list
 
-    // 67A4
-    // Spell cast function pointers.
-    spell_cast_fn_ptr:
-        .word spell_select_teleport, spell_select_heal, spell_select_shift_time, spell_select_exchange
-        .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease
+// 67A4
+// Spell cast function pointers.
+ptr__spell_cast_fn_list:
+    .word spell_select_teleport, spell_select_heal, spell_select_shift_time, spell_select_exchange
+    .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease
 
-    // 87AC
-    // Spell action function pointers. Actions are used to allow the player to select board squares or icons.
-    spell_action_fn_ptr:
-        .word spell_select_icon, spell_select_square, spell_select_player_icon, spell_select_challenge_icon
-        .word spell_select_charmed_square, spell_select_opposing_icon, spell_select_free_player_icon
-        .word spell_select_revive_icon
+// 87AC
+// Spell action function pointers. Actions are used to allow the player to select board squares or icons.
+ptr__spell_action_fn_list:
+    .word spell_select_icon, spell_select_square, spell_select_player_icon, spell_select_challenge_icon
+    .word spell_select_charmed_square, spell_select_opposing_icon, spell_select_free_player_icon
+    .word spell_select_revive_icon
 
-    // 8B8C
-    // Spell name message string IDs.
-    spell_string_id:
-        .byte STRING_TELEPORT, STRING_HEAL, STRING_SHIFT_TIME, STRING_EXCHANGE, STRING_SUMMON_ELEMENTAL
-        .byte STRING_REVIVE, STRING_IMPRISON, STRING_CEASE
-}
+// 8B8C
+// Spell name message string IDs.
+ptr__spell_string_id_list:
+    .byte STRING_TELEPORT, STRING_HEAL, STRING_SHIFT_TIME, STRING_EXCHANGE, STRING_SUMMON_ELEMENTAL
+    .byte STRING_REVIVE, STRING_IMPRISON, STRING_CEASE
 
 //---------------------------------------------------------------------------------------------------------------------
 // Data
@@ -1017,7 +1015,7 @@ data__used_elemental_id: .byte $00
 
 // BCFE
 // Is set if the selected square is a magic square.
-flag__sqaure_is_magic: .byte $00
+flag__square_is_magic: .byte $00
 
 // BD0E
 // Is 0 for spell caster not selected, $80 for selected and +$80 for selected spell.
@@ -1049,24 +1047,24 @@ data__curr_count: .byte $00
 
 // BE7F
 // List of unique dead icon offsets.
-curr_dead_icon_offsets: .byte $00, $00, $00, $00, $00, $00, $00, $00
+curr_dead_icon_offset_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BE87
 // List of unique dead icon types.
-curr_dead_icon_types: .byte $00, $00, $00, $00, $00, $00, $00, $00
+curr_dead_icon_type_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BEFA
 // Flags used to keep track of spells used by light player.
 // Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
-flag__light_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
+flag__light_used_spells_list: .byte $00, $00, $00, $00, $00, $00, $00
 
 // BF01
 // Flags used to keep track of spells used by dark player.
 // Spells are in order: teleport, heal, shift time, exchange, summon elemental, revive, imprison.
-flag__dark_used_spells: .byte $00, $00, $00, $00, $00, $00, $00
+flag__dark_used_spell_list: .byte $00, $00, $00, $00, $00, $00, $00
 
 // BF1A
-// Generic temporary data storage area
+// Generic temporary data storage area.
 temp__data_store: .byte $00
 
 // BF23
@@ -1092,4 +1090,4 @@ data__hold_delay_count: .byte $00
 
 // BF43
 // Screen offset for start of graphical memory for dead icon list display.
-dead_icon_screen_offset: .byte $00 
+dead_icon_screen_offset: .byte $00

@@ -10,7 +10,7 @@ snd__music_1:
     .byte SOUND_CMD_SET_DELAY, $07, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $11, $C3, $10, $C3, $0F, $D2
     .byte $0E, $EF, $11, $C3, $10, $C3, $0F, $D2, $0E, $EF, $13, $EF, $15, $1F, $16, $60
     .byte $17, $B5
-    .byte SOUND_CMD_NEXT_PATTERN   
+    .byte SOUND_CMD_NEXT_PATTERN
 snd__music_2:
     .byte SOUND_CMD_SET_DELAY, $38, SOUND_CMD_NO_NOTE, SOUND_CMD_SET_DELAY, $07, $0E, $18, $0D, $4E, $0C, $8F
     .byte $0B, $DA, $0B, $30, $0A, $8F, $09, $F7, $09, $68

@@ -1,6 +1,6 @@
 .filenamespace challenge
 //---------------------------------------------------------------------------------------------------------------------
-// Contains routines for challenge and battle arena.
+// Icon challenge and battle arena.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Game
 
@@ -45,9 +45,9 @@ entry:
     // Therefore a pieces strength will increase by up to 7 depending upon the color or phase of the challenged square.
     ldy board.data__curr_board_row
     sty board.data__curr_icon_row
-    lda board.data.row_color_offset_lo_ptr,y
+    lda board.ptr__color_row_offset_lo,y
     sta CURLIN
-    lda board.data.row_color_offset_hi_ptr,y
+    lda board.ptr__color_row_offset_hi,y
     sta CURLIN+1
     ldy board.data__curr_board_col
     sty board.data__curr_icon_col
@@ -58,11 +58,11 @@ entry:
     beq dark_square
     bmi vary_square
     ldy #$07
-    lda board.data.square_colors__square+1 // White
+    lda board.data__board_player_cell_color_list+1 // White
     bne !next+
 dark_square:
     ldy #$00
-    lda board.data.square_colors__square // Black
+    lda board.data__board_player_cell_color_list // Black
     beq !next+
 vary_square:
     lda game.data__phase_cycle_board
@@ -78,28 +78,28 @@ vary_square:
     iny
     sty data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
-    lda common.icon.type
+    lda common.data__icon_type
     ldy game.curr_challenge_icon_type
-    bit game.state.flag__is_light_turn
+    bit game.flag__is_light_turn
     bpl !next+
-    ldy common.icon.type
+    ldy common.data__icon_type
     lda game.curr_challenge_icon_type
 !next:
     // Configure battle pieces
-    sta common.icon.type
+    sta common.data__icon_type
     tax
-    lda board.icon.init_matrix,x
-    sta common.icon.offset
+    lda board.data__piece_icon_offset_list,x
+    sta common.idx__icon_offset
     sty magic.temp_selected_icon_store // ??? Not used?
-    lda board.icon.init_matrix,y
+    lda board.data__piece_icon_offset_list,y
     tay
     cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
     bne !next+
-    ldy common.icon.offset // 
+    ldy common.idx__icon_offset //
 !next:
-    sty common.icon.offset+1
+    sty common.idx__icon_offset+1
     //
-    // Do this for both the light and dark icons...    
+    // Do this for both the light and dark icons...
     ldx #$01
     // Create sprites at original coordinates on board. This will allow us to do the animation where the sprites slide
     // in to battle position.
@@ -107,7 +107,7 @@ vary_square:
     // Create sprite group.
     jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.sprite.copy_length
+    sta common.param__sprite_source_size
     jsr common.add_sprite_set_to_graphics
     // Place the sprite at the challenge square.
     lda board.data__curr_board_col
@@ -127,14 +127,12 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-.namespace sound {
-    // 8BAA
-    attack_pattern:
-    // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
-    // defined above.
-        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-        .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
-}
+// 8BAA
+idx__sound_attack_pattern:
+// Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
+// defined above.
+    //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+    .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
@@ -144,7 +142,7 @@ interrupt_handler:
 // BCF2
 // Current color of square in which a battle is being faught.
 // TODO: WHY IS THIS DIFFERENT TO curr_square_color
-curr_battle_square_color: .byte $00 
+curr_battle_square_color: .byte $00
 
 // BD12
 // Calculated strength adjustment based on color of the challenge square.

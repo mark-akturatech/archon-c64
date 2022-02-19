@@ -21,7 +21,7 @@ txt__intro_4:
 
 // A892
 // Bottom half of "Free Fall" logo.
-txt__intro_5: 
+txt__intro_5:
     .byte $0b // Start on column $0b. Row is supplied in logic as string is repeated on multiple rows.
     .byte $66, $67, $6a, $6b, $6e, $6f, $6e, $6f, $00, $66, $67, $62, $63, $72, $73, $72, $73
     .byte STRING_CMD_END
