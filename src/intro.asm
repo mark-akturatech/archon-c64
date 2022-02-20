@@ -1,10 +1,17 @@
 .filenamespace intro
 //---------------------------------------------------------------------------------------------------------------------
-// Introduction/title sequence.
+// Play introduction/title sequence.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Intro
 
 // A82C
+// Here we initialize and configure the intro screen and then scroll through each intro state. Intro states run in
+// the backgroun on a raster interrupt. State changes are progressed by special commands in the music pattern data.
+// A state is a related group of actions - such as scrolling the Freefall and Archon logos in to view or displaying
+// the author list or animating the Archon logo bounce movement.
+// The intro ends when the RUN/STOP, Q, F3, F5 or F7 key is pressed.
+// RUN/STOP will jump to the board walk animation. F7 will start the game immediately with default options (two player,
+// light first). F3 and F5 will toggle the approporiate selection and jump directly to the options page.
 entry:
     jsr common.clear_sprites
     jsr private.import_sprites
@@ -22,7 +29,7 @@ entry:
     sta XXPAND
     lda #%1111_1111 // Enable all sprites
     sta SPENA
-    // Set interrupt handler to set intro loop state.
+    // Set interrupt handler.
     sei
     lda #<private.interrupt_handler
     sta main.ptr__raster_interrupt_fn
@@ -33,16 +40,19 @@ entry:
     sta idx__substate_fn_ptr // Initialize substate to first substate (draw Freefall logo)
     sta EXTCOL // Black border
     sta BGCOL0 // Black background
-    // Set multicolor sprite second color.
+    // Set multicolor sprite default color.
     lda private.data__logo_sprite_color_list
     sta SPMC0
     sta SPMC1
     // Configure the starting intro state function.
-    lda #<private.state__scroll_title
+    lda #<private.state__scroll_logos
     sta ptr__substate_fn
-    lda #>private.state__scroll_title
+    lda #>private.state__scroll_logos
     sta ptr__substate_fn+1
-    // Busy wait for break key. Interrupts will play the music and animations while we wait.
+    // Busy wait for break key. Interrupts will play the music and animations and progress through each into state
+    // while we wait.
+    // This function will also jump directly to the game state on F7 and to the options selection state on F3, F5
+    // or Q key.
     jsr common.wait_for_key
     rts
 
@@ -50,22 +60,27 @@ entry:
 // Private functions.
 .namespace private {
     // AA42
+    // Play current intro state interrupt.
     interrupt_handler:
         lda common.flag__enable_next_state
         bpl !next+
         jmp common.complete_interrupt
     !next:
+        // The flag will be set to TRUE when the intro is over. This will then cause the interrupt handler to
+        // stop playing into interrupts after the current interrupt is completed.
         lda flag__exit_intro
         sta common.flag__enable_next_state
         jsr common.play_music
+        // Run background task for the current intro state. eg move the Logo icon up by one pixel to scroll the logo
+        // up the screen.
         jmp (ptr__substate_fn)
 
     // A98F
-    // Imports sprites in to graphics area.
+    // Imports the logo and chase scene icon sprites in to the graphics area.
     import_sprites:
-        // Copy in icon frames for chase scene
+        // Copy in icon frames for chase scene.
         lda #FLAG_ENABLE
-        sta common.param__is_copy_animation_group
+        sta common.param__is_copy_animation_group // Copy icon animation frames to animate movement in the chase scene
         lda #BYTERS_PER_STORED_SPRITE
         sta common.param__sprite_source_size
         lda common.ptr__sprite_24_mem
@@ -73,18 +88,19 @@ entry:
         sta ptr__sprite_mem_lo
         lda common.ptr__sprite_24_mem+1
         sta FREEZP+3
-        .const ICON_ANIMATION_FRAMES = 4
+        // Manually add 4 sprite froms for each icon.
+        .const ICON_ANIMATION_FRAMES = 4 // 4 frames required to show icon movement in one direction
         ldx #(ICON_ANIMATION_FRAMES - 1) // 0 offset
     !icon_loop:
         ldy data__icon_id_list,x
-        sty common.data__icon_type
+        sty common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
-        sta common.idx__icon_offset,x
+        sta common.param__icon_offset_list,x
         jsr common.sprite_initialize
         lda flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
-        sta common.data__icon_set_sprite_frame
+        sta common.param__icon_sprite_curr_frame // Start frames have $80 added to horizontally mirror the sprite
         lda #ICON_ANIMATION_FRAMES
-        sta common.param__sprite_source_frame
+        sta common.param__icon_sprite_source_frame_list
     !frame_loop:
         jsr common.add_sprite_to_graphics
         lda ptr__sprite_mem_lo
@@ -95,12 +111,13 @@ entry:
         bcc !next+
         inc FREEZP+3
     !next:
-        inc common.data__icon_set_sprite_frame
-        dec common.param__sprite_source_frame
+        inc common.param__icon_sprite_curr_frame
+        dec common.param__icon_sprite_source_frame_list
         bne !frame_loop-
+        // Add remaining icons.
         dex
         bpl !icon_loop-
-        // Add Archon and Avatar logo sprites
+        // Add Archon and Avatar logo sprites.
         lda common.ptr__sprite_00_mem
         sta FREEZP+2
         lda common.ptr__sprite_00_mem+1
@@ -109,7 +126,7 @@ entry:
         sta FREEZP
         lda #>resources.prt__sprites_logo
         sta FREEZP+1
-        ldy #$00 // Copy 7 sprites (448 bytes)
+        ldy #$00 // Copy 7 sprites ($1BF bytes - 4 for Archon logo, 3 for Freefall logo)
     !loop: // Copy first 256 bytes
         lda (FREEZP),y
         sta (FREEZP+2),y
@@ -117,18 +134,17 @@ entry:
         bne !loop-
         inc FREEZP+1
         inc FREEZP+3
-    !loop: // Copy remaining 206 bytes
+    !loop: // Copy remaining bytes
         lda (FREEZP),y
         sta (FREEZP+2),y
         iny
         cpy #$C0
         bcc !loop-
-        // Pointer to first sprite: 64 bytes per sprite, start at graphmem offset. we add 6 as we are setting the first
-        // 6 (of 8) sprites (and we work backwards from 6).
-        .const NUM_SPRITES = 6
-        lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES
+        // Configure each of the 7 sprites.
+        .const NUM_SPRITES = 7
+        lda #(VICGOFF/BYTES_PER_SPRITE)+(NUM_SPRITES-1)
         sta ptr__sprite_mem
-        ldx #NUM_SPRITES
+        ldx #(NUM_SPRITES - 1) // 0 offset
     !loop:
         txa
         asl
@@ -146,26 +162,25 @@ entry:
         sta common.pos__sprite_y_list,x
         dex
         bpl !loop-
-        // Final y-pos of Archon title sprites afters animate from bottom of screen.
+        // Final y-pos of Archon title sprites afters scroll from bottom of screen.
         lda #$45
         sta data__sprite_final_y_pos_list
-        // Final y-pos of Freefall logo sprites afters animate from top of screen.
+        // Final y-pos of Freefall logo sprites afters scroll from top of screen.
         lda #$DA
         sta data__sprite_final_y_pos_list+1
         rts
 
     // AACF
-    // Description:
-    // - Initiates the draw text routine by selecting a color and text offset.
-    // - The routine then calls a method to write the text to the screen.
-    // Prerequisites:
-    // - `_idx__string`: Contains the string ID offset
+    // Initiates the draw text routine by selecting a color and text offset. The routine then calls a method to write
+    // the text to the screen.
+    // Requires:
+    // - `param__string_idx`: Contains the string ID offset to display
     // Notes:
-    // - The message offset is used to read the string memory location from `_ptr__txt__intro_list` (message offset is
+    // - The message offset is used to read the string memory location from `ptr__txt__intro_list` (message offset is
     //   multiplied by 2 as 2 bytes are required to store the message location).
-    // - The message offset is used to read the string color from `_data__string_color_list`.
+    // - The message offset is used to read the string color from `data__string_color_list`.
     screen_draw_text:
-        ldy idx__string
+        ldy param__string_idx
         lda data__string_color_list,y
         sta data__curr_color
         tya
@@ -179,17 +194,14 @@ entry:
         jmp screen_calc_start_addr
 
     // AAEA
-    // Description:
-    // - Write characters and colors to the screen.
-    // Prerequisites:
+    // Write characters and colors to the screen.
+    // Requires:
     // - FREEZP/FREEZP+1: Pointer to string data. The string data starts with a column offset and ends with $FF.
     // - FREEZP+2/FREEZP+3: Pointer to screen character memory.
     // - FORPNT/FORPNT+1: Pointer to screen color memory.
-    // - `_data__curr_color`: Color code used to set the character color.
-    // Sets:
-    // - Updates screen character and color memory.
+    // - `data__curr_color`: Color code used to set the character color.
     // Notes:
-    // - Calls `_screen_calc_start_addr` to determine screen character and color memory on new line command.
+    // - Calls `screen_calc_start_addr` to determine screen character and color memory on new line command.
     // - Strings are defined as follows:
     //  - A $80 byte in the string represents a 'next line'.
     //  - A screen row and colum offset must follow a $80 command.
@@ -208,12 +220,11 @@ entry:
         beq screen_calc_start_addr
         rts
     !next:
-        sta (FREEZP+2),y // Write character
-        // Set color.
+        sta (FREEZP+2),y // Write character to screen
         lda (FORPNT),y
-        and #$F0
+        and #%1111_0000 // Set foreground color (top nibble is background color, bottom nibble is foreground color)
         ora data__curr_color
-        sta (FORPNT),y
+        sta (FORPNT),y // Set character color
         // Next character.
         inc FORPNT
         inc FREEZP+2
@@ -223,11 +234,10 @@ entry:
         jmp !loop-
 
     // AB13
-    // Description:
-    // - Derive the screen starting character offset and color memory offset.
-    // Prerequisites:
+    // Derive the screen starting character offset and color memory offset.
+    // Requires:
     // - FREEZP/FREEZP+1 - Pointer to string data. The string data starts with a column offset and ends with FF.
-    // - `_flag__string_pos_ctl`: Row control flag:
+    // - `param__string_pos_ctl_flag`: Row control flag:
     //    $00 - the screen row and column is read from the first byte and second byte in the string
     //    $80 - the screen row is supplied using the X register and column is the first byte in the string
     //    $C0 - the screen column is hard coded to #06 and the screen row is read X register
@@ -235,34 +245,36 @@ entry:
     // - FREEZP+2/FREEZP+3 - Pointer to screen character memory.
     // - FORPNT/FORPNT+1 - Pointer to screen color memory.
     // Notes:
-    // - Calls `_screen_write_chars` to output the characters after the screen location is determined.
+    // - Calls `screen_write_chars` to output the characters after the screen location is determined.
     screen_calc_start_addr:
-        lda flag__string_pos_ctl
-        bmi !skip+ // flag = $80 or $c0
-        // Read screen row.
+        lda param__string_pos_ctl_flag
+        bmi !skip+ // Flag is >= $80
+        // Read screen row from string data.
         lda (FREEZP),y
         inc FREEZP
         bne !next+
         inc FREEZP+1
     !next:
-        tax // Get screen row from x regsietr
+        tax
     !skip:
         // Determine start screen and color memory addresses.
         lda #>SCNMEM // Screen memory hi byte
         sta FREEZP+3 // Screen memory pointer
         clc
         adc common.data__color_mem_offset // Derive color memory address
-        sta FORPNT+1  // color memory pointer
-        bit flag__string_pos_ctl
-        bvc !next+ // flag = $c0
-        lda #$06 // Hard coded screen column offset if BF3C flag set
+        sta FORPNT+1 // Color memory pointer
+        bit param__string_pos_ctl_flag
+        bvc !next+ // Flag is $C0 (required for Run/Stop message as this message does not contain row/column data)
+        lda #$06 // Hard coded screen column offset
         bne !skip+
     !next:
-        lda (FREEZP),y
+        lda (FREEZP),y // Get column from string data
         inc FREEZP
         bne !skip+
         inc FREEZP+1
     !skip:
+    !loop:
+        // Add 40 characters (1 row) to the column value for each row to obtain the starting screen location.
         clc
         adc #CHARS_PER_SCREEN_ROW
         bcc !next+
@@ -270,34 +282,35 @@ entry:
         inc FORPNT+1
     !next:
         dex
-        bne !skip-
+        bne !loop-
         sta FREEZP+2
         sta FORPNT
         jmp screen_write_chars
 
+    //-----------------------------------------------------------------------------------------------------------------
+    // Intro state logic.
+
     // AA56
-    state__scroll_title:
-        ldx #$01 // process two sprites groups ("avatar" comprises 3 sprites and "freefall" comprises 2)
+    state__scroll_logos:
+        ldx #$01 // process two sprites groups ("Archon" comprises 4 sprites and "Freefall" comprises 3)
     !loop:
-        lda common.pos__sprite_y_list+3,X
+        lda common.pos__sprite_y_list+3,x
         cmp data__sprite_final_y_pos_list,x
-        beq !next+ // stop moving if at final position
+        beq !next+ // Stop moving if at final position
         bcs !scroll_up+
-        //-- scroll down
-        adc #$02
-        // Only updates the first sprite current position in the group. Not sure why as scroll up updates the position of
-        // all sprites in the group.
+        // Scroll down Freefall.
+        adc #$02 // Scroll down by 2 pixels
         sta common.pos__sprite_y_list+3,x
         ldy #$04
     !move_loop:
-        sta SP4Y,y // move sprite 4 and 5
+        sta SP4Y,y // Move sprites 5 to 7
         dey
         dey
         bpl !move_loop-
         bmi !next+
-        //-- scroll up
+        // Scroll up Archon.
     !scroll_up:
-        sbc #$02
+        sbc #$02 // Scroll up by 2 pixels
         ldy #$03
     !update_pos:
         sta common.pos__sprite_y_list,y
@@ -305,7 +318,7 @@ entry:
         bpl !update_pos-
         ldy #$06
     !move_loop:
-        sta SP0Y,y // move sprite 1, 2 and 3
+        sta SP0Y,y // Move sprites 1 to 4
         dey
         dey
         bpl !move_loop-
@@ -317,9 +330,8 @@ entry:
     // AA8B
     state__draw_freefall_logo:
         lda #FLAG_ENABLE
-        sta flag__string_pos_ctl
-        // Enable sprites 4 to 7 (Freefall logo).
-        // The sprites are replaced with text character dot data after the animation has completed.
+        sta param__string_pos_ctl_flag
+        // Disable sprites 5 to 7 (Freefall logo).
         ldx #$04
         lda #%0000_1111
     !loop:
@@ -327,31 +339,30 @@ entry:
         inx
         cpx #$08
         bcc !loop-
-        // Draw text method has two modes (set using flag $bfc3):
-        // - if set, X register holds the starting row
-        // - if not set, the starting row is read from the first byte of the string data
-        // Here we set the start row manually and decrement it 4 times. We do this so we can show the same string (the top
-        // half of the Free Fall log) on four separate lines.
+        // Replace Freefall logo with text.
+        // Here we start with the 8th string index which is the bottom of the freefall logo. We then decrease down
+        // to 4. This displays Freefall logo with 3 repeated "ghost" halves above it.
         ldx #$16
         ldy #$08
-        sty idx__string
+        sty param__string_idx
     !loop:
         stx data__curr_line
         jsr screen_draw_text
         ldx data__curr_line
         dex
-        dec idx__string
-        ldy idx__string
+        dec param__string_idx
+        ldy param__string_idx
         cpy #$04
         bcs !loop-
-        // Finished drawing 4 lines of top row of free fall log, so now we draw the rest of the lines. This time we will
-        // read the screen rows from the remaining string messages.
+        // Re-enable the position flag and draw the last row of text.
         lda #FLAG_DISABLE
-        sta flag__string_pos_ctl
+        sta param__string_pos_ctl_flag
         jsr screen_draw_text
         //
-        dec idx__string // Set to pointer next string to display in next state
-        // Start scrolling Avatar logo colors
+        // Set to pointer next string to display in next state.
+        dec param__string_idx
+        //
+        // Start scrolling Avatar logo colors.
         lda #<state__avatar_color_scroll
         sta ptr__substate_fn
         lda #>state__avatar_color_scroll
@@ -364,13 +375,13 @@ entry:
         // Display author names.
     !loop:
         jsr screen_draw_text
-        dec idx__string
+        dec param__string_idx
         bpl !loop-
         // Show press run/stop message.
         lda #$C0 // Manual row/column
-        sta flag__string_pos_ctl
+        sta param__string_pos_ctl_flag
         lda #$09
-        sta idx__string
+        sta param__string_idx
         ldx #$18
         jsr screen_draw_text
         // Bounce the Avatar logo.
@@ -445,8 +456,8 @@ entry:
     // even rows of alternating colors (col1, col2, col1, col2 etc). Here we set the first color (anded so it is between
     // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
     state__avatar_color_scroll:
-        inc common.cnt__curr_sprite_delay
-        lda common.cnt__curr_sprite_delay
+        inc private.cnt__curr_sprite_delay
+        lda private.cnt__curr_sprite_delay
         and #$07
         bne !return+
         inc common.cnt__curr_sprite_frame
@@ -497,9 +508,9 @@ entry:
         ldx #$03
         // Animate on every other frame.
         // The code below just toggles a flag back and forth between the minus state.
-        lda common.cnt__curr_sprite_delay
+        lda private.cnt__curr_sprite_delay
         eor #$FF
-        sta common.cnt__curr_sprite_delay
+        sta private.cnt__curr_sprite_delay
         bmi !return+
         inc common.cnt__curr_sprite_frame // Counter is used to set the animation frame
         //Move icon sprites.
@@ -650,6 +661,10 @@ ptr__substate_fn: .word $0000
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.
 .namespace private {
+    // BCE8
+    // Delay between color changes when color scrolling avatar sprites.
+    cnt__curr_sprite_delay: .byte $00
+
     // BCE9
     // Number of moves left in y plane in current direction (will reverse direction on 0).
     cnt__sprite_y_moves_left: .byte $00
@@ -668,7 +683,7 @@ ptr__substate_fn: .word $0000
 
     // BD3A
     // Offset of current intro message being rendered.
-    idx__string: .byte $00
+    param__string_idx: .byte $00
 
     // BD59
     // Is positive number for down direction, negative for up direction.
@@ -706,6 +721,5 @@ ptr__substate_fn: .word $0000
     // BF3C
     // Used to control string rendering ($00 = read row/column fro first bytes of string, $80 = row supplied in x, $C0 =
     // column is #06 and row supplied in x).
-    flag__string_pos_ctl: .byte $00
+    param__string_pos_ctl_flag: .byte $00
 }
-

@@ -2,7 +2,7 @@
 
 
     // Copy sprite projectile sprites
-7B99  BC 29 BF   ldy common.idx__icon_offset,x
+7B99  BC 29 BF   ldy common.param__icon_offset_list,x
 7B9C  B9 8B 8A   lda W8A8B,y
 7B9F  9D 01 BD   sta WBD01,x
 7BA2  B9 9F 8A   lda W8A9F,y
@@ -21,7 +21,7 @@
 7BBD  C9 0C      cmp #SHAPESHIFTER_OFFSET
 7BBF  D0 0E      bne W7BCF
 // elemental
-7BC1  AC 29 BF   ldy common.idx__icon_offset
+7BC1  AC 29 BF   ldy common.param__icon_offset_list
 7BC4  C0 10      cpy #$10
 7BC6  90 02      bcc W7BCA
 7BC8  A0 0C      ldy #$0C
@@ -57,7 +57,7 @@ W7BE8:
 
 W7BEF:
 7BEF  9D 05 BD   sta WBD05,x
-7BF2  BC 29 BF   ldy common.idx__icon_offset,x
+7BF2  BC 29 BF   ldy common.param__icon_offset_list,x
 7BF5  C0 06      cpy #$06
 7BF7  D0 0E      bne W7C07
 7BF9  AD 1C D0   lda SPMC
@@ -75,7 +75,7 @@ W7C0A:
 W7C15:
 7C15  9D 09 BD   sta game_curr_icon_move_speed,x
 7C18  9D 21 BD   sta WBD21,x
-7C1B  BD 29 BF   lda common.idx__icon_offset,x
+7C1B  BD 29 BF   lda common.param__icon_offset_list,x
 7C1E  C9 12      cmp #$12
 7C20  F0 06      beq W7C28
 7C22  29 17      and #$17
@@ -86,7 +86,7 @@ W7C28:
 7C2A  9D 09 BD   sta game_curr_icon_move_speed,x
 W7C2D:
 7C2D  20 EB 62   jsr board_get_sound_for_piece
-7C30  BC 29 BF   ldy common.idx__icon_offset,x
+7C30  BC 29 BF   ldy common.param__icon_offset_list,x
 7C33  B9 AA 8B   lda board_sound_attack_phrase,y
 7C36  A8        tay
 7C37  B9 94 8B   lda board_sound_phrase_ptr,y

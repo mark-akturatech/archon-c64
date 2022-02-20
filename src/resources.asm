@@ -171,8 +171,8 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     // BACB
     // Sprites used by intro title.
     // Sprites are contained in the following order:
-    // - 0-3: Archon logo (in 3 parts)
-    // - 4-6: Freefall logo (in 2 parts)
+    // - 0-3: Archon logo (in 4 parts)
+    // - 4-6: Freefall logo (in 3 parts)
     prt__sprites_logo: .import binary "/assets/sprites-logos.bin"
 
     // 3D52
@@ -236,9 +236,10 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Data
+// Initialized Data
 //---------------------------------------------------------------------------------------------------------------------
-.segment Assets
+// Data in this range will start with a specific value saved in the source PRG file.
+.segment InitializedData
 
 // 02A7
 // Is set ($80) if resource data has already been relocated out of the graphics memory area.

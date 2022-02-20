@@ -58,11 +58,11 @@ entry:
     beq dark_square
     bmi vary_square
     ldy #$07
-    lda board.data__board_player_cell_color_list+1 // White
+    lda board.data__board_player_square_color_list+1 // White
     bne !next+
 dark_square:
     ldy #$00
-    lda board.data__board_player_cell_color_list // Black
+    lda board.data__board_player_square_color_list // Black
     beq !next+
 vary_square:
     lda game.data__phase_cycle_board
@@ -78,26 +78,26 @@ vary_square:
     iny
     sty data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
-    lda common.data__icon_type
+    lda common.param__icon_type_list
     ldy game.curr_challenge_icon_type
     bit game.flag__is_light_turn
     bpl !next+
-    ldy common.data__icon_type
+    ldy common.param__icon_type_list
     lda game.curr_challenge_icon_type
 !next:
     // Configure battle pieces
-    sta common.data__icon_type
+    sta common.param__icon_type_list
     tax
     lda board.data__piece_icon_offset_list,x
-    sta common.idx__icon_offset
+    sta common.param__icon_offset_list
     sty magic.temp_selected_icon_store // ??? Not used?
     lda board.data__piece_icon_offset_list,y
     tay
     cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
     bne !next+
-    ldy common.idx__icon_offset //
+    ldy common.param__icon_offset_list //
 !next:
-    sty common.idx__icon_offset+1
+    sty common.param__icon_offset_list+1
     //
     // Do this for both the light and dark icons...
     ldx #$01

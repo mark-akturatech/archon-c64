@@ -27,13 +27,14 @@
 .segmentdef Game [startAfter="Intro"]
 .segmentdef CodeBase [segments="Main, Common, Intro, Game", hide]
 //
-.segmentdef Assets [startAfter="Game"]
-.segmentdef RelocatedResources [startAfter="Assets", virtual, hide]
+.segmentdef InitializedData [startAfter="Game"] 
+.segmentdef Assets [startAfter="InitializedData"] // Data that has an initial value stored in the file
+.segmentdef RelocatedResources [startAfter="Assets", virtual, hide] // Asset constants stored in the file
 //
 .segmentdef Data [start=$c000, virtual] // Data set once on game initialization
-.segmentdef VariablesStart [startAfter="Data", virtual, hide] // Data that is reset on each game state change
-.segmentdef Variables [startAfter="VariablesStart", virtual]
-.segmentdef VariablesEnd [startAfter="Variables", virtual, hide]
+.segmentdef VariablesStart [startAfter="Data", virtual, hide]
+.segmentdef Variables [startAfter="VariablesStart", virtual] // Data that is reset on each game state change
+.segmentdef VariablesEnd [startAfter="Variables", virtual, hide, max=$cfff]
 
 //---------------------------------------------------------------------------------------------------------------------
 // Output File
@@ -88,15 +89,15 @@ entry:
     // Configure defaults.
     lda #FLAG_DISABLE
     sta game.flag__ai_player_ctl // AI Off - ie Two player
-    sta common.cnt__ai_selection // Select first AI option (off, AI is light, AI is dark)
-    sta common.flag__ai_player_selection // Select AI player (00=none, 55=light, AA=dark, FF=both)
+    sta common.cnt__ai_selection // Set first AI selection (off, AI is light, AI is dark)
+    sta common.flag__ai_player_selection // Set AI player selection to none (00=none, 55=light, AA=dark, FF=both)
     lda #PLAYER_LIGHT_COLOR_STATE
     sta game.data__curr_player_color // Set player color state to light (color 1 - green)
     tsx
     stx private.ptr__stack // Store stack so we can restore it after each game loop (stop memory leaks?)
     lda #FLAG_ENABLE
     sta intro.flag__enable // Allow intro to be played (flag is reset after intro plays so that it isn't played again)
-    sta common.flag__pregame_state // Set first intro state - scrolling logos
+    sta common.flag__game_loop_state // Enable intro game loop state
     .const TWELVE_SECONDS = $03
     lda #TWELVE_SECONDS // Set number of second before game autoplays if no option selected on options page
     sta board.countdown_timer
@@ -108,17 +109,16 @@ entry:
     jsr private.init // Configure graphics and interrupts
     // ...
 // 612C
-// The game loop is responsible for initializing the current game. The loop is called after each game state (on
-// intro start, on option select, on game start and on game restart).
-game_loop:
+// This loop is responsible for initializing the current game. The loop is called after each game state (on intro
+// start, on option select, on game start and on game restart).
+restart_game_loop:
     // Ensure each game state starts with reset stack, cleared sound, clean graphics and 00's in all variables.
     ldx private.ptr__stack
     txs
     jsr common.stop_sound
+    //
     // Clears variable storage area.
-    // Note that the logic below will clear past the end of the storage area up to #$ff. This is probably done as it
-    // may be more efficient to clear a little bit of extra memory instead of having additional logic to clear the
-    // exact number of bytes.
+    // Note that the logic below will clear past the end of the storage area up to #$ff.
     lda #<private.ptr__variables_start
     sta FREEZP+2
     lda #>private.ptr__variables_start
@@ -138,22 +138,34 @@ game_loop:
     jsr common.clear_sprites
     //
     // Set the initial strength of each icon piece.
-    // I should explain the board setup matrix here - the matrix contains a 2x18 matix of icons in their initial
-    // board square position. It contains 2 full columns of light players and 2 full columns of dark players.
-    // The matrix contains icon offsets (see constant.asm file for a list of icon offsets). The offset is basically an
-    // offset in to the sprite resource, so $00 is the first sprite group (Unicorn), $01 the second (Wizard) and so
-    // on. The matrix contains repeated icons (eg there are 7 Knights, 2 Unicorns etc).
-    // There are two types of icon matrices used:
-    // - Type: This matrix contains a byte for each type of icon (eg one byte for Unicorn, one for Knight etc). An
+    // I should explain the `data__piece_icon_offset_list` here - the list is a matrix containing a 2x18 grid of pieces
+    // in their initial board square position. It contains 2 full columns of light players followed by 2 full columns of
+    // dark players. We use the term piece here to relate to a single icon in play on the board. Each piece is a
+    // specific icon (eg a Wizard) but there may be multiple pieces of the same icon (eg Knight).
+    // The matrix contains icon offsets (see constant.asm file for a list of icon offsets). An offset is used as an
+    // index in to a list of icon attributes and resources. For example, a Golem icon has offset $03. Therefore,
+    // the Golem is graphically represented by resources in 4th (we start counting at 0) sprite group and its' speed is
+    // the 4th value in the/ speed list and so on. A wizard is offset $01, so it is the 2nd sprite group and the 2nd
+    // speed in the list.
+    // There are two types of icon matrices used throughout the source code:
+    // - Type: This matrix contains data for each type of icon (eg one for Unicorn, one for Knight etc). An
     //   example here is the initial strength matrix. Every Knight starts with the same strength, so therefore we
     //   only need to store an initial Knight strength once. The types of matrix are always ordered in offset order.
-    // - Piece: This matrix contains a byte for each piece on the board (eg 7 bytes for Knights as there are 7 Knights
-    //   on the board). An example is the current strength of each icon. These matrix are ordered in the same order
-    //   as the `init_matrix`, which is initial placement order.
-    // When reading from a piece matrix, to find the location within a type matrix we simply use the value in the
-    // piece matrix (the offset) as an offset in the type matrix. Eg we read initial board matrix position $03 and
-    // get a knight offset ($07) and we can then use that value to read the 7th value of any type matrix (eg strength,
-    // string description pointer, movement, speed etc) to get that value for a Knight.
+    // - Piece: This matrix contains data for each piece on the board (eg 7 lots of data for Knights as there are 7
+    //   Knights on the board). An example is the current strength of each icon. These matrix are ordered in the same
+    //   order as the `data__piece_icon_offset_list`, which is initial placement order.
+    // As the piece matrix is ordered the same as `data__piece_icon_offset_list` and `data__piece_icon_offset_list`
+    // contains a list of icon offsets and as type matricies are always ordered in type order, we can now easily
+    // derive data about a specific piece by reading `data__piece_icon_offset_list` and using the result as an index
+    // in to the type array.
+    // OK, so this is complex, but lets look at the example below. Here we have a piece matrix for the current
+    // strength of each piece. The piece strength may reduce (during battle) or increase (while healing). However a
+    // piece always starts with the same initial strength for the icon it represents. So, below we loop through all the
+    // pieces and read the icon offset for the piece from `data__piece_icon_offset_list` and use that as an index in to
+    // `data__icon_strength_list` to get the strength for the icon and write it to `curr_icon_strength` at the piece
+    // offset.
+    // This type of logic is used a throughout to determine speed, weapon power, sprite group offsets, number of moves
+    // per turn and so on.
     ldx #(BOARD_TOTAL_NUM_ICONS - 1) // 0 offset (this means `0 to (x-1)` instead of `1 to x`)
 !loop:
     ldy board.data__piece_icon_offset_list,x
@@ -164,6 +176,7 @@ game_loop:
     //
     // Skip 618B to 6219 as this just configures pointers to various constant areas - like pointers to each board row
     // tile color scheme or row occupancy. We have instead included these as assets as it is much more readable.
+    //
     // 621A
     lda #FLAG_ENABLE
     sta common.flag__enable_next_state // Force any running interrupt routines to exit
@@ -192,9 +205,8 @@ game_loop:
     sta game.flag__is_light_turn
     //
     // Set default board phase color.
-    // There are 8 phases (well 6 to be precise - read below) with 0 being the darkesy and 7 the lightest. 3 is in
-    // the middle(ish) but slightly on the
-    // dark side.
+    // There are 8 phases (well 6 to be precise - read below) with 0 being the darkest and 7 the lightest. 3 is in
+    // the middle(ish) but slightly on the dark side.
     .const MIDDLE_PHASE = 3
     ldy #MIDDLE_PHASE
     lda board.data__phase_color_list,y // Purple
@@ -249,17 +261,18 @@ game_loop:
     //
     // Clear used spell flags.
     .const NUMBER_SPELLS = 7
-    ldx #(NUMBER_SPELLS*2-1) // (0 based)
+    ldx #(NUMBER_SPELLS*2-1) // Clear spells for each player (0 based)
     lda #SPELL_UNUSED
 !loop:
     sta magic.flag__light_used_spells_list,x
     dex
     bpl !loop-
     //
-    // Set the board by placing an index in to `board.init_matrix` list in each initially occupied square. The initial
-    // matrix contains a list of all icons in the correct board order (light in top part of list, dark in bottom).
-    // Therefore, writing 00 in square 1 will add a Valkyrie (first item in the init_matrix), 01 an archer and so on.
-    // The below creates a board occupancy matrix as follows (where $80 is empty):
+    // Set the board by placing an incrementing index in to `data__piece_icon_offset_list` in each initially occupied
+    // square. The offset matrix contains a list of all icons in the correct board order (light in top part of list,
+    // dark in bottom). Therefore, writing 00 in square 1 will add a Valkyrie (first item in the init_matrix), 01 an
+    // archer and so on. The below creates a board occupancy matrix as follows (where $80 is empty):
+    //
     //   00 01 80 80 80 80 80 12 13
     //   02 03 80 80 80 80 80 14 15
     //   04 05 80 80 80 80 80 16 17
@@ -269,6 +282,7 @@ game_loop:
     //   0C 0D 80 80 80 80 80 1E 1F
     //   0E 0F 80 80 80 80 80 20 21
     //   10 11 80 80 80 80 80 22 23
+    //
     lda #BOARD_NUM_PLAYER_ICONS
     sta private.idx__dark_icon_type // Matrix for dark icons is stored directly after light icons
     lda #$00
@@ -314,13 +328,12 @@ game_loop:
     // the phase on the darker side if light is first or the lighter side if dark is first. This should reduce any
     // advantage that the first player has.
     // Further, the phase direction (from light to dark or vice versa) starts in the favor of the second player.
-    // The phase starts in the direction of light to dark if light is first and dark to light if dark is first.
     // OK, lets explain phases here... the game transitions between phases as time goes on. On the board, the phases
     // go from light to dark and then dark to light and light to dark again and so on. The phases are used to show the
-    // color in the middle of the board. A light player is stronger in light phases and vice versa. Phases are also
-    // used in the battle arena to add, remove and change obstacles within the arena.
+    // color in the middle of the board. A light player is stronger in light phases and vice versa.
+    // Phases are also used in the battle arena to add, remove and change obstacles within the arena.
     // The phases count up in increments of 2 (ie 0, 2, 6, 8, C and E). This is to simplify the logic within the
-    // battle arena. However for the board phases, we really want to step up in increments of 1. So here we have to
+    // battle arena. However for the board phases, we really want to step in increments of 1. So here we have to
     // divide the phase by 2 to determine the phase color index.
     // Oh and notice it jumps from 2 to 6 and 8 to C - there are two phases (and 2 colors) that arent used at all.
     // These can be enabled and the game works with 2 additional board and arena obstacle colors which is cool.
@@ -349,7 +362,7 @@ prep_game_states:
     .const NUMBER_GAME_STATES = 3
     ldx #(NUMBER_GAME_STATES * 2 - 1) // (0 based)
 !loop:
-    lda private.ptr__game_state_fn_list_source,x
+    lda private.ptr__source_game_state_fn_list,x
     sta private.ptr__game_state_fn_list,x
     dex
     bpl !loop-
@@ -457,7 +470,7 @@ play_intro:
     // BC8B
     // Since this routine is at the end of the application, I am guessing this function allows additional debugging
     // code to be added in runtime without overwriting used memory/code.
-    // Requires:
+    // Requires
     // - A: Low byte of interrupt interceptor function memory address
     // Sets:
     // - A: High byte of interrupt interceptor function memory address
@@ -499,17 +512,18 @@ play_intro:
 .namespace private {
     // 4760
     // Pointer to each main game function.
-    ptr__game_state_fn_list_source:
+    ptr__source_game_state_fn_list:
         .word game.interrupt_handler
         .word challenge.interrupt_handler
         .word intro.entry
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Data in this area are not cleared on state change.
+// Data
 //---------------------------------------------------------------------------------------------------------------------
-// Dynamic data typically starts at BCC0 and continues to BCD2, however some lower addresses are used within the
-// application.
+// Data in this area are not cleared on each game state change (after after a new game).
+// In the original souce, data in this range typically starts at BCC0 and continues to BCD2, however some lower
+// addresses are used within the application.
 .segment Data
 
 // BCCC
@@ -535,9 +549,10 @@ ptr__system_interrupt_fn: .word $0000
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-// Variable data is cleared completely on each game state change.
+// Variables
 //---------------------------------------------------------------------------------------------------------------------
-// Variable data starts at BCD3 and continues to the end of the data area.
+// Variable data is cleared completely on each new game.
+// In the original souce, variable data starts at BCD3 and continues to the end of the data area.
 //
 // The variable data memory block is flanked by `VariablesStart` and `VariablesEnd`, allowing us to dynamically
 // calculate the size of the memory block at compilation time. This is then used to clear the variabe data at the

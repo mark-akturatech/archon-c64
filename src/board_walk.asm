@@ -57,7 +57,7 @@ add_icon:
     //   row offset is the start row and other icons are adde done after the other below it.
     // There are a total of 16 different icon types.
     lda data__icon_location_list,x
-    sta common.data__icon_type
+    sta common.param__icon_type_list
     lda data__icon_location_list+1,x
     sta data__num_icons
     lda data__icon_location_list+2,x
@@ -85,7 +85,7 @@ add_icon:
 // Prerequisites:
 // - `board.data__curr_board_col`: Destination column of piece
 // - `board.data__curr_board_row`: Starting destination row of piece
-// - `common.data__icon_type`: Type of piece to animation in to destination square
+// - `common.param__icon_type_list`: Type of piece to animation in to destination square
 // - `data__num_icons`: Number of icons to add to board
 // Notes:
 // - If number of icons is set to 2, the destination row of the second piece is automatically calculated to be 9 minus
@@ -179,9 +179,9 @@ add_icon_to_board:
     //
     ldx #$00
     stx common.cnt__curr_sprite_frame
-    ldy common.data__icon_type
+    ldy common.param__icon_type_list
     lda board.data__piece_icon_offset_list,y
-    sta common.idx__icon_offset
+    sta common.param__icon_offset_list
     jsr common.sprite_initialize
     // Configure sprites.
     lda #%1111_1111 // Enable all sprites
@@ -208,9 +208,9 @@ add_icon_to_board:
     lda #FLAG_ENABLE
     sta common.param__is_copy_animation_group
     and game.flag__is_light_turn
-    sta common.data__icon_set_sprite_frame
+    sta common.param__icon_sprite_curr_frame
     lda #$04
-    sta common.param__sprite_source_frame
+    sta common.param__icon_sprite_source_frame_list
     lda common.ptr__sprite_00_mem
     sta FREEZP+2
     sta ptr__sprite_mem_lo
@@ -227,12 +227,12 @@ add_icon_to_board:
     bcc !next+
     inc FREEZP+3
 !next:
-    inc common.data__icon_set_sprite_frame
-    dec common.param__sprite_source_frame
+    inc common.param__icon_sprite_curr_frame
+    dec common.param__icon_sprite_source_frame_list
     bne !loop-
     // Display icon name.
     jsr board.clear_text_area
-    ldy common.idx__icon_offset
+    ldy common.param__icon_offset_list
     lda board.ptr__icon_name_string_id_list,y
     ldx #$0A // Column offset 10
     jsr board.write_text

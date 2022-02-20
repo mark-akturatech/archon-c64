@@ -66,7 +66,7 @@ entry:
     ldy #$03
     lda #$00
 !loop:
-    sta common.param__sprite_source_frame,y
+    sta common.param__icon_sprite_source_frame_list,y
     sta common.cnt__curr_sprite_frame,y
     dey
     bne !loop-
@@ -236,7 +236,7 @@ check_light_icons:
     jmp game_over__imprisoned
     //
 check_game_state:
-    lda common.flag__pregame_state
+    lda common.flag__game_loop_state
     beq play_turn // In game?
     // Play game with 0 players if option timer expires.
     lda TIME+1
@@ -247,8 +247,8 @@ check_game_state:
     bpl !next+
     // Start game.
     lda #FLAG_DISABLE
-    sta common.flag__pregame_state
-    jmp main.game_loop
+    sta common.flag__game_loop_state
+    jmp main.restart_game_loop
 !next:
     jsr board.display_options
     jmp check_game_state
@@ -278,9 +278,9 @@ play_turn:
     jsr wait_for_state_change
     //
     // Get selected icon. The above method only returns after an icon was selected or moved to a destination.
-    ldy common.data__icon_type
+    ldy common.param__icon_type_list
     lda board.data__piece_icon_offset_list,y
-    sta common.idx__icon_offset
+    sta common.param__icon_offset_list
     // Display icon name and number of moves.
     tax
     lda board.ptr__icon_name_string_id_list,x
@@ -301,7 +301,7 @@ play_turn:
     sta common.param__sprite_source_size
     jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
-    ldx common.idx__icon_offset
+    ldx common.param__icon_offset_list
     lda board.data__icon_num_moves_list,x
     sta curr_icon_total_moves
     bmi select_icon // Selected icon can fly - don't need to check surrounding squares
@@ -358,7 +358,7 @@ select_icon:
 set_icon_speed:
     lda #$00
     sta curr_icon_move_speed
-    lda common.idx__icon_offset
+    lda common.param__icon_offset_list
     and #$07
     cmp #$03 // Golem or Troll?
     bne !next+
@@ -424,9 +424,9 @@ configure_selected_icon:
     lda flag__icon_can_cast
     bpl end_turn
     // Transport piece (selected from trasport spell or when moving spell caster)
-    ldx common.data__icon_type
+    ldx common.param__icon_type_list
     lda board.data__piece_icon_offset_list,x
-    sta common.idx__icon_offset
+    sta common.param__icon_offset_list
     jsr transport_icon
 end_turn:
     lda flag__is_challenge_required
@@ -620,10 +620,10 @@ game_over__show_winner:
     lda #$07 // Approx 30s (each tick is ~4s)
     sta board.countdown_timer
     lda #FLAG_ENABLE // Intro
-    sta common.flag__pregame_state
+    sta common.flag__game_loop_state
 !loop:
     jsr common.check_option_keypress
-    lda common.flag__pregame_state
+    lda common.flag__game_loop_state
     beq !next+
     lda TIME+1
     cmp last_stored_time
@@ -632,8 +632,8 @@ game_over__show_winner:
     dec board.countdown_timer
     bpl !next+
     lda #FLAG_DISABLE
-    sta common.flag__pregame_state
-    jmp main.game_loop
+    sta common.flag__game_loop_state
+    jmp main.restart_game_loop
 !next:
     jmp !loop-
 
@@ -871,7 +871,6 @@ check_joystick_up_down:
     lsr // Joystick down (bit 2 set)
     bcs !next+
     jsr set_square_down
-//
 !next:
     lda flag__new_square_selected
     bpl set_sprite_square_pos
@@ -930,7 +929,7 @@ check_move_sprite_up:
     // Set animation frame for selected icon and increment frame after 4 pixels of movement.
     // The selected initial frame is dependent on the direction of movement.
     lda icon_dir_frame_offset
-    sta common.param__sprite_source_frame,x
+    sta common.param__icon_sprite_source_frame_list,x
     inc data__curr_frame_adv_count
     lda data__curr_frame_adv_count
     and #$03
@@ -1149,7 +1148,7 @@ set_icon_destination:
     bmi !next+
 add_icon_to_destination:
     // Add piece to the destination square.
-    lda common.data__icon_type
+    lda common.param__icon_type_list
     sta (FREEZP),y
 !next:
     asl game.flag__icon_destination_valid // Set valid move
@@ -1160,7 +1159,7 @@ select_icon_to_move:
     // Ignore if no icon in selected source square
     cmp #BOARD_EMPTY_SQUARE
     beq !return-
-    sta common.data__icon_type
+    sta common.param__icon_type_list
     // Ignore if selected other player piece.
     tax
     lda board.data__piece_icon_offset_list,x
@@ -1170,7 +1169,7 @@ select_icon_to_move:
     // Ignore and set error message if selected icon is imprisoned.
     ldx curr_player_offset
     lda imprisoned_data__icon_id_list,x
-    cmp common.data__icon_type
+    cmp common.param__icon_type_list
     beq !next+
     // Accept destination.
     lda #FLAG_ENABLE
@@ -1327,9 +1326,9 @@ transport_icon:
     lda board.data__curr_icon_col
     ldy board.data__curr_icon_row
     jsr board.convert_coord_sprite_pos
-    ldy common.data__icon_type
+    ldy common.param__icon_type_list
     lda board.data__piece_icon_offset_list,y
-    sta common.idx__icon_offset
+    sta common.param__icon_offset_list
     jsr common.sprite_initialize
     //
     lda common.ptr__sprite_00_mem
@@ -1338,17 +1337,17 @@ transport_icon:
     sta FREEZP+3
     lda #BYTERS_PER_STORED_SPRITE
     sta common.param__sprite_source_size
-    lda common.param__sprite_source_frame
+    lda common.param__icon_sprite_source_frame_list
     beq !next+
     lda #FLAG_ENABLE // Invert sprite
 !next:
-    sta common.data__icon_set_sprite_frame
+    sta common.param__icon_sprite_curr_frame
     jsr common.add_sprite_to_graphics
     //
     ldx #$01
     lda #$00
 !loop:
-    sta common.param__sprite_source_frame,x
+    sta common.param__icon_sprite_source_frame_list,x
     sta common.cnt__curr_sprite_frame,x
     dex
     bpl !loop-

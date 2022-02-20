@@ -18,7 +18,7 @@
 // Preserves:
 // - X
 get_sound_for_icon:
-    ldy common.idx__icon_offset,x
+    ldy common.param__icon_offset_list,x
     lda idx__sound_movement_pattern,y
     tay
     lda prt__sound_icon_effect_list,y
@@ -224,7 +224,7 @@ surrounding_squares_coords:
 // Prerequisites:
 // - `data__curr_board_row`: Row offset of board square.
 // - `data__curr_board_col`: Column offset of board square.
-// - `data__icon_type`: Type of icon to add to the square.
+// - `param__icon_type_list`: Type of icon to add to the square.
 // Sets:
 // - `curr_square_occupancy`: Sets appropriate byte within the occupancy array.
 add_icon_to_matrix:
@@ -235,7 +235,7 @@ add_icon_to_matrix:
     sta OLDLIN+1
     //
     ldy data__curr_board_col
-    lda common.data__icon_type
+    lda common.param__icon_type_list
     sta (OLDLIN),y
     rts
 
@@ -259,7 +259,7 @@ render_sprite:
     lda common.cnt__curr_sprite_frame,x
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
-    adc common.param__sprite_source_frame,x
+    adc common.param__icon_sprite_source_frame_list,x
     adc common.ptr__sprite_00_offset,x
     sta SPTMEM,x
 
@@ -333,11 +333,11 @@ set_player_color:
 draw_board:
     ldx #$02
 !loop:
-    lda data__board_cell_bg_color_list,x
+    lda data__board_square_bg_color_list,x
     sta BGCOL0,x
     dex
     bpl !loop-
-    lda data__board_cell_bg_color_list
+    lda data__board_square_bg_color_list
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
@@ -414,7 +414,7 @@ render_square:
     // and call `render_square_row` again to draw the next two characters.
     lda (CURLIN),y
     bmi !next+
-    lda data__board_player_cell_color_list+1
+    lda data__board_player_square_color_list+1
     bpl !skip+
 !next:
     lda game.curr_color_phase
@@ -863,11 +863,11 @@ data__phase_color_list: // Colors used for each board game phase
 
 // 9071
 // Board square colors.
-data__board_player_cell_color_list: .byte BLACK, WHITE
+data__board_player_square_color_list: .byte BLACK, WHITE
 
 // 9073
 // Board background colors used when rendering the player board. 
-data__board_cell_bg_color_list:  .byte BLACK, YELLOW, LIGHT_BLUE
+data__board_square_bg_color_list:  .byte BLACK, YELLOW, LIGHT_BLUE
 
 // BEAE
 // Low byte screen memory offset of start of each board row
@@ -926,12 +926,6 @@ data__icon_num_moves_list:
 // 8AFF
 // Matrix used to determine offset of each icon type AND determine which pieces occupy which squares on initial
 // setup.
-// This is a little bit odd - the numbers below are indexes used to retrieve an address from
-// `ptr__icon_sprite_mem_offset_list` to determine the source sprite memory address. The `Icon Type` are actually an offset
-// in to this matrix. So Phoenix is ID# 10, which is the 11th (0 offset) byte below which is $06, telling us to
-// read the 6th word of the sprite icon offset to determine the first frame of the Phoenix icon set.
-// NOTE also thought hat certain offsets are relicated. The matrix below also doubles as the intial icon setup
-// with 2 bytes represeting two columns of each row. The setup starts with all the light pieces, then dark.
 data__piece_icon_offset_list:
     .byte VALKYRIE_OFFSET, ARCHER_OFFSET, GOLEM_OFFSET, KNIGHT_OFFSET, UNICORN_OFFSET, KNIGHT_OFFSET
     .byte DJINNI_OFFSET, KNIGHT_OFFSET, WIZARD_OFFSET, KNIGHT_OFFSET, PHOENIX_OFFSET, KNIGHT_OFFSET
