@@ -55,11 +55,11 @@ entry:
     jsr board.convert_coord_sprite_pos
     sec
     sbc #$02
-    sta common.pos__sprite_x_list+1
+    sta common.data__sprite_curr_x_pos_list+1
     tya
     sec
     sbc #$01
-    sta common.pos__sprite_y_list+1
+    sta common.data__sprite_curr_y_pos_list+1
     lda #%1000_1111
     sta SPENA
     // Clear sprite render variables.
@@ -67,7 +67,7 @@ entry:
     lda #$00
 !loop:
     sta common.param__icon_sprite_source_frame_list,y
-    sta common.cnt__curr_sprite_frame,y
+    sta common.cnt__sprite_frame,y
     dey
     bne !loop-
     //
@@ -175,7 +175,7 @@ change_phase_color:
     lda data__phase_cycle_board
     bne check_light_icons
     // Board is black
-    lda #$FF
+    lda #FLAG_ENABLE_FF
     sta imprisoned_data__icon_id_list+1 // Remove imprisoned dark icon
     ldx #$23 // Dark player icon offset
     jsr regenerate_hitpoints
@@ -184,7 +184,7 @@ check_light_icons:
     cmp #PHASE_CYCLE_LENGTH
     bne !next+
     // Board is white
-    lda #$FF
+    lda #FLAG_ENABLE_FF
     sta imprisoned_data__icon_id_list // Remove imprisoned light icon
     ldx #$11 // Light player icon offset
     jsr regenerate_hitpoints
@@ -506,7 +506,7 @@ increase_cycle_count_again:
     sta data__phase_cycle,y
     cmp #PHASE_CYCLE_LENGTH
     bcc set_phase_color
-    lda #$FF // Reverse phase
+    lda #FLAG_ENABLE_FF // Reverse phase
     sta flag__phase_direction,y
 set_phase_color:
     cpy #$03
@@ -558,9 +558,8 @@ game_over__imprisoned:
     sta data__curr_count
 
 // 66F8
-// Description:
-// - Print game over message, play outro music and reset game.
-// Prerequisites:
+// Print game over message, play outro music and reset game.
+// Requires:
 // - `data__curr_count` contains the winning side:
 //      $40: light player
 //      $80: dark player
@@ -612,7 +611,7 @@ game_over__show_winner:
     cli
     jsr common.initialize_music
     // Wait for about 30 seconds before restarting the game.
-    jsr common.wait_for_key
+    jsr common.wait_for_key_or_task_completion
     lda TIME+1
     sta last_stored_time
     lda board.countdown_timer
@@ -636,51 +635,6 @@ game_over__show_winner:
     jmp main.restart_game_loop
 !next:
     jmp !loop-
-
-// 7912
-// Description:
-// - Checks if any of the squares surrounding the current square is empty and non-magical.
-// Prerequisites:
-// - `board.data__curr_icon_row`: row of source square
-// - `board.data__curr_icon_col`: column of source square
-// Sets:
-// - `game.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
-// - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
-// - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
-check_empty_non_magic_surrounding_square:
-    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-    sta game.flag__is_valid_square
-    jsr board.surrounding_squares_coords
-    ldx #$08 // Number of surrounding squares (and current square)
-!loop:
-    // Test if surrounding square is occupied or is a magic square. If so, test the next square. Set ENABLE flag and
-    // exit as soon as an empty/non-magic square is found.
-    lda board.surrounding_square_row,x
-    bmi !next+
-    cmp #$09 // Only test columns 0-8
-    bcs !next+
-    tay
-    sty board.data__curr_row
-    lda board.surrounding_square_column,x
-    bmi !next+
-    cmp #$09 // Only test rows 0-8
-    bcs !next+
-    sta board.data__curr_column
-    jsr get_square_occupancy
-    bpl !next+
-    jsr board.test_magic_square_selected
-    lda game.flag__icon_destination_valid
-    bmi !next+
-    // Empty non-magical square found.
-    lda flag__is_light_turn
-    cmp flag__ai_player_ctl
-    // 7948  F0 04      beq W794E // TODO: AI
-    asl game.flag__is_valid_square
-    rts
-!next:
-    dex
-    bpl !loop-
-    rts
 
 // 8367
 // wait for interrupt or 'Q' kepress
@@ -881,7 +835,7 @@ set_sprite_square_pos:
     beq !next+
     bmi check_move_sprite_left
     // Move sprite right.
-    inc common.pos__sprite_x_list,x
+    inc common.data__sprite_curr_x_pos_list,x
     dec data__board_sprite_move_x_count
     inc flag__board_sprite_moved
     bpl !next+
@@ -889,7 +843,7 @@ check_move_sprite_left:
     and #$7F
     beq !next+
     // Move sprite left.
-    dec common.pos__sprite_x_list,x
+    dec common.data__sprite_curr_x_pos_list,x
     dec data__board_sprite_move_x_count
     inc flag__board_sprite_moved
 !next:
@@ -897,7 +851,7 @@ check_move_sprite_left:
     beq !next+
     bmi check_move_sprite_up
     // Move sprite down.
-    inc common.pos__sprite_y_list,x
+    inc common.data__sprite_curr_y_pos_list,x
     dec data__board_sprite_move_y_count
     inc flag__board_sprite_moved
     bpl !next+
@@ -905,14 +859,14 @@ check_move_sprite_up:
     and #$7F
     beq !next+
     // Move sprite up.
-    dec common.pos__sprite_y_list,x
+    dec common.data__sprite_curr_y_pos_list,x
     dec data__board_sprite_move_y_count
     inc flag__board_sprite_moved
 !next:
     lda flag__board_sprite_moved
     bne !next+
     // Stop sound and reset current animation frame when movemement stopped.
-    sta common.cnt__curr_sprite_frame,x // A = 00
+    sta common.cnt__sprite_frame,x // A = 00
     cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
     sta common.flag__enable_player_sound
@@ -935,7 +889,7 @@ check_move_sprite_up:
     and #$03
     cmp #$03
     bne render_selected_sprite
-    inc common.cnt__curr_sprite_frame,x
+    inc common.cnt__sprite_frame,x
     // Configure movement sound effect for selected piece.
     lda #FLAG_ENABLE
     cmp common.flag__enable_player_sound
@@ -959,9 +913,9 @@ set_square_right:
     bcs !return+
     tay
     iny
-    sty board.data__curr_column
+    sty cnt__curr_board_column
     lda board.data__curr_board_row
-    sta board.data__curr_row
+    sta cnt__curr_board_row
     lda #$00 // Stating animation frame 0
     sta icon_dir_frame_offset
     jsr verify_valid_move
@@ -980,9 +934,9 @@ set_square_left:
     beq !return+ // Already on first column?
     tay
     dey
-    sty board.data__curr_column
+    sty cnt__curr_board_column
     lda board.data__curr_board_row
-    sta board.data__curr_row
+    sta cnt__curr_board_row
     lda #$11 // Left facing icon
     sta icon_dir_frame_offset
     jsr verify_valid_move
@@ -999,9 +953,9 @@ set_square_up:
     beq !return+ // Already on first row?
     tay
     dey
-    sty board.data__curr_row
+    sty cnt__curr_board_row
     lda board.data__curr_board_col
-    sta board.data__curr_column
+    sta cnt__curr_board_column
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -1024,9 +978,9 @@ set_square_down:
     bcs !return+
     tay
     iny
-    sty board.data__curr_row
+    sty cnt__curr_board_row
     lda board.data__curr_board_col
-    sta board.data__curr_column
+    sta cnt__curr_board_column
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -1049,9 +1003,9 @@ set_square_down:
 // The effect of this is to pull the return address for the subroutine and this subroutine from the stack and therefore
 // the RTS will return from the calling subroutine. The calling subroutine calls this sub just before adding to the
 // X or Y movement counters, so this stops the icon or square from moving.
-// Prerequisites:
-// - Selected square column must be stored in `board.data__curr_column`
-// - Selected square row must be stored in `board.data__curr_row`
+// Requires:
+// - Selected square column must be stored in `cnt__curr_board_column`
+// - Selected square row must be stored in `cnt__curr_board_row`
 // - Current number of moves held in `curr_icon_move_count`
 // - Total number of moves held in `curr_icon_total_moves`
 // - Path of previous moves stored in `icon_move_col_buffer` and `icon_move_row_buffer`
@@ -1064,10 +1018,10 @@ verify_valid_move:
     beq check_occupied_on_move
     dey
     lda icon_move_col_buffer,y
-    cmp board.data__curr_column
+    cmp cnt__curr_board_column
     bne check_occupied_on_move
     lda icon_move_row_buffer,y
-    cmp board.data__curr_row
+    cmp cnt__curr_board_row
     bne check_occupied_on_move
     dec curr_icon_move_count
     rts
@@ -1078,9 +1032,9 @@ check_occupied_on_move:
     // Store the move so that we can check the move path to calculate the total number of moves.
     inc curr_icon_move_count
     ldy curr_icon_move_count
-    lda board.data__curr_row
+    lda cnt__curr_board_row
     sta icon_move_row_buffer,y
-    lda board.data__curr_column
+    lda cnt__curr_board_column
     sta icon_move_col_buffer,y
     rts
 check_move_limit:
@@ -1222,8 +1176,8 @@ warn_on_challenge:
 // 88E1
 // Detect if the destination square is already occupied by an icon for the same player. Abort the move it is is.
 warn_on_occupied_square:
-    ldy board.data__curr_row
-    lda board.data__curr_column
+    ldy cnt__curr_board_row
+    lda cnt__curr_board_column
     jsr get_square_occupancy
     cmp #BOARD_EMPTY_SQUARE
     beq !return+
@@ -1244,7 +1198,7 @@ warn_on_occupied_square:
 // 8903
 // Calculate if diagonal move limit exceeded.
 warn_on_diagonal_move_exceeded:
-    lda board.data__curr_column
+    lda cnt__curr_board_column
     sec
     sbc board.data__curr_icon_col
     bcs !next+
@@ -1252,7 +1206,7 @@ warn_on_diagonal_move_exceeded:
     adc #$01
 !next:
     sta data__temp_col_calc_store
-    lda board.data__curr_row
+    lda cnt__curr_board_row
     sec
     sbc board.data__curr_icon_row
     bcs !next+
@@ -1348,7 +1302,7 @@ transport_icon:
     lda #$00
 !loop:
     sta common.param__icon_sprite_source_frame_list,x
-    sta common.cnt__curr_sprite_frame,x
+    sta common.cnt__sprite_frame,x
     dex
     bpl !loop-
     //
@@ -1636,6 +1590,14 @@ data__temp_row_calc_store: .byte $00
 // BF22
 // Is TRUE if a surrounding square is valid for movement or magical spell.
 flag__is_valid_square: .byte $00
+
+// BF30
+// Current board row.
+cnt__curr_board_row: .byte $00
+
+// BF31
+// Current board column.
+cnt__curr_board_column: .byte $00
 
 // BF32
 // Dark remaining icon count.

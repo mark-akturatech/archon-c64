@@ -144,7 +144,7 @@ wait_for_jiffy:
 // 677C
 // Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `intro.flag__exit_intro` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
+// - `intro.flag__is_complete` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
 //   screen to display.
 // Notes:
 // - Game is reset if Q key is pressed.
@@ -163,9 +163,9 @@ check_stop_keypess:
     jsr private.advance_intro_state
     jmp main.restart_game_loop
 !next:
-    lda intro.flag__exit_intro
+    lda intro.flag__is_complete
     eor #$FF
-    sta intro.flag__exit_intro
+    sta intro.flag__is_complete
 !loop:
     jsr STOP
     beq !loop-
@@ -194,8 +194,7 @@ stop_sound:
     rts
 
 // 8BDE
-// Description:
-// - Adds a set of sprites for an icon to the graphics memory.
+// Adds a set of sprites for an icon to the graphics memory.
 // Requires:
 // - X Register = 0 to copy light player icon frames
 // - X Register = 1 to copy dark player icon frames
@@ -463,7 +462,7 @@ clear_sprites:
 // Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 // Notes:
 // - Repeats until `flag__enable_next_state` is set.
-wait_for_key:
+wait_for_key_or_task_completion:
     lda #FLAG_DISABLE
     sta flag__enable_next_state
 !loop:
@@ -491,8 +490,7 @@ clear_mem_sprite_24:
     rts
 
 // 92A7
-// Description:
-// - Clear sprite position 48 in graphics memory.
+// Clear sprite position 48 in graphics memory.
 // Sets:
 // - Clears the 48th sprite position graphical memory (with 00).
 clear_mem_sprite_48:
@@ -553,7 +551,7 @@ clear_screen:
 
 // AC16
 // Read music from the music pattern command list and play notes or execute special commands.
-// Prerequisites:
+// Requires:
 // - Pointers to patterns are stored in OLDTXT/OLDTXT+1 for voice 1, OLDTXT+2/OLDTXT+3 for voice 2 and OLDTXT+4/OLDTXT+5
 //   for voice 3.
 // Notes:
@@ -700,12 +698,12 @@ intro_music:
         lda #%0001_0010
         sta VMCSB
         //
-        lda #$FF // Go straight to options
+        lda #FLAG_ENABLE_FF // Go straight to options
         sta flag__game_loop_state
         // Skip intro.
         lda #FLAG_DISABLE
-        sta intro.flag__enable
-        sta intro.flag__exit_intro
+        sta intro.flag__is_enabed
+        sta intro.flag__is_complete
         rts
 
     // AC5B
@@ -738,7 +736,7 @@ intro_music:
         // then loads that in to the voice lo frequency control.
         pha
         ldy #$04
-        lda private.data__voice_control,x
+        lda data__voice_control,x
         and #%1111_1110 // Start gate release on current note
         sta (FREEZP+2),y
         ldy #$01
@@ -768,16 +766,16 @@ intro_music:
         jmp get_next_command
     release_note:
         ldy #$04
-        lda private.data__voice_control,x
+        lda data__voice_control,x
         and #%1111_1110 // Start gate release on current note
         sta (FREEZP+2),y
     set_note:
         ldy #$04
-        lda private.data__voice_control,x // Set default note control value for voice
+        lda data__voice_control,x // Set default note control value for voice
         sta (FREEZP+2),y
     !return:
         lda data__voice_note_delay,x
-        sta private.cnt__voice_note_delay,x
+        sta cnt__voice_note_delay,x
         rts    
 
     // A143
@@ -812,7 +810,7 @@ intro_music:
     // Read a pattern for the current music loop and increment the pattern pointer.
     get_next_pattern: // Get pattern for current voice and increment pattern pointer
         ldy #$00
-        jmp (private.prt__voice_pattern_data)
+        jmp (prt__voice_pattern_data)
 
     // ACDF
     // Get pattern for voice 1 and increment pattern pointer.
@@ -1021,7 +1019,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 
     // AD7D
     // Pointer to function to get pattern and incremement note pointer for each voice.
-    ptr__voice_pattern_fn_list: .word private.get_pattern_V1, private.get_pattern_V2, private.get_pattern_V3
+    ptr__voice_pattern_fn_list: .word get_pattern_V1, get_pattern_V2, get_pattern_V3
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1063,15 +1061,15 @@ param__icon_sprite_source_frame_list: .byte $00, $00, $00, $00
 
 // BCE7
 // Current animation frame.
-cnt__curr_sprite_frame: .byte $00, $00, $00, $00 // TODO: look at moving this?
+cnt__sprite_frame: .byte $00, $00, $00, $00
 
 // BD3E
 // Current sprite x-position.
-pos__sprite_x_list: .byte $00, $00, $00, $00, $00, $00, $00, $00 // TODO: look at moving this?
+data__sprite_curr_x_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BD46
 // Current sprite y-position.
-pos__sprite_y_list: .byte $00, $00, $00, $00, $00, $00, $00, $00 // TODO: look at moving this?
+data__sprite_curr_y_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BD66
 // Function pointer to retrieve a note for the current voice.
@@ -1079,7 +1077,7 @@ prt__voice_note_fn: .word $0000
 
 // BF08
 // Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2).
-flag__enable_player_sound: .byte $00, $00 // TODO: look at moving this?
+flag__enable_player_sound: .byte $00, $00
 
 // BF0B
 // New note delay timer.

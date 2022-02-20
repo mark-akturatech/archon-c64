@@ -96,7 +96,7 @@ entry:
     tsx
     stx private.ptr__stack // Store stack so we can restore it after each game loop (stop memory leaks?)
     lda #FLAG_ENABLE
-    sta intro.flag__enable // Allow intro to be played (flag is reset after intro plays so that it isn't played again)
+    sta intro.flag__is_enabed // Allow intro to be played (flag is reset after intro plays so that it isn't played again)
     sta common.flag__game_loop_state // Enable intro game loop state
     .const TWELVE_SECONDS = $03
     lda #TWELVE_SECONDS // Set number of second before game autoplays if no option selected on options page
@@ -213,7 +213,7 @@ restart_game_loop:
     sta game.curr_color_phase
     //
     // Display the game intro if it hasn't already been played.
-    lda intro.flag__enable
+    lda intro.flag__is_enabed
     beq !skip+
     jsr play_intro
 !skip:
@@ -242,7 +242,7 @@ restart_game_loop:
     sta SCROLX
     //
     // Display the board intro (walking icons to each square).
-    lda intro.flag__enable
+    lda intro.flag__is_enabed
     beq !skip+
     jsr board_walk.entry
 !skip:
@@ -255,7 +255,7 @@ restart_game_loop:
     sta common.param__is_copy_animation_group
     //
     lda #FLAG_DISABLE
-    sta intro.flag__enable // Don't play intro again
+    sta intro.flag__is_enabed // Don't play intro again
     lda TIME+1
     sta game.last_stored_time // Store time - used to start an AI vs AI game if we timeout on the options page
     //

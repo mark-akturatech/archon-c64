@@ -27,6 +27,9 @@
 // Flag constants
 .const FLAG_DISABLE = $00; // Off
 .const FLAG_ENABLE = $80; // Enabled
+.const FLAG_ENABLE_FF = $FF // Some logic uses FF for Enabled. Shouldn't as $80 will work fine.
+
+// Player fot data color flags
 .const PLAYER_LIGHT_COLOR_STATE = $55 // Value loaded in to character dot data to represent character color 1
 .const PLAYER_DARK_COLOR_STATE = $AA // Value loaded in to character dot data to represent character color 2
 

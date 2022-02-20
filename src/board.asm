@@ -5,9 +5,8 @@
 .segment Common
 
 // 62EB
-// Description:
-// - Gets sound pattern for the current icon.
-// Prerequisites:
+// Gets sound pattern for the current icon.
+// Requires:
 // - X:
 //   $00: Retrieve sound for one player icon only (moving on board)
 //   $01: Retrieve sound for two player icons (when in battle)
@@ -27,55 +26,20 @@ get_sound_for_icon:
     sta ptr__player_sound_pattern_hi_list,x
     rts
 
-// 62FF
-// Description:
-// - Detects if the selected square is a magic square.
-// Prerequisites:
-// - `data__curr_row`: row of the square to test.
-// - `data__curr_column`: column of the square to test.
-// Sets:
-// - `flag__icon_destination_valid`: is $80 if selected square is a magic square.
-// Preserves:
-// - X, Y
-test_magic_square_selected:
-    tya
-    pha
-    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-    sta game.flag__icon_destination_valid
-    ldy #$04 // 5 magic squares (0 based)
-!loop:
-    lda data__magic_square_col_list,y
-    cmp data__curr_row
-    bne !next+
-    lda data__magic_square_row_list,y
-    cmp data__curr_column
-    beq magic_square_selected
-!next:
-    dey
-    bpl !loop-
-    bmi no_magic_square_selected
-magic_square_selected:
-    asl game.flag__icon_destination_valid
-no_magic_square_selected:
-    pla
-    tay
-    rts
-
 // 6422
-// Description:
-// - Converts a board row and column coordinate to a corresponding sprite screen position so that the sprite is
+// Converts a board row and column coordinate to a corresponding sprite screen position so that the sprite is
 //   positioned exactly over the board square.
-// Prerequisites:
+// Requires:
 // - A: Board column
 // - Y: Board row
 // - X: Sprite number $00 to $07 ($04 is special - see below)
 // Sets:
-// - `common.pos__sprite_x_list,x` and `common.pos__sprite_y_list,x` with the calculated position.
+// - `common.data__sprite_curr_x_pos_list,x` and `common.data__sprite_curr_y_pos_list,x` with the calculated position.
 // - A: Sprite X position
 // - Y: Sprite Y position
 // Notes:
-// - If X is set to $04, then the position is not stored in `common.pos__sprite_x_list,x` and
-//   `common.pos__sprite_y_list,x`.
+// - If X is set to $04, then the position is not stored in `common.data__sprite_curr_x_pos_list,x` and
+//   `common.data__sprite_curr_y_pos_list,x`.
 convert_coord_sprite_pos:
     // Calculate X position.
     pha
@@ -92,7 +56,7 @@ convert_coord_sprite_pos:
     adc #$1A
     cpx #$04
     bcs !next+
-    sta common.pos__sprite_x_list,x
+    sta common.data__sprite_curr_x_pos_list,x
 !next:
     pha
     // Calculate Y position.
@@ -105,16 +69,15 @@ convert_coord_sprite_pos:
     adc #$17
     cpx #$04
     bcs !next+
-    sta common.pos__sprite_y_list,x
+    sta common.data__sprite_curr_y_pos_list,x
 !next:
     tay
     pla
     rts
 
 // 6509
-// Description:
-// - Writes a text message to the board text area.
-// Prerequisites:
+// Writes a text message to the board text area.
+// Requires:
 // - A: text message offset (see `ptr__txt__game_list` for message order).
 // - X: column offset.
 // Sets:
@@ -182,9 +145,8 @@ display_two_player:
     jmp common.check_option_keypress
 
 // 6C7C
-// Description:
-// - Fills an array of rows and columns with the coordinates of the squares surrounding the current square.
-// Prerequisites:
+// Fills an array of rows and columns with the coordinates of the squares surrounding the current square.
+// Requires:
 // - `data__curr_icon_row`: row of source square
 // - `data__curr_icon_col`: column of source square
 // Sets:
@@ -197,31 +159,30 @@ surrounding_squares_coords:
     ldx #$08 // 9 squares (0 offset)
     ldy data__curr_icon_row
     iny
-    sty data__curr_row
+    sty cnt__curr_board_row
 !row_loop:
     ldy data__curr_icon_col
     iny
-    sty data__curr_column
+    sty cnt__curr_board_column
     ldy #$03
 !column_loop:
-    lda data__curr_row
+    lda cnt__curr_board_row
     sta surrounding_square_row,x
-    lda data__curr_column
+    lda cnt__curr_board_column
     sta surrounding_square_column,x
     dex
     bmi !return+
-    dec data__curr_column
+    dec cnt__curr_board_column
     dey
     bne !column_loop-
-    dec data__curr_row
+    dec cnt__curr_board_row
     jmp !row_loop-
 !return:
     rts
 
 // 8965
-// Description:
-// - Adds an icon to the board matrix.
-// Prerequisites:
+// Adds an icon to the board matrix.
+// Requires:
 // - `data__curr_board_row`: Row offset of board square.
 // - `data__curr_board_col`: Column offset of board square.
 // - `param__icon_type_list`: Type of icon to add to the square.
@@ -240,13 +201,12 @@ add_icon_to_matrix:
     rts
 
 // 8D6E
-// Description:
-// - Places a sprite at a given location and enables the sprite.
-// Prerequisites:
+// Places a sprite at a given location and enables the sprite.
+// Requires:
 // - X: sprite number to be enabled.
-// - `common.pos__sprite_x_list`: Screen X location of the sprite.
-// - `common.pos__sprite_y_list`: Screen Y location of the sprite.
-// - `common.cnt__curr_sprite_frame`: Current frame number (0 to 4) of animated sprite
+// - `common.data__sprite_curr_x_pos_list`: Screen X location of the sprite.
+// - `common.data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
+// - `common.cnt__sprite_frame`: Current frame number (0 to 4) of animated sprite
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
@@ -256,7 +216,7 @@ render_sprite:
     txa
     asl
     tay
-    lda common.cnt__curr_sprite_frame,x
+    lda common.cnt__sprite_frame,x
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
     adc common.param__icon_sprite_source_frame_list,x
@@ -264,27 +224,26 @@ render_sprite:
     sta SPTMEM,x
 
 // 8D80
-// Description:
-// - Places a sprite at a given location and enables the sprite.
-// Prerequisites:
+// Places a sprite at a given location and enables the sprite.
+// Requires:
 // - X: sprite number to be enabled.
 // - Y: 2 * the sprite number to be enabled.
-// - `common.pos__sprite_x_list`: Screen X location of the sprite.
-// - `common.pos__sprite_y_list`: Screen Y location of the sprite.
+// - `common.data__sprite_curr_x_pos_list`: Screen X location of the sprite.
+// - `common.data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
 // - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
-render_sprite_preconf:
-    lda common.pos__sprite_y_list,x
+set_sprite_location:
+    lda common.data__sprite_curr_y_pos_list,x
     clc
     adc #$32
     sta SP0Y,y
     //
-    lda common.pos__sprite_x_list,x
+    lda common.data__sprite_curr_x_pos_list,x
     clc
-    adc common.pos__sprite_x_list,x
+    adc common.data__sprite_curr_x_pos_list,x
     sta data__temp_sprite_y_store
     lda #$00
     adc #$00
@@ -341,12 +300,12 @@ draw_board:
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
-    sta data__curr_row
+    sta cnt__curr_board_row
     // Draw each board row.
 draw_row:
     lda #(BOARD_NUM_COLS-1) // Number of columns (0 based, so 9)
-    sta data__curr_column
-    ldy data__curr_row
+    sta cnt__curr_board_column
+    ldy cnt__curr_board_row
     //
     lda ptr__screen_row_offset_lo,y
     sta FREEZP+2 // Screen offset
@@ -368,7 +327,7 @@ draw_row:
     sta CURLIN+1
     //
 draw_square:
-    ldy data__curr_column
+    ldy cnt__curr_board_column
     bit flag__render_square_ctl
     bvs render_square // Disable icon render
     bpl render_icon
@@ -376,10 +335,10 @@ draw_square:
     lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
     sta render_square_icon_offset
     lda data__curr_board_col
-    cmp data__curr_column
+    cmp cnt__curr_board_column
     bne draw_empty_square
     lda data__curr_board_row
-    cmp data__curr_row
+    cmp cnt__curr_board_row
     bne draw_empty_square
 render_icon:
     lda (FREEZP),y
@@ -421,23 +380,23 @@ render_square:
 !skip:
     ora #$08 // Derive square color
     sta data__curr_square_color_code
-    lda data__curr_column
+    lda cnt__curr_board_column
     asl
     clc
-    adc data__curr_column
+    adc cnt__curr_board_column
     tay
     jsr draw_square_part
-    lda data__curr_column
+    lda cnt__curr_board_column
     asl
     clc
-    adc data__curr_column
+    adc cnt__curr_board_column
     adc #CHARS_PER_SCREEN_ROW
     tay
     jsr draw_square_part
     //
-    dec data__curr_column
+    dec cnt__curr_board_column
     bpl draw_square
-    dec data__curr_row
+    dec cnt__curr_board_row
     bmi !return+
     jmp draw_row
 !return:
@@ -639,16 +598,16 @@ draw_magic_square:
 !next:
     .const SPRITE_NUMBER=7
     sty magic_square_counter
-    lda pos__magic_square_x_list,y
-    sta common.pos__sprite_x_list+SPRITE_NUMBER
-    lda pos__magic_square_y_list,y
-    sta common.pos__sprite_y_list+SPRITE_NUMBER
+    lda data__magic_square_x_pos_list,y
+    sta common.data__sprite_curr_x_pos_list+SPRITE_NUMBER
+    lda data__magic_square_y_pos_list,y
+    sta common.data__sprite_curr_y_pos_list+SPRITE_NUMBER
     //
     ldx #SPRITE_NUMBER
     lda common.ptr__sprite_48_offset
     sta SPTMEM+SPRITE_NUMBER
     ldy #(SPRITE_NUMBER*2)
-    jmp render_sprite_preconf
+    jmp set_sprite_location
 
 
 // 92EB
@@ -689,8 +648,7 @@ selection_square__vert_line:
     rts
 
 // 9352
-// Description:
-// - Clear text area underneath the board and reset the color to white.
+// Clear text area underneath the board and reset the color to white.
 // Sets:
 // - Clears graphical character memory for rows 23 and 24 (0 offset).
 clear_text_area:
@@ -707,8 +665,7 @@ clear_text_area:
     rts
 
 // 8948
-// Description:
-// - Clear the last text row under the board. Leave's the first text row untouched.
+// Clear the last text row under the board. Leave's the first text row untouched.
 // Sets:
 // - Clears graphical character memory for row 24 (0 offset).
 // Notes:
@@ -723,9 +680,8 @@ clear_last_text_row:
     rts
 
 // A0B1
-// Description:
-// - Plays an icon movement or attack sound.
-// Prerequisites:
+// Plays an icon movement or attack sound.
+// Requires:
 // - OLDTXT/OLDTXT+1: Pointer to sound pattern.
 // - `common.flag__enable_player_sound`: $00 to disable sound for light player, $80 to enable sound
 // - `common.flag__enable_player_sound+1`: $00 to disable sound for dark player, $80 to enable sound
@@ -902,10 +858,10 @@ txt__game_name: .text "ARCHON"
 data__magic_square_sprite_source: .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
 
 // 92E1
-pos__magic_square_x_list: .byte $4A, $1A, $4A, $4A, $7A // Sprite X position of each magic square
+data__magic_square_x_pos_list: .byte $4A, $1A, $4A, $4A, $7A // Sprite X position of each magic square
 
 // 92E6
-pos__magic_square_y_list: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
+data__magic_square_y_pos_list: .byte $17, $57, $57, $97, $57 // Sprite Y position of each magic square
 
 // 8BBE
 // Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
@@ -1053,28 +1009,29 @@ data__temp_sprite_x_store: .byte $00
 data__curr_square_color_code: .byte $00
 
 // BF25
-data__curr_icon_row: // Intitial board row of selected icon
-    .byte $00
+// Intitial board row of selected icon
+data__curr_icon_row: .byte $00
 
 // BF26
-data__curr_board_row: // Board row offset for rendered icon
-    .byte $00
+// Board row offset for rendered icon.
+data__curr_board_row: .byte $00
 
 // BF27
-data__curr_icon_col: // Intitial board column of selected icon
-    .byte $00
+// Intitial board column of selected icon.
+data__curr_icon_col:.byte $00
 
 // BF28
-data__curr_board_col: // Board column for rendered icon
-    .byte $00
+// Board column for rendered icon.
+data__curr_board_col:.byte $00
 
 // BF30
-data__curr_row: // Current board row
-    .byte $00
+// Current board row.
+cnt__curr_board_row: .byte $00
 
 // BF31
-data__curr_column: // Current board column
-    .byte $00
+// Current board column.
+cnt__curr_board_column: .byte $00
 
 // BF44
-magic_square_counter: .byte $00 // Current magic square (1-5) being rendered
+// Current magic square (1-5) being rendered.
+magic_square_counter: .byte $00

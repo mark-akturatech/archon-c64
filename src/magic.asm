@@ -71,10 +71,43 @@ cancel_spell_selection:
     pla
     jmp game.play_turn
 
+
+// 62FF
+// Detects if the selected square is a magic square.
+// Requires:
+// - `cnt__curr_board_row`: row of the square to test.
+// - `cnt__curr_board_column`: column of the square to test.
+// Sets:
+// - `flag__icon_destination_valid`: is $80 if selected square is a magic square.
+// Preserves:
+// - X, Y
+test_magic_square_selected:
+    tya
+    pha
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta game.flag__icon_destination_valid
+    ldy #$04 // 5 magic squares (0 based)
+!loop:
+    lda board.data__magic_square_col_list,y
+    cmp cnt__curr_board_row
+    bne !next+
+    lda board.data__magic_square_row_list,y
+    cmp cnt__curr_board_column
+    beq magic_square_selected
+!next:
+    dey
+    bpl !loop-
+    bmi no_magic_square_selected
+magic_square_selected:
+    asl game.flag__icon_destination_valid
+no_magic_square_selected:
+    pla
+    tay
+    rts
+
 // 6833
-// Description:
-// - Configures a pointer to the start of the used spell array for the current player.
-// Prerequisites:
+// Configures a pointer to the start of the used spell array for the current player.
+// Requires:
 // - `game.curr_player_offset`: Current player (0 for light, 1 for dark).
 // Sets:
 // - `CURLIN`: Pointer to spell used array (one byte for each spell type). See `flag__light_used_spells_list` for order
@@ -166,7 +199,7 @@ spell_select_exchange:
     lda #STRING_TRANSPOSE_WHICH
     sta game.flag__new_square_selected
     jsr game.display_message
-    lda #$FF // Clear selected icon
+    lda #FLAG_ENABLE_FF // Clear selected icon
     sta common.param__icon_type_list
     lda #$00
     sta game.curr_icon_total_moves
@@ -328,7 +361,7 @@ allow_summon_elemental:
 
 // 693F
 spell_select_revive:
-    jsr game.check_empty_non_magic_surrounding_square
+    jsr check_empty_non_magic_surrounding_square
     lda game.flag__is_valid_square
     bmi !next+
     // No empty non-magical squares surrounding the spell caster.
@@ -432,11 +465,11 @@ check_dead_type_loop:
     jsr board.convert_coord_sprite_pos
     sec
     sbc #$02
-    sta common.pos__sprite_x_list+1
+    sta common.data__sprite_curr_x_pos_list+1
     tya
     sec
     sbc #$01
-    sta common.pos__sprite_y_list+1
+    sta common.data__sprite_curr_y_pos_list+1
     jsr board.render_sprite
     // Allow user to select a dead icon.
     lda #STRING_REVIVE_WHICH
@@ -571,7 +604,6 @@ display_spell_wasted:
     jmp spell_complete
 
 // 6BD4
-// Description:
 // - Select spell from list of spells.
 // Sets:
 // - Y: Spell ID
@@ -740,9 +772,8 @@ complete_destination_selection:
     rts
 
 // 6D16
-// Description:
-// - Set square occupancy.
-// Prerequisites:
+// Set square occupancy.
+// Requires:
 // - A: Column offset of board square.
 // - Y: Row offset of board square.
 // - X: Icon ID.
@@ -761,9 +792,8 @@ set_occupied_square:
     rts
 
 // 7205
-// Description:
-// - Count number of used spells for the current player.
-// Prerequisites:
+// Count number of used spells for the current player.
+// Requires:
 // - Y: is 0 for light player and 7 for dark player.
 // Sets:
 // - `data__used_spell_count`: Number of used spells.
@@ -786,6 +816,51 @@ count_used_spells:
     bne !loop-
     pla
     tax
+    rts
+
+// 7912
+// Description:
+// Checks if any of the squares surrounding the current square is empty and non-magical.
+// Requires:
+// - `board.data__curr_icon_row`: row of source square
+// - `board.data__curr_icon_col`: column of source square
+// Sets:
+// - `game.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
+// - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
+// - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
+check_empty_non_magic_surrounding_square:
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta game.flag__is_valid_square
+    jsr board.surrounding_squares_coords
+    ldx #$08 // Number of surrounding squares (and current square)
+!loop:
+    // Test if surrounding square is occupied or is a magic square. If so, test the next square. Set ENABLE flag and
+    // exit as soon as an empty/non-magic square is found.
+    lda board.surrounding_square_row,x
+    bmi !next+
+    cmp #$09 // Only test columns 0-8
+    bcs !next+
+    tay
+    sty cnt__curr_board_row
+    lda board.surrounding_square_column,x
+    bmi !next+
+    cmp #$09 // Only test rows 0-8
+    bcs !next+
+    sta cnt__curr_board_column
+    jsr game.get_square_occupancy
+    bpl !next+
+    jsr test_magic_square_selected
+    lda game.flag__icon_destination_valid
+    bmi !next+
+    // Empty non-magical square found.
+    lda game.flag__is_light_turn
+    cmp game.flag__ai_player_ctl
+    // 7948  F0 04      beq W794E // TODO: AI
+    asl game.flag__is_valid_square
+    rts
+!next:
+    dex
+    bpl !loop-
     rts
 
 // 87BC
@@ -819,10 +894,10 @@ spell_select:
     //       to 15 squares).
 check_valid_square:
     lda board.data__curr_board_row
-    sta board.data__curr_row
+    sta cnt__curr_board_row
     lda board.data__curr_board_col
-    sta board.data__curr_column
-    jsr board.test_magic_square_selected
+    sta cnt__curr_board_column
+    jsr test_magic_square_selected
     lda game.flag__icon_destination_valid
     bmi spell_abort_magic_square
 !next:
@@ -1082,6 +1157,14 @@ data__number_dead_icons: .byte $00
 // BF2E
 // Temporary storage for selected icon.
 temp_selected_icon_store: .byte $00
+
+// BF30
+// Current board row.
+cnt__curr_board_row: .byte $00
+
+// BF31
+// Current board column.
+cnt__curr_board_column: .byte $00
 
 // BF32
 // Counter used to delay selection of next/previous spell. Must be helf for a count of #$0F before selection is
