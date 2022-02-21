@@ -10,7 +10,7 @@ select_spell:
     lda board.data__curr_icon_row
     sta temp_row_store
     lda board.data__curr_icon_col
-    sta temp_column_store
+    sta temp_col_store
     lda game.flag__ai_player_ctl
     cmp game.flag__is_light_turn
     bne select_spell_start
@@ -75,8 +75,8 @@ cancel_spell_selection:
 // 62FF
 // Detects if the selected square is a magic square.
 // Requires:
-// - `cnt__curr_board_row`: row of the square to test.
-// - `cnt__curr_board_column`: column of the square to test.
+// - `cnt__board_row`: row of the square to test.
+// - `cnt__board_col`: column of the square to test.
 // Sets:
 // - `flag__icon_destination_valid`: is $80 if selected square is a magic square.
 // Preserves:
@@ -89,10 +89,10 @@ test_magic_square_selected:
     ldy #$04 // 5 magic squares (0 based)
 !loop:
     lda board.data__magic_square_col_list,y
-    cmp cnt__curr_board_row
+    cmp cnt__board_row
     bne !next+
     lda board.data__magic_square_row_list,y
-    cmp cnt__curr_board_column
+    cmp cnt__board_col
     beq magic_square_selected
 !next:
     dey
@@ -245,13 +245,13 @@ spell_select_elemental:
     // Check if there are any enemy icons located on non-magic squares. If not, the spell will be wasted and an alert
     // shown. The check is a bit rough - it starts at occupancy location 80 ($50) which is the last square on the board
     // (0 offset) and works backwards. An array of magic square locations is stored in
-    // `game.idx__magic_sqaure_cell`. If the counter is decremented to the magic square location, the next
+    // `game.idx__magic_square_cell`. If the counter is decremented to the magic square location, the next
     // magic square is stored and the occupancy check is skipped. This repeats until all squares have been checked.
     // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic squares skipped) and
     // no enemey piece is found, then we show a spell wasted message.
     ldx #(BOARD_SIZE-1)
     ldy #$04 // Number magic squares (0 offset)
-    lda game.idx__magic_sqaure_cell+4
+    lda game.idx__magic_square_cell+4
     sta temp__data_store
 !loop:
     cpx temp__data_store // Up to next magic square?
@@ -259,12 +259,12 @@ spell_select_elemental:
     dey
     bmi check_next_square // No more magic squares
     // Store next magic square location.
-    lda game.idx__magic_sqaure_cell,y
+    lda game.idx__magic_square_cell,y
     sta temp__data_store
     jmp check_next_square
 !next:
     // Check if square has opposing player icon
-    lda board.curr_square_occupancy,x
+    lda board.data__square_occupancy_list,x
     bmi check_next_square // No icon
     cmp #MANTICORE // First dark player icon id
     php
@@ -330,7 +330,7 @@ allow_summon_elemental:
     jsr board.convert_coord_sprite_pos
     jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.param__sprite_source_size
+    sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     lda game.curr_player_offset
     beq !next+
@@ -731,7 +731,7 @@ spell_complete:
     jsr board.write_text
     lda temp_row_store
     sta board.data__curr_icon_row
-    lda temp_column_store
+    lda temp_col_store
     sta board.data__curr_icon_col
     ldx #$40 // ~1 sec
     jsr common.wait_for_jiffy
@@ -778,7 +778,7 @@ complete_destination_selection:
 // - Y: Row offset of board square.
 // - X: Icon ID.
 // Sets:
-// - `board.curr_square_occupancy`: Sets appropriate byte within the occupancy array.
+// - `board.data__square_occupancy_list`: Sets appropriate byte within the occupancy array.
 set_occupied_square:
     pha
     lda board.ptr__board_row_occupancy_lo,y
@@ -826,8 +826,8 @@ count_used_spells:
 // - `board.data__curr_icon_col`: column of source square
 // Sets:
 // - `game.flag__is_valid_square`: #$80 if one or more surrounding squares are empty and non-magical
-// - `surrounding_square_row`: Contains an array of rows for all 9 squares (including source)
-// - `surrounding_square_column`: Contains an array of columns for all 9 squares (including source)
+// - `data__surrounding_square_row_list`: Contains an array of rows for all 9 squares (including source)
+// - `data__surrounding_square_col_list`: Contains an array of columns for all 9 squares (including source)
 check_empty_non_magic_surrounding_square:
     lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
     sta game.flag__is_valid_square
@@ -836,17 +836,17 @@ check_empty_non_magic_surrounding_square:
 !loop:
     // Test if surrounding square is occupied or is a magic square. If so, test the next square. Set ENABLE flag and
     // exit as soon as an empty/non-magic square is found.
-    lda board.surrounding_square_row,x
+    lda board.data__surrounding_square_row_list,x
     bmi !next+
     cmp #$09 // Only test columns 0-8
     bcs !next+
     tay
-    sty cnt__curr_board_row
-    lda board.surrounding_square_column,x
+    sty cnt__board_row
+    lda board.data__surrounding_square_col_list,x
     bmi !next+
     cmp #$09 // Only test rows 0-8
     bcs !next+
-    sta cnt__curr_board_column
+    sta cnt__board_col
     jsr game.get_square_occupancy
     bpl !next+
     jsr test_magic_square_selected
@@ -894,9 +894,9 @@ spell_select:
     //       to 15 squares).
 check_valid_square:
     lda board.data__curr_board_row
-    sta cnt__curr_board_row
+    sta cnt__board_row
     lda board.data__curr_board_col
-    sta cnt__curr_board_column
+    sta cnt__board_col
     jsr test_magic_square_selected
     lda game.flag__icon_destination_valid
     bmi spell_abort_magic_square
@@ -931,7 +931,7 @@ spell_check_icon_is_free:
 spell_end_turn:
     sta game.flag__new_square_selected
     lda #FLAG_ENABLE
-    sta common.flag__enable_next_state
+    sta common.flag__is_enable_next_state
     rts
 
 // 881A
@@ -1106,7 +1106,7 @@ temp_row_store: .byte $00
 
 // BD54
 // Temporary current column row storage.
-temp_column_store: .byte $00
+temp_col_store: .byte $00
 
 // BD66
 // Pointer to function to execute selected spell logic.
@@ -1160,11 +1160,11 @@ temp_selected_icon_store: .byte $00
 
 // BF30
 // Current board row.
-cnt__curr_board_row: .byte $00
+cnt__board_row: .byte $00
 
 // BF31
 // Current board column.
-cnt__curr_board_column: .byte $00
+cnt__board_col: .byte $00
 
 // BF32
 // Counter used to delay selection of next/previous spell. Must be helf for a count of #$0F before selection is

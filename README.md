@@ -4,7 +4,7 @@
 
 This project the result of reverse engineering the iconic Commodore 64 game **Archon (c) 1983** by Free Fall Associates.
 
-The reporduction code is intended to be a true replication of the source logic with the exception of original memory locations.
+The reproduction code is intended to be a true replication of the source logic with the exception of original memory locations.
 
 The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or function for reference.
 
@@ -16,7 +16,7 @@ Archon formed a large part of my childhood. I spent many hours playing Archon wi
 
 I was recently thinking about source code from games like Archon being lost forever and decided to do something about it.
 
-It's likely noone will ever see this code, but at least I can show my respect by faithfully replicating the source and making every effort to understand and document every byte.
+It's likely no-one will ever see this code, but at least I can show my respect by faithfully replicating the source and making every effort to understand and document every byte.
 
 Also, this is my first reverse engineering project and I wanted to spend time to develop standards and styles that can be carried over to other projects. I've refactored this code more than I can count, but I think the result was worth it.
 
@@ -25,8 +25,8 @@ Also, this is my first reverse engineering project and I wanted to spend time to
 Additional documentation is provided in the following files:
 
 - [TERMINOLOGY.md](TERMINOLOGY.md) for a list of terms used within labels and source code comments.
-- [INTERESTING.md](INTERESTING.md) for interesting insights and funcitonality derived from the source code.
-- [Mapping the C64](http://unusedino.de/ec64/technical/project64/mapping_c64.html) for extensive documentation on various C64 memory addresses and kernal fucntionality.
+- [INTERESTING.md](INTERESTING.md) for interesting insights and functionality derived from the source code.
+- [Mapping the C64](http://unusedino.de/ec64/technical/project64/mapping_c64.html) for extensive documentation on various C64 memory addresses and kernal functionality.
 
 ## Development Environment
 
@@ -38,13 +38,13 @@ Source code was replicated within Visual Studio Code using the `KickAss (C64)` e
 
 #### Variable Labels
 
-Variable lables will be prefixed with the following:
+Variable labels will be prefixed with the following:
 - `data__` : Calculated or derived results or data stored for use later.
 - `flag__` : Used to specifically for conditional logic.
 - `ptr__` : Pointer to a memory address location.
 - `idx__` : Index to an item within a block of memory (or array).
 - `cnt__` : A value that is incremented within a loop. Typically from 0. Is different to idx__ as an index is used to reference memory where a counter is used to perform operations a specific number of times.
-- `temp__` : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be use doutside of the routine that stored it.
+- `temp__` : Value stored specifically so that it can be retrieved later after some interim operations. Temp data will not be used outside of the routine that stored it.
 - `txt__`: Pointer to the start memory location of a string of text.
 - `snd__`: Pointer to the start memory location containing a sound pattern (string of notes and sound commands).
 - `param__`: The memory address is a parameter used to configure a subroutine.
@@ -57,16 +57,16 @@ Labels may also contain the following:
 
 #### Code Labels
 
-Lables used to identify code addresses will be named to appropriately describe the functionality of the proceeding code.
+Labels used to identify code addresses will be named to appropriately describe the functionality of the proceeding code.
 
-Multilables will be used specifically for the following:
+Multi-labels will be used specifically for the following:
 - !skip : logic is being skipped as part of a condition check
 - !loop : looping logic
 - !next : breaking out of a loop
 - !return : exiting from a subroutine
 Double or more jumps (eg jmp !loop++) will not be used.
 
-For readability, code lables within a subroutine that are not intended to be called externallly to the subroutine will be treated as multilables (use multilabel identifier).
+For readability, code labels within a subroutine that are not intended to be called externally to the subroutine will be treated as multi-labels (use multilabel identifier).
 
 #### Constants
 
@@ -78,7 +78,7 @@ IO and kernel address constants are named using labels defined in `Mapping the C
 
 Each file will implement a separate namespace.
 
-Code and labels that are not used outside of the file will be wrapped in a private namespace wihtin the file.
+Code and labels that are not used outside of the file will be wrapped in a private namespace within the file.
 
 ### Multiple Use Memory
 
@@ -107,17 +107,17 @@ Extensive use of the following tools were used to help with this project:
   vscode extension was used to compile the reproduced source code.
 
 Some notes regarding the above tools:
-- Kick Assembler is just amazing. It is feature packed and bullet proof. I don't normally personally comment on tools in the README file but I just needed to say somehwere that I am really impressed with Kick Assembler.
-- Jc64Dis is also impressive. It has some bugs and memory leaks and sometimes corrupts the project (gotta save often), but it is also feature packed and perfect for disassembling C64 code. It isn't as populat as Infiltrator or Ghidra etc, but I highly recommend it.
-- I use VSCode for many projects (including my daytime job). It is an awesome IDE and I truely recommend it to anyone independant of the language used.
+- Kick Assembler is just amazing. It is feature packed and bullet proof. I don't normally personally comment on tools in the README file but I just needed to say somewhere that I am really impressed with Kick Assembler.
+- Jc64Dis is also impressive. It has some bugs and memory leaks and sometimes corrupts the project (got to save often), but it is also feature packed and perfect for disassembling C64 code. It isn't as popular as Infiltrator or Ghidra etc, but I highly recommend it.
+- I use VSCode for many projects (including my daytime job). It is an awesome IDE and I recommend it to anyone independent of the language used.
 
 ## Entry Point
 
-Archon initially launches via a basic program with a sys command. Running the program executes code that moves block of memory around. For readability, we will not implement this functionality and will instead start the reverse engineering effort when everthing is residing in the final memory location.
+Archon initially launches via a basic program with a sys command. Running the program executes code that moves block of memory around. For readability, we will not implement this functionality and will instead start the reverse engineering effort when everything is residing in the final memory location.
 
 We will use a snapshot with a breakpoint at address $6129 (after resources are relocated out of graphic memory) and we will begin disassembly at $6100.
 
-Below is a breif synopsis of what is going on here:
+Below is a brief synopsis of what is going on here:
 
 ### Block 1: 0801 to 0827
 

@@ -100,7 +100,7 @@ entry:
     sta common.flag__game_loop_state // Enable intro game loop state
     .const TWELVE_SECONDS = $03
     lda #TWELVE_SECONDS // Set number of second before game autoplays if no option selected on options page
-    sta board.countdown_timer
+    sta board.cnt__countdown_timer
     //
     lda resources.flag__is_relocated
     bmi !skip+
@@ -179,14 +179,14 @@ restart_game_loop:
     //
     // 621A
     lda #FLAG_ENABLE
-    sta common.flag__enable_next_state // Force any running interrupt routines to exit
+    sta common.flag__is_enable_next_state // Force any running interrupt routines to exit
     //
     // Clear board square occupancy data.
     // The occupancy matrix is used to keep track of which icon is in which square. Clearing this data effectively
     // removes all icons from the board.
     ldx #(BOARD_SIZE-1) // Empty (9x9 grid) squares (0 offset)
 !loop:
-    sta board.curr_square_occupancy,x
+    sta board.data__square_occupancy_list,x
     dex
     bpl !loop-
     //
@@ -209,7 +209,7 @@ restart_game_loop:
     // the middle(ish) but slightly on the dark side.
     .const MIDDLE_PHASE = 3
     ldy #MIDDLE_PHASE
-    lda board.data__phase_color_list,y // Purple
+    lda game.data__phase_color_list,y // Purple
     sta game.curr_color_phase
     //
     // Display the game intro if it hasn't already been played.
@@ -293,7 +293,7 @@ restart_game_loop:
     ldy #$02
 !loop:
     lda private.idx__light_icon_type
-    sta board.curr_square_occupancy,x
+    sta board.data__square_occupancy_list,x
     inc private.idx__light_icon_type
     inx
     dey
@@ -302,7 +302,7 @@ restart_game_loop:
     ldy #$05
     lda #BOARD_EMPTY_SQUARE
 !loop:
-    sta board.curr_square_occupancy,x
+    sta board.data__square_occupancy_list,x
     inx
     dey
     bne !loop-
@@ -310,7 +310,7 @@ restart_game_loop:
     ldy #$02
 !loop:
     lda private.idx__dark_icon_type
-    sta board.curr_square_occupancy,x
+    sta board.data__square_occupancy_list,x
     inc private.idx__dark_icon_type
     inx
     dey
@@ -347,7 +347,7 @@ restart_game_loop:
     sta game.data__phase_cycle_board
     lsr // Remember we need to divide by 2 to get the color index
     tay
-    lda board.data__phase_color_list,y
+    lda game.data__phase_color_list,y
     sta game.curr_color_phase // Purple if light first, green if dark first
     //
     // Let's play!

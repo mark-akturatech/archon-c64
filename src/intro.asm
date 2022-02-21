@@ -62,14 +62,14 @@ entry:
     // AA42
     // Play current intro state interrupt.
     interrupt_handler:
-        lda common.flag__enable_next_state
+        lda common.flag__is_enable_next_state
         bpl !next+
         jmp common.complete_interrupt
     !next:
         // The flag will be set to TRUE when the intro is over. This will then cause the interrupt handler to
         // stop playing into interrupts after the current interrupt is completed.
         lda flag__is_complete
-        sta common.flag__enable_next_state
+        sta common.flag__is_enable_next_state
         jsr common.play_music
         // Run background task for the current intro state. eg move the Logo icon up by one pixel to scroll the logo
         // up the screen.
@@ -82,7 +82,7 @@ entry:
         lda #FLAG_ENABLE
         sta common.param__is_copy_animation_group // Copy icon animation frames to animate movement in the chase scene
         lda #BYTERS_PER_STORED_SPRITE
-        sta common.param__sprite_source_size
+        sta common.param__sprite_source_len
         lda common.ptr__sprite_24_mem
         sta FREEZP+2
         sta ptr__sprite_mem_lo
@@ -258,7 +258,7 @@ entry:
         tax
     !skip:
         // Determine start screen and color memory addresses.
-        lda #>SCNMEM // Screen memory hi byte
+        lda #>SCNMEM // Screen memory high byte
         sta FREEZP+3 // Screen memory pointer
         clc
         adc common.data__color_mem_offset // Derive color memory address
@@ -457,12 +457,12 @@ entry:
     // even rows of alternating colors (col1, col2, col1, col2 etc). Here we set the first color (anded so it is between
     // 1 and 16) and then we set the second color to first color + 1 (also anded so is between one and 16).
     state__avatar_color_scroll:
-        inc cnt__curr_sprite_delay
-        lda cnt__curr_sprite_delay
+        inc cnt__sprite_delay
+        lda cnt__sprite_delay
         and #$07
         bne !return+
-        inc common.cnt__sprite_frame
-        lda common.cnt__sprite_frame
+        inc common.cnt__sprite_frame_list
+        lda common.cnt__sprite_frame_list
         and #$0F
         sta SPMC0
         clc
@@ -509,11 +509,11 @@ entry:
         ldx #$03
         // Animate on every other frame.
         // The code below just toggles a flag back and forth between the minus state.
-        lda cnt__curr_sprite_delay
+        lda cnt__sprite_delay
         eor #$FF
-        sta cnt__curr_sprite_delay
+        sta cnt__sprite_delay
         bmi !return+
-        inc common.cnt__sprite_frame // Counter is used to set the animation frame
+        inc common.cnt__sprite_frame_list // Counter is used to set the animation frame
         //Move icon sprites.
     !loop:
         txa
@@ -531,18 +531,18 @@ entry:
         // set the nineth bit in MSIGX (offset bit by spreit enumber).
         bcc !clear_msb+
         lda MSIGX
-        ora common.data__math_pow2,x
+        ora common.data__math_pow2_list,x
         sta MSIGX
         jmp !skip+
     !clear_msb:
-        lda common.data__math_pow2,x
+        lda common.data__math_pow2_list,x
         eor #$FF
         and MSIGX
         sta MSIGX
         // Set the sprite pointer to point to one of four sprites used for each icon. A different frame is shown on
         // each movement.
     !skip:
-        lda common.cnt__sprite_frame
+        lda common.cnt__sprite_frame_list
         and #$03 // 1-4 animation frames
         clc
         adc ptr__icon_sprite_mem_list,x
@@ -557,7 +557,7 @@ entry:
     // Complete the current game state and move on.
     state__end_intro:
         lda #FLAG_ENABLE
-        sta common.flag__enable_next_state
+        sta common.flag__is_enable_next_state
         jmp common.complete_interrupt
         rts
 }
@@ -664,7 +664,7 @@ ptr__substate_fn: .word $0000
 .namespace private {
     // BCE8
     // Delay between color changes when color scrolling avatar sprites.
-    cnt__curr_sprite_delay: .byte $00
+    cnt__sprite_delay: .byte $00
 
     // BCE9
     // Number of moves left in y plane in current direction (will reverse direction on 0).

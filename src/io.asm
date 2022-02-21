@@ -80,6 +80,9 @@
 .const XXPAND   = $D01D // Sprite X horizontal expand
 .const EXTCOL   = $D020 // Border Color Register
 .const BGCOL0   = $D021 // Background Color 0
+.const BGCOL1   = $D022 // Background Color 1
+.const BGCOL2   = $D023 // Background Color 2
+.const BGCOL3   = $D024 // Background Color 2
 .const SPMC0    = $D025 // Sprite Multicolor Register 0
 .const SPMC1    = $D026 // Sprite Multicolor Register 1
 .const SP0COL   = $D027 // Sprite 0 Color Register

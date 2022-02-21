@@ -10,13 +10,13 @@ entry:
     jsr board.clear_text_area
     jsr common.stop_sound
     lda #FLAG_DISABLE
-    sta board.flag__render_square_ctl
+    sta board.param__render_square_ctl
     jsr board.draw_board
     // Swap player because the main game as alternates the player, so it will swaps it back to the correct player.
     lda flag__is_light_turn
     eor #$FF
     sta flag__is_light_turn
-    ldy board.countdown_timer
+    ldy board.cnt__countdown_timer
     bpl !next+
     sta flag__ai_player_ctl // AI set to both players on options timeout (demo mode)
 !next:
@@ -29,7 +29,7 @@ entry:
     sta SP1COL // Set logo color
     sta SP2COL
     sta SP3COL // Set selection square color
-    jsr board.create_logo
+    jsr create_title
     jsr board.set_player_color
     jsr board.draw_border
     lda SPMC
@@ -37,7 +37,7 @@ entry:
     sta SPMC
     lda #BLACK
     sta SPMC0
-    jsr board.create_selection_square
+    jsr create_selection_square
     lda #%1111_1110 // Expand sprites 1, 2 and 3 horizontally
     sta XXPAND
     lda #%0000_0000
@@ -67,7 +67,7 @@ entry:
     lda #$00
 !loop:
     sta common.param__icon_sprite_source_frame_list,y
-    sta common.cnt__sprite_frame,y
+    sta common.cnt__sprite_frame_list,y
     dey
     bne !loop-
     //
@@ -243,7 +243,7 @@ check_game_state:
     cmp last_stored_time
     beq !next+
     sta last_stored_time
-    dec board.countdown_timer
+    dec board.cnt__countdown_timer
     bpl !next+
     // Start game.
     lda #FLAG_DISABLE
@@ -270,7 +270,7 @@ play_turn:
     bne !next+
     jsr ai.board_calculate_move
     ldx #$60 // Normal AI start delay
-    lda board.countdown_timer // Will be FF is option timer expired
+    lda board.cnt__countdown_timer // Will be FF is option timer expired
     bmi !next+
     ldx #$40 // Short AI start delay if AI vs AI
 !next:
@@ -298,11 +298,11 @@ play_turn:
     jsr board.convert_coord_sprite_pos
     jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.param__sprite_source_size
+    sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
     ldx common.param__icon_offset_list
-    lda board.data__icon_num_moves_list,x
+    lda data__icon_num_moves_list,x
     sta curr_icon_total_moves
     bmi select_icon // Selected icon can fly - don't need to check surrounding squares
     // Check if piece is surrounded by the same player icons and cannot move.
@@ -310,12 +310,12 @@ play_turn:
     ldx #$07 // Starting at 7 and reducing by 2 means we do not check the diagonal our selected icon squares
 !loop:
     // Check if adjacent square is occupied by an icon of the same color or is off board.
-    lda board.surrounding_square_row,x
+    lda board.data__surrounding_square_row_list,x
     bmi !next+
     cmp #$09
     bcs !next+
     tay
-    lda board.surrounding_square_column,x
+    lda board.data__surrounding_square_col_list,x
     bmi !next+
     cmp #$09
     bcs !next+
@@ -515,7 +515,7 @@ set_phase_color:
     lda data__phase_cycle_board
     lsr
     tay
-    lda board.data__phase_color_list,y
+    lda data__phase_color_list,y
     sta curr_color_phase
 !return:
     rts
@@ -566,7 +566,7 @@ game_over__imprisoned:
 //      $C0: tie
 //      $01: stalemate
 game_over:
-    jsr board.clear_last_text_row
+    jsr clear_last_text_row
     lda #STRING_GAME_ENDED
     ldx #CHARS_PER_SCREEN_ROW
     jsr board.write_text
@@ -600,24 +600,24 @@ game_over__show_winner:
     lda #index_state__end_intro
     sta intro.idx__substate_fn_ptr
     sei
-    lda #<board.interrupt_handler
+    lda #<outro_interrupt_handler
     sta main.ptr__raster_interrupt_fn
-    lda #>board.interrupt_handler
+    lda #>outro_interrupt_handler
     sta main.ptr__raster_interrupt_fn+1
-    lda #<board.interrupt_handler__play_music
-    sta board.ptr__play_music_fn
-    lda #>board.interrupt_handler__play_music
-    sta board.ptr__play_music_fn+1
+    lda #<outro_interrupt_handler__play_music
+    sta ptr__play_music_fn
+    lda #>outro_interrupt_handler__play_music
+    sta ptr__play_music_fn+1
     cli
     jsr common.initialize_music
     // Wait for about 30 seconds before restarting the game.
     jsr common.wait_for_key_or_task_completion
     lda TIME+1
     sta last_stored_time
-    lda board.countdown_timer
+    lda board.cnt__countdown_timer
     beq !loop+
     lda #$07 // Approx 30s (each tick is ~4s)
-    sta board.countdown_timer
+    sta board.cnt__countdown_timer
     lda #FLAG_ENABLE // Intro
     sta common.flag__game_loop_state
 !loop:
@@ -628,7 +628,7 @@ game_over__show_winner:
     cmp last_stored_time
     beq !next+
     sta last_stored_time
-    dec board.countdown_timer
+    dec board.cnt__countdown_timer
     bpl !next+
     lda #FLAG_DISABLE
     sta common.flag__game_loop_state
@@ -640,17 +640,17 @@ game_over__show_winner:
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
     lda #FLAG_DISABLE
-    sta common.flag__enable_next_state
+    sta common.flag__is_enable_next_state
 !loop:
     jsr common.check_stop_keypess
-    lda common.flag__enable_next_state
+    lda common.flag__is_enable_next_state
     beq !loop-
     jmp common.stop_sound
 
 // 8377
 interrupt_handler:
     jsr board.draw_magic_square
-    lda common.flag__enable_next_state
+    lda common.flag__is_enable_next_state
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -671,7 +671,7 @@ interrupt_handler:
     inx
 !next:
     lda #$81
-    sta common.flag__enable_player_sound
+    sta common.flag__is_player_sound_enabled
     lda #$00
     sta common.data__voice_note_delay
     txa
@@ -758,7 +758,7 @@ joystick_icon_select:
     jsr display_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
-    sta common.flag__enable_next_state
+    sta common.flag__is_enable_next_state
     sta flag__interrupt_response
     jmp common.complete_interrupt
     //
@@ -866,17 +866,17 @@ check_move_sprite_up:
     lda flag__board_sprite_moved
     bne !next+
     // Stop sound and reset current animation frame when movemement stopped.
-    sta common.cnt__sprite_frame,x // A = 00
+    sta common.cnt__sprite_frame_list,x // A = 00
     cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
-    sta common.flag__enable_player_sound
+    sta common.flag__is_player_sound_enabled
     sta VCREG1
     sta common.data__voice_note_delay
     jmp render_selected_sprite
 !next:
     lda magic.curr_spell_cast_selection
     bmi !next+
-    jsr board.clear_last_text_row
+    jsr clear_last_text_row
 !next:
     cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq render_selected_sprite
@@ -889,12 +889,12 @@ check_move_sprite_up:
     and #$03
     cmp #$03
     bne render_selected_sprite
-    inc common.cnt__sprite_frame,x
+    inc common.cnt__sprite_frame_list,x
     // Configure movement sound effect for selected piece.
     lda #FLAG_ENABLE
-    cmp common.flag__enable_player_sound
+    cmp common.flag__is_player_sound_enabled
     beq render_selected_sprite
-    sta common.flag__enable_player_sound
+    sta common.flag__is_player_sound_enabled
     lda #$00
     sta common.data__voice_note_delay
     lda board.ptr__player_sound_pattern_lo_list
@@ -913,9 +913,9 @@ set_square_right:
     bcs !return+
     tay
     iny
-    sty cnt__curr_board_column
+    sty cnt__board_col
     lda board.data__curr_board_row
-    sta cnt__curr_board_row
+    sta cnt__board_row
     lda #$00 // Stating animation frame 0
     sta icon_dir_frame_offset
     jsr verify_valid_move
@@ -934,9 +934,9 @@ set_square_left:
     beq !return+ // Already on first column?
     tay
     dey
-    sty cnt__curr_board_column
+    sty cnt__board_col
     lda board.data__curr_board_row
-    sta cnt__curr_board_row
+    sta cnt__board_row
     lda #$11 // Left facing icon
     sta icon_dir_frame_offset
     jsr verify_valid_move
@@ -953,9 +953,9 @@ set_square_up:
     beq !return+ // Already on first row?
     tay
     dey
-    sty cnt__curr_board_row
+    sty cnt__board_row
     lda board.data__curr_board_col
-    sta cnt__curr_board_column
+    sta cnt__board_col
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -978,9 +978,9 @@ set_square_down:
     bcs !return+
     tay
     iny
-    sty cnt__curr_board_row
+    sty cnt__board_row
     lda board.data__curr_board_col
-    sta cnt__curr_board_column
+    sta cnt__board_col
     lda flag__new_square_selected
     cmp #$01
     beq !next+ // Pefer left/right facing when moving diagonally
@@ -1004,8 +1004,8 @@ set_square_down:
 // the RTS will return from the calling subroutine. The calling subroutine calls this sub just before adding to the
 // X or Y movement counters, so this stops the icon or square from moving.
 // Requires:
-// - Selected square column must be stored in `cnt__curr_board_column`
-// - Selected square row must be stored in `cnt__curr_board_row`
+// - Selected square column must be stored in `cnt__board_col`
+// - Selected square row must be stored in `cnt__board_row`
 // - Current number of moves held in `curr_icon_move_count`
 // - Total number of moves held in `curr_icon_total_moves`
 // - Path of previous moves stored in `icon_move_col_buffer` and `icon_move_row_buffer`
@@ -1018,10 +1018,10 @@ verify_valid_move:
     beq check_occupied_on_move
     dey
     lda icon_move_col_buffer,y
-    cmp cnt__curr_board_column
+    cmp cnt__board_col
     bne check_occupied_on_move
     lda icon_move_row_buffer,y
-    cmp cnt__curr_board_row
+    cmp cnt__board_row
     bne check_occupied_on_move
     dec curr_icon_move_count
     rts
@@ -1032,9 +1032,9 @@ check_occupied_on_move:
     // Store the move so that we can check the move path to calculate the total number of moves.
     inc curr_icon_move_count
     ldy curr_icon_move_count
-    lda cnt__curr_board_row
+    lda cnt__board_row
     sta icon_move_row_buffer,y
-    lda cnt__curr_board_column
+    lda cnt__board_col
     sta icon_move_col_buffer,y
     rts
 check_move_limit:
@@ -1176,8 +1176,8 @@ warn_on_challenge:
 // 88E1
 // Detect if the destination square is already occupied by an icon for the same player. Abort the move it is is.
 warn_on_occupied_square:
-    ldy cnt__curr_board_row
-    lda cnt__curr_board_column
+    ldy cnt__board_row
+    lda cnt__board_col
     jsr get_square_occupancy
     cmp #BOARD_EMPTY_SQUARE
     beq !return+
@@ -1198,7 +1198,7 @@ warn_on_occupied_square:
 // 8903
 // Calculate if diagonal move limit exceeded.
 warn_on_diagonal_move_exceeded:
-    lda cnt__curr_board_column
+    lda cnt__board_col
     sec
     sbc board.data__curr_icon_col
     bcs !next+
@@ -1206,7 +1206,7 @@ warn_on_diagonal_move_exceeded:
     adc #$01
 !next:
     sta data__temp_col_calc_store
-    lda cnt__curr_board_row
+    lda cnt__board_row
     sec
     sbc board.data__curr_icon_row
     bcs !next+
@@ -1241,11 +1241,26 @@ warn_on_move_limit_reached:
     bne show_limit_reached_message
     rts
 
+// 8948
+// Clear the last text row under the board. Leave's the first text row untouched.
+// Sets:
+// - Clears graphical character memory for row 24 (0 offset).
+// Notes:
+// - Does not clear color memory.
+clear_last_text_row:
+    ldy #(CHARS_PER_SCREEN_ROW-1)
+    lda #$00
+!loop:
+    sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
+    dey
+    bpl !loop-
+    rts
+
 // 8953
 // Displays an error message on piece selection. The message has $80 added to it and is stored in
 // `flag__new_square_selected`. This method specifically preserves the X register.
 display_message:
-    jsr board.clear_last_text_row
+    jsr clear_last_text_row
     txa
     pha
     ldx #CHARS_PER_SCREEN_ROW
@@ -1290,7 +1305,7 @@ transport_icon:
     lda common.ptr__sprite_00_mem+1
     sta FREEZP+3
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.param__sprite_source_size
+    sta common.param__sprite_source_len
     lda common.param__icon_sprite_source_frame_list
     beq !next+
     lda #FLAG_ENABLE // Invert sprite
@@ -1302,7 +1317,7 @@ transport_icon:
     lda #$00
 !loop:
     sta common.param__icon_sprite_source_frame_list,x
-    sta common.cnt__sprite_frame,x
+    sta common.cnt__sprite_frame_list,x
     dex
     bpl !loop-
     //
@@ -1317,7 +1332,7 @@ transport_icon:
     jsr board.render_sprite
     // Configure transport sound effect.
     lda #FLAG_ENABLE
-    sta common.flag__enable_player_sound
+    sta common.flag__is_player_sound_enabled
     ldx #$00
     stx common.data__voice_note_delay
     //
@@ -1354,7 +1369,7 @@ transport_icon:
 // Performs an animation when transporting an icon from one location to another.
 transport_icon_interrupt:
     jsr board.draw_magic_square
-    lda common.flag__enable_next_state
+    lda common.flag__is_enable_next_state
     bmi !return+
     // Animate every 4th
     inc data__interrupt_count
@@ -1394,7 +1409,126 @@ transport_icon_interrupt:
     jsr board.add_icon_to_matrix
 !next:
     lda #FLAG_ENABLE
-    sta common.flag__enable_next_state
+    sta common.flag__is_enable_next_state
+    jmp common.complete_interrupt
+
+
+// 91FB
+// Creates sprites in 56 and 57 from character dot data (creates "ARCHON"), position the sprites above the board,
+// set the sprite color to current player color and enable as sprite 2 and 3.
+create_title:
+    lda common.ptr__sprite_56_mem
+    sta FREEZP+2 // Sprite location
+    sta data__temp_storage
+    sta data__temp_storage+1
+    lda common.ptr__sprite_56_mem+1
+    sta FREEZP+3
+    lda #$03 // Number of letters per sprite
+    sta data__temp_storage+2
+    ldx #$00
+convert_title_character:
+    lda txt__game_name,x // Get title letter
+    // Convert character to dot data offset.
+    and #$3F
+    asl
+    asl
+    asl
+    sta FREEZP // Character dot data offset
+    .const UPPERCASE_OFFSET = $600
+    lda #>(CHRMEM2+UPPERCASE_OFFSET)
+    adc #$00
+    sta FREEZP+1
+    ldy #$00
+copy_character_to_sprite:
+    lda (FREEZP),y
+    sta (FREEZP+2),y
+    iny
+    inc FREEZP+2
+    inc FREEZP+2
+    cpy #$08
+    bcc copy_character_to_sprite
+    // Set next letter.
+    inc data__temp_storage
+    lda data__temp_storage
+    sta FREEZP+2
+    dec data__temp_storage+2
+    bne !next+
+    // Sprite full - Move to next sprite.
+    lda #$03
+    sta data__temp_storage+2
+    lda data__temp_storage+1
+    clc
+    adc #BYTES_PER_SPRITE
+    sta FREEZP+2
+    sta data__temp_storage
+    bne !next+
+    inc FREEZP+3
+!next:
+    inx
+    cpx #$06 // Title has 6 letters (ARCHON)
+    bcc convert_title_character
+    // Configure and enable sprites.
+    lda #$38 // Place above board (positions hard coded)
+    sta SP2Y
+    sta SP3Y
+    lda #$84
+    sta SP2X
+    lda #$B4
+    sta SP3X
+    lda #((VICGOFF/BYTES_PER_SPRITE)+56) // Should use common.ptr__sprite_56_offset but source doesn't :(
+    sta SPTMEM+2
+    lda #((VICGOFF/BYTES_PER_SPRITE)+57)
+    sta SPTMEM+3
+    rts
+
+// 92EB
+create_selection_square:
+    lda common.ptr__sprite_24_mem
+    sta FREEZP+2 // Sprite location
+    lda common.ptr__sprite_24_mem+1
+    sta FREEZP+3
+    ldy #$00
+    jsr selection_square__vert_line
+    // Draw sides.
+    ldx #$10 // 16 pixels high
+!loop:
+    lda #$C0 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    lda #$18 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    iny
+    dex
+    bne !loop-
+    jsr selection_square__vert_line
+    rts
+
+// 930E
+// Draw top/bottom.
+selection_square__vert_line:
+    ldx #$02
+!loop:
+    lda #$FF // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    lda #$F8 // Hard coded sprite dot data
+    sta (FREEZP+2),y
+    iny
+    iny
+    dex
+    bne !loop-
+    rts
+
+// AE12
+outro_interrupt_handler:
+    jsr board.draw_magic_square
+    lda common.flag__is_enable_next_state
+    bmi !return+
+    jmp (ptr__play_music_fn)
+outro_interrupt_handler__play_music:
+    jsr common.play_music
+!return:
     jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1409,9 +1543,26 @@ data__icon_strength_list:
     //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
     .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
 
+// 8AC7
+// Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
+// icon can fly.
+data__icon_num_moves_list:
+    //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
+    .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
+    //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
+    .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
+
 // 8B77
 // Index of magic squares within the square occupancy array.
-idx__magic_sqaure_cell: .byte $04, $24, $28, $2C, $4C
+idx__magic_square_cell: .byte $04, $24, $28, $2C, $4C
+
+// 8BD2
+// Colors used for each board game phase.
+data__phase_color_list: .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
+
+// 9274
+// Logo string that is converted to a sprite using character set dot data as sprite source data.
+txt__game_name: .text "ARCHON"
 
 // 95f4
 // Provised pointers to the sounds that may be made during game play.
@@ -1505,6 +1656,10 @@ curr_color_phase: .byte $00
 // Imprisoned icon ID for each player (offset 0 for light, 1 for dark).
 imprisoned_data__icon_id_list: .byte $00, $00
 
+// BD30
+// Points to the music playing function for playing the outro music during an interrupt.
+ptr__play_music_fn: .word $0000
+
 // BD3D
 // Is set to non-zero if a new board square was selected.
 flag__new_square_selected: .byte $00
@@ -1579,6 +1734,10 @@ icon_move_row_buffer: .byte $00, $00, $00, $00, $00, $00
 // Icon loop counter.
 data__icon_counter: .byte $00
 
+// BF1A
+// Temporary data storage area used for creating the icon logo sprite.
+data__temp_storage: .byte $00, $00, $00
+
 // BF20
 // Temporary storage used to store calculated column for diagonal move exceeded determination.
 data__temp_col_calc_store: .byte $00
@@ -1593,11 +1752,11 @@ flag__is_valid_square: .byte $00
 
 // BF30
 // Current board row.
-cnt__curr_board_row: .byte $00
+cnt__board_row: .byte $00
 
 // BF31
 // Current board column.
-cnt__curr_board_column: .byte $00
+cnt__board_col: .byte $00
 
 // BF32
 // Dark remaining icon count.

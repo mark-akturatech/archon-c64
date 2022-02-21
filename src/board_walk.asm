@@ -32,7 +32,7 @@ entry:
     sta SPMC // Set multicolor mode for sprites 0-7
     //
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.param__sprite_source_size
+    sta common.param__sprite_source_len
     // Adds icon types to the board one at a time. Each icon is added by animating it (flying or walking) to the
     // icon's square.
     // The anitmation is performed using sprites that are loaded in to the first four sprite slots for each icon. After
@@ -201,7 +201,7 @@ entry:
         bpl !loop-
         //
         ldx #$00
-        stx common.cnt__sprite_frame // Start sprite animation on first frame in sprite group
+        stx common.cnt__sprite_frame_list // Start sprite animation on first frame in sprite group
         ldy common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
         sta common.param__icon_offset_list
@@ -273,7 +273,7 @@ entry:
         lda board.ptr__player_sound_pattern_hi_list
         sta OLDTXT+1
         lda #FLAG_ENABLE
-        sta common.flag__enable_player_sound // Enable icon movement sound on voice 1 only.
+        sta common.flag__is_player_sound_enabled // Enable icon movement sound on voice 1 only.
         //
         // The method will return if the background interrupt completes (ie piece has reached final location) or a
         // function key or Q is pressed.
@@ -284,7 +284,7 @@ entry:
     // Animate the icon by walking it to the initial board square location.
     interrupt_handler:
         jsr board.draw_magic_square
-        lda common.flag__enable_next_state
+        lda common.flag__is_enable_next_state
         bpl !next+
         jmp common.complete_interrupt
     !next:
@@ -310,11 +310,11 @@ entry:
         //
         ldx data__num_icons_zero_offset
         // Only update animation frame on every second position update.
-        lda cnt__sprite_frame_adv_delay
+        lda cnt__sprite_frame_list_adv_delay
         eor #$FF
-        sta cnt__sprite_frame_adv_delay 
+        sta cnt__sprite_frame_list_adv_delay 
         bmi !check_next_pos+
-        inc common.cnt__sprite_frame
+        inc common.cnt__sprite_frame_list
         //
         // Detect if the current sprite is at the final location. Exit when all sprites have reached the location.
     !check_next_pos:
@@ -334,7 +334,7 @@ entry:
         txa
         asl
         tay
-        lda common.cnt__sprite_frame
+        lda common.cnt__sprite_frame_list
         and #$03 // Set animation frame (0 to 3)
         clc
         adc common.ptr__sprite_00_offset
@@ -350,7 +350,7 @@ entry:
         cpx cnt__pieces_at_final_location
         bne !next+
         lda #FLAG_ENABLE
-        sta common.flag__enable_next_state
+        sta common.flag__is_enable_next_state
     !next:
         jmp common.complete_interrupt
 }
@@ -400,7 +400,7 @@ entry:
 
     // BCEF
     // Counter before sprite frame is advanced for sprite movement animation.
-    cnt__sprite_frame_adv_delay: .byte $00
+    cnt__sprite_frame_list_adv_delay: .byte $00
 
     // BCFE
     // Count of icon pieces that have reached the board square location.

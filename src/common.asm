@@ -34,7 +34,7 @@ check_option_keypress:
     // Start game.
     jsr private.advance_intro_state
     lda #FLAG_DISABLE
-    sta board.countdown_timer
+    sta board.cnt__countdown_timer
     sta flag__game_loop_state
     lda flag__ai_player_selection
     sta game.flag__ai_player_ctl
@@ -112,7 +112,7 @@ sprite_initialize:
     lda data__player_icon_color_list,y
 intialize_enable_sprite:
     sta SP0COL,x
-    lda data__math_pow2,x
+    lda data__math_pow2_list,x
     ora SPENA
     sta SPENA
     lda param__icon_offset_list,x
@@ -187,7 +187,7 @@ stop_sound:
     ldy #$04
     lda #$00
     sta (FREEZP+2),y
-    sta flag__enable_player_sound,x
+    sta flag__is_player_sound_enabled,x
     sta data__voice_note_delay,x
     dex
     bpl !loop-
@@ -224,10 +224,10 @@ add_sprite_set_to_graphics:
     txa
     asl
     tay
-    lda ptr__sprite_00_mem,y
+    lda ptr__sprite_mem_list,y
     sta FREEZP+2
     sta private.ptr__sprite_mem_lo
-    lda ptr__sprite_00_mem+1,y
+    lda ptr__sprite_mem_list+1,y
     sta FREEZP+3
     cpx #$02
     bcc add_icon_frames_to_graphics // Copy icon or projectile frames?
@@ -334,7 +334,7 @@ add_sprite_to_graphics:
     cmp #$06
     bne !next+
     lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 255 (0 offset)
-    sta param__sprite_source_size
+    sta param__sprite_source_len
     jmp move_sprite
 !next:
     // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
@@ -360,7 +360,7 @@ no_invert_attack_frame:
     inc FREEZP+2
     inc FREEZP+2
     iny
-    cpy param__sprite_source_size
+    cpy param__sprite_source_len
     bcc !loop-
     rts
 move_sprite:
@@ -371,7 +371,7 @@ move_sprite:
     lda (FREEZP),y
     sta (FREEZP+2),y
     iny
-    cpy param__sprite_source_size
+    cpy param__sprite_source_len
     bcc !loop-
     rts
 // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
@@ -417,7 +417,7 @@ move_sprite_and_invert:
     lda private.data__temp_storage+5
     sta (FREEZP+2),y
     iny
-    cpy param__sprite_source_size
+    cpy param__sprite_source_len
     bcc move_sprite_and_invert
     rts
 invert_bytes:
@@ -461,14 +461,14 @@ clear_sprites:
 // 905C
 // Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 // Notes:
-// - Repeats until `flag__enable_next_state` is set.
+// - Repeats until `flag__is_enable_next_state` is set.
 wait_for_key_or_task_completion:
     lda #FLAG_DISABLE
-    sta flag__enable_next_state
+    sta flag__is_enable_next_state
 !loop:
     jsr check_option_keypress
     jsr check_stop_keypess
-    lda flag__enable_next_state
+    lda flag__is_enable_next_state
     beq !loop-
     jmp stop_sound
 
@@ -585,17 +585,17 @@ play_music:
     lda private.ptr__voice_pattern_fn_list+1,y
     sta private.prt__voice_pattern_data+1
     //
-    lda private.cnt__voice_note_delay,x
+    lda private.cnt__voice_note_delay_list,x
     beq delay_done
     cmp #$02
     bne decrease_delay
     // Release note just before delay expires.
-    lda private.data__voice_control,x
+    lda private.data__voice_control_list,x
     and #%1111_1110
     ldy #$04
     sta (FREEZP+2),y
 decrease_delay:
-    dec private.cnt__voice_note_delay,x
+    dec private.cnt__voice_note_delay_list,x
     bne skip_command
 delay_done:
     jsr private.get_next_command
@@ -650,7 +650,7 @@ intro_music:
     ldx #$02
 !loop:
     lda #$00
-    sta private.cnt__voice_note_delay,x
+    sta private.cnt__voice_note_delay_list,x
     txa
     asl
     tay
@@ -661,8 +661,8 @@ intro_music:
     ldy #$06
     lda private.data__voice_sustain_value_list,x
     sta (FREEZP+2),y
-    lda private.data__voice_control_value_list,x
-    sta private.data__voice_control,x
+    lda private.data__voice_control_list_value_list,x
+    sta private.data__voice_control_list,x
     dey
     lda private.data__voice_attack_value_list,x
     sta (FREEZP+2),y
@@ -683,9 +683,9 @@ intro_music:
         // Advance game state.
         .const THIRTY_SECONDS = $07
         lda #THIRTY_SECONDS
-        sta board.countdown_timer // Reset auto play to 30 seconds (is was 13 seconds prior)
+        sta board.cnt__countdown_timer // Reset auto play to 30 seconds (is was 13 seconds prior)
         lda #FLAG_ENABLE
-        sta flag__enable_next_state
+        sta flag__is_enable_next_state
         // Remove intro interrupt handler.
         sei
         lda #<complete_interrupt
@@ -736,7 +736,7 @@ intro_music:
         // then loads that in to the voice lo frequency control.
         pha
         ldy #$04
-        lda data__voice_control,x
+        lda data__voice_control_list,x
         and #%1111_1110 // Start gate release on current note
         sta (FREEZP+2),y
         ldy #$01
@@ -766,16 +766,16 @@ intro_music:
         jmp get_next_command
     release_note:
         ldy #$04
-        lda data__voice_control,x
+        lda data__voice_control_list,x
         and #%1111_1110 // Start gate release on current note
         sta (FREEZP+2),y
     set_note:
         ldy #$04
-        lda data__voice_control,x // Set default note control value for voice
+        lda data__voice_control_list,x // Set default note control value for voice
         sta (FREEZP+2),y
     !return:
         lda data__voice_note_delay,x
-        sta cnt__voice_note_delay,x
+        sta cnt__voice_note_delay_list,x
         rts    
 
     // A143
@@ -869,39 +869,24 @@ intro_music:
 .segment Assets
 
 // 8DBF
-// Sprite 0 screen pointer.
-ptr__sprite_00_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+00
-
-// 8DC0
-// Sprite 24 screen pointer.
-ptr__sprite_24_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+24
-
-// 8DC1
-// Sprite 48 screen pointer.
-ptr__sprite_48_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+48
-
-// 8DC2
-// Sprite 56 screen pointer.
-ptr__sprite_56_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+56
+// List of pointer to sprite graphics block pointers.
+ptr__sprite_offset_list:
+ptr__sprite_00_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
+ptr__sprite_24_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
+ptr__sprite_48_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+48 // Sprite 48 screen pointer
+ptr__sprite_56_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+56 // Sprite 56 screen pointer
 
 // 8DC3
-data__math_pow2: .fill 8, pow(2, i) // Pre-calculated powers of 2
+// Pre-calculated powers of 2.
+data__math_pow2_list: .fill 8, pow(2, i)
 
 // 8DCB
-// Pointer to sprite 0 graphic memory area.
-ptr__sprite_00_mem: .byte <(GRPMEM+00*BYTES_PER_SPRITE), >(GRPMEM+00*BYTES_PER_SPRITE)
-
-// 8DCD
-// Pointer to sprite 24 graphic memory area.
-ptr__sprite_24_mem: .byte <(GRPMEM+24*BYTES_PER_SPRITE), >(GRPMEM+24*BYTES_PER_SPRITE)
-
-// 8DCF
-// Pointer to sprite 48 graphic memory area.
-ptr__sprite_48_mem: .byte <(GRPMEM+48*BYTES_PER_SPRITE), >(GRPMEM+48*BYTES_PER_SPRITE)
-
-// 8DD1
-// Pointer to sprite 56 graphic memory area.
-ptr__sprite_56_mem: .byte <(GRPMEM+56*BYTES_PER_SPRITE), >(GRPMEM+56*BYTES_PER_SPRITE)
+// List of pointer to sprite graphics block memory.
+ptr__sprite_mem_list:
+ptr__sprite_00_mem: .word GRPMEM+00*BYTES_PER_SPRITE // Pointer to sprite 0 graphic memory area
+ptr__sprite_24_mem: .word GRPMEM+24*BYTES_PER_SPRITE // Pointer to sprite 24 graphic memory area
+ptr__sprite_48_mem: .word GRPMEM+48*BYTES_PER_SPRITE // Pointer to sprite 48 graphic memory area
+ptr__sprite_56_mem: .word GRPMEM+56*BYTES_PER_SPRITE // Pointer to sprite 56 graphic memory area
 
 // 906F
 // Color of icon based on side (light, dark).
@@ -1011,7 +996,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 
     // AD6D
     // Voice control values.
-    data__voice_control_value_list: .byte $21, $21, $21
+    data__voice_control_list_value_list: .byte $21, $21, $21
 
     // AD70
     // Voice attack values.
@@ -1044,7 +1029,7 @@ flag__ai_player_selection: .byte $00
 
 // BCD0
 // Is set to $80 to indicate that the game state should be changed to the next state.
-flag__enable_next_state: .byte $00
+flag__is_enable_next_state: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
@@ -1053,7 +1038,7 @@ flag__enable_next_state: .byte $00
 
 // BCDF
 // Number of bytes to copy for the given sprite.
-param__sprite_source_size: .byte $00
+param__sprite_source_len: .byte $00
 
 // BCE3
 // Initial animation for up to 4 sprites.
@@ -1061,7 +1046,7 @@ param__icon_sprite_source_frame_list: .byte $00, $00, $00, $00
 
 // BCE7
 // Current animation frame.
-cnt__sprite_frame: .byte $00, $00, $00, $00
+cnt__sprite_frame_list: .byte $00, $00, $00, $00
 
 // BD3E
 // Current sprite x-position.
@@ -1076,8 +1061,8 @@ data__sprite_curr_y_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 prt__voice_note_fn: .word $0000
 
 // BF08
-// Set to non zero to enable the voice for each player (lo byte is player 1, hi player 2).
-flag__enable_player_sound: .byte $00, $00
+// Set to non zero to enable the voice for each player (low is player 1, hi player 2).
+flag__is_player_sound_enabled: .byte $00, $00
 
 // BF0B
 // New note delay timer.
@@ -1088,10 +1073,12 @@ data__voice_note_delay: .byte $00, $00, $00
 param__icon_sprite_curr_frame: .byte $00
 
 // BF29
-param__icon_offset_list: .byte $00, $00, $00, $00 // Icon sprite group offset used to determine which sprite to copy
+// Icon sprite group offset used to determine which sprite to copy.
+param__icon_offset_list: .byte $00, $00, $00, $00 
 
 // BF2D
-param__icon_type_list: .byte $00, $00, $00, $00 // Type of icon (See `icon types` constants)
+// Type of icon (See `icon types` constants).
+param__icon_type_list: .byte $00, $00, $00, $00
 
 // BF49
 // Set #$80 to copy individual icon frame in to graphical memory.
@@ -1119,11 +1106,11 @@ param__is_play_outro: .byte $00
 
     // BF4A
     // Current note delay countdown.
-    cnt__voice_note_delay: .byte $00, $00, $00
+    cnt__voice_note_delay_list: .byte $00, $00, $00
 
     // BF4D
     // Current voice control value.
-    data__voice_control: .byte $00, $00, $00
+    data__voice_control_list: .byte $00, $00, $00
 
     // BCD4
     // Low byte pointer to sprite frame source data.

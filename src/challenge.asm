@@ -9,7 +9,7 @@ entry:
     // Redraw board without any icons.
     jsr board.clear_text_area
     lda #$80
-    sta board.flag__render_square_ctl
+    sta board.param__render_square_ctl
     jsr board.draw_board
     ldx #$40 // ~ 1 second
     jsr common.wait_for_jiffy
@@ -107,7 +107,7 @@ vary_square:
     // Create sprite group.
     jsr common.sprite_initialize
     lda #BYTERS_PER_STORED_SPRITE
-    sta common.param__sprite_source_size
+    sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     // Place the sprite at the challenge square.
     lda board.data__curr_board_col

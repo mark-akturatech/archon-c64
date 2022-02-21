@@ -110,8 +110,8 @@ relocate:
 // We've therefore stuffed the map as follows:
 //   - $080e-$3fff: In-place resouces (sprite icons and strings).
 //   - $4000-$43ff: In-place character map 1 (intro character map).
-//   - $4400-$47ff: Resources requiring relocation (intro logo sprites and intro/outro music). We need to relocate
-//     these resources as this area of memory is used for screen character display.
+//   - $4400-$47ff: Resources requiring relocation (intro logo sprites, magic square sprite and intro/outro music).
+//     We need to relocate these resources as this area of memory is used for screen character display.
 //   - $5000-$5fff: Resources requireing relocation (projectile sprites, elemental icon sprites and sound effects).
 //     We need to relocate these resources as this area of memory will be used to store sprites that will be displayed
 //     on the screen.
@@ -121,7 +121,7 @@ relocate:
 //   - $0801-$080d Basic upstart
 //   - $080e-$3ffa Resources
 //   - $4000-$43ff Character set 1
-//   - $4400-$47bf Relocted block #1
+//   - $4400-$47cb Relocted block #1
 //   - $4800-$4fff Character set 2
 //   - $5000-$5fb8 Relocted block #2
 //   - $6000>      Source code and assets
@@ -178,6 +178,10 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     // 3D52
     // Music patterns for intro and outro music.
     #import "/assets/sound_music.asm"
+    
+    // 929B
+    // Sprite data used to create the magic square icon.
+    ptr__sprite_magic_square: .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18
 }
 .namespace private {
     prt__screen_block_end:
