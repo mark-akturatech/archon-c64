@@ -261,7 +261,7 @@ play_turn:
     sta game.flag__is_turn_started
     sta flag__is_challenge_required
     sta curr_icon_total_moves
-    sta magic.curr_spell_cast_selection
+    sta magic.idx__selected_spell
     sta flag__icon_can_cast
     ldx #$05 // Short delay before start of turn
     // Check AI turn.
@@ -367,48 +367,9 @@ set_icon_speed:
     lda flag__ai_player_ctl
     cmp flag__is_light_turn
     bne configure_selected_icon
-    // AI piece selection. // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // 82E5  AD FD BC   lda curr_icon_total_moves
-    // 82E8  30 20      bmi W830A
-    // 82EA  AC 38 BD   ldy temp_data__num_icons
-    // 82ED  B9 32 BD   lda WBD32,y
-    // 82F0  A0 00      ldy #$00
-    // W82F2:
-    // 82F2  38         sec
-    // 82F3  E9 09      sbc #$09
-    // 82F5  90 03      bcc W82FA
-    // 82F7  C8         iny
-    // 82F8  B0 F8      bcs W82F2
-    // W82FA:
-    // 82FA  69 09      adc #$09
-    // 82FC  A2 04      ldx #$04
-    // 82FE  20 22 64   jsr board.convert_coord_sprite_pos
-    // 8301  8D 17 BD   sta main_temp_data__sprite_final_x_pos
-    // 8304  8C 15 BD   sty intro_sprite_final_y_pos
-    // 8307  CE 38 BD   dec temp_data__num_icons
-    // W830A:
-    // 830A  AE 22 BF   ldx game.flag__is_valid_square
-    // 830D  BD 5B BE   lda WBE5B,x
-    // 8310  8D 28 BD   sta WBD28
-    // 8313  BC 6D BE   ldy WBE6D,x
-    // 8316  8C 29 BD   sty WBD29
-    // 8319  AE FD BC   ldx curr_icon_total_moves
-    // 831C  10 1A      bpl configure_selected_icon
-    // 831E  A2 04      ldx #$04
-    // 8320  20 22 64   jsr board.convert_coord_sprite_pos
-    // 8323  2C FD BC   bit curr_icon_total_moves
-    // 8326  50 0A      bvc W8332
-    // 8328  38         sec
-    // 8329  E9 02      sbc #$02
-    // 832B  48         pha
-    // 832C  98         tya
-    // 832D  38         sec
-    // 832E  E9 01      sbc #$01
-    // 8330  A8         tay
-    // 8331  68         pla
-    // W8332:
-    // 8332  8D 17 BD   sta main_temp_data__sprite_final_x_pos
-    // 8335  8C 15 BD   sty intro_sprite_final_y_pos
+    // The original source code has the select_piece logic inline at this location (82E5). We departure here from the
+    // source (very rare) so we include the logic within the AI file.
+    jsr ai.select_piece
     //
 configure_selected_icon:
     ldx #$00
@@ -417,7 +378,7 @@ configure_selected_icon:
     jsr wait_for_state_change
     //
     // Icon destination selected.
-    lda magic.curr_spell_cast_selection
+    lda magic.idx__selected_spell
     beq !next+
     jsr magic.select_spell
 !next:
@@ -729,7 +690,7 @@ new_player_sound:
     sta flag__icon_selected
     beq move_sprite_to_square
 joystick_icon_select:
-    lda magic.curr_spell_cast_selection
+    lda magic.idx__selected_spell
     cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq !next+
     // Ensure selected column is within bounds.
@@ -779,7 +740,7 @@ move_sprite_to_square:
 check_joystick_left_right:
     lda CIAPRA,x
     pha // Put joystick status on stack
-    lda magic.curr_spell_cast_selection
+    lda magic.idx__selected_spell
     cmp #(FLAG_ENABLE+SPELL_ID_CEASE)
     beq check_joystick_up_down
     // Disable joystick left/right movement if sprite has not reached X direction final position.
@@ -874,7 +835,7 @@ check_move_sprite_up:
     sta common.data__voice_note_delay
     jmp render_selected_sprite
 !next:
-    lda magic.curr_spell_cast_selection
+    lda magic.idx__selected_spell
     bmi !next+
     jsr clear_last_text_row
 !next:
@@ -1053,7 +1014,7 @@ select_or_move_icon:
     ldy board.data__curr_board_row
     lda board.data__curr_board_col
     jsr get_square_occupancy
-    ldx magic.curr_spell_cast_selection // Magic caster selected
+    ldx magic.idx__selected_spell // Magic caster selected
     beq !next+
     jmp magic.spell_select
 !next:
@@ -1092,7 +1053,7 @@ select_icon_destination:
     bvc !return+ // Don't allow drop on selected piece source square if not a spell caster
     // If spell caster is selected, set spell cast mode if source square selected as destination
     lda #FLAG_ENABLE
-    sta magic.curr_spell_cast_selection
+    sta magic.idx__selected_spell
     bmi add_icon_to_destination
 set_icon_destination:
     lda curr_icon_total_moves
@@ -1128,7 +1089,7 @@ select_icon_to_move:
     // Accept destination.
     lda #FLAG_ENABLE
     sta game.flag__icon_destination_valid
-    ldx magic.curr_spell_cast_selection // Don't clear square if selected a magic caster as they teleport instead of moving
+    ldx magic.idx__selected_spell // Don't clear square if selected a magic caster as they teleport instead of moving
     bmi !return-
     sta (FREEZP),y // Clears current square as piece is now moving
     rts
@@ -1554,7 +1515,7 @@ data__icon_num_moves_list:
 
 // 8B77
 // Index of magic squares within the square occupancy array.
-idx__magic_square_cell: .byte $04, $24, $28, $2C, $4C
+data__magic_square_offset_list: .byte $04, $24, $28, $2C, $4C
 
 // 8BD2
 // Colors used for each board game phase.

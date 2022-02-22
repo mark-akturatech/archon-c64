@@ -12,6 +12,12 @@ board_calculate_move: // TODO
 magic_select_spell: // TODO
     rts
 
+// 82E5
+// This logic is inline in the original source. We split it out here so that the logic can be included in the AI
+// file.
+select_piece:
+    rts
+
 // 8560
 board_cursor_to_icon: // TODO
     jmp common.complete_interrupt

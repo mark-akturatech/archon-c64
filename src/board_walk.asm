@@ -176,7 +176,7 @@ entry:
         lda data__sprite_start_x_pos
         sta common.data__sprite_curr_x_pos_list,x
         dex
-        // BUG!!: The original source code doesn't have the following line. Without the BMI, this causes a random bit
+        // BUG: The original source code doesn't have the following line. Without the BMI, this causes a random bit
         // of memory to be overwritten if the number of icons being added to the board is odd (well not actually
         // random, is memory at common.data__sprite_curr_x_pos_list + 255 bytes). Seems to be lucky in original source
         // and not cause any issues. But for us, we want the code to be relocatable. Took a while to find and fix this

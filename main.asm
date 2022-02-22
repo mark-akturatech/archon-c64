@@ -264,7 +264,7 @@ restart_game_loop:
     ldx #(NUMBER_SPELLS*2-1) // Clear spells for each player (0 based)
     lda #SPELL_UNUSED
 !loop:
-    sta magic.flag__light_used_spells_list,x
+    sta magic.data__light_used_spells_list,x
     dex
     bpl !loop-
     //

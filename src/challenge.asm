@@ -1,7 +1,8 @@
 .filenamespace challenge
 //---------------------------------------------------------------------------------------------------------------------
-// Icon challenge and battle arena.
+// Piece challenge and battle arena.
 //---------------------------------------------------------------------------------------------------------------------
+// Fight two pieces in the battle arena and determine a winner.
 .segment Game
 
 // 7ACE
@@ -52,31 +53,31 @@ entry:
     ldy board.data__curr_board_col
     sty board.data__curr_icon_col
     lda (CURLIN),y
-    sta curr_square_color // Color of the sqauare - I don't think this is used anywhere
+    sta private.data__curr_square_color_code // Color of the sqauare - I don't think this is used anywhere
     // Get the battle sqauer color (a) and a number between 0 and 7 (y). 0 is strongest on black, 7 is strongest on
     // white.
-    beq dark_square
-    bmi vary_square
+    beq !dark_square+
+    bmi !vary_square+
     ldy #$07
     lda board.data__board_player_square_color_list+1 // White
     bne !next+
-dark_square:
+!dark_square:
     ldy #$00
     lda board.data__board_player_square_color_list // Black
     beq !next+
-vary_square:
+!vary_square:
     lda game.data__phase_cycle_board
     lsr
     tay
     lda game.curr_color_phase // Phase color
 !next:
-    sta curr_battle_square_color // Square color used to set battle arena border
+    sta private.data__battle_square_color // Square color used to set battle arena border
     tya
     asl
-    sta square_strength_adj_x2 // ??? Not used?
-    sty square_strength_adj
+    sta private.data__strength_adj_x2 // ??? Not used?
+    sty private.data__strength_adj
     iny
-    sty data__strength_adj_plus1 // ??? Not used?
+    sty private.data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
     lda common.param__icon_type_list
     ldy game.curr_challenge_icon_type
@@ -90,7 +91,7 @@ vary_square:
     tax
     lda board.data__piece_icon_offset_list,x
     sta common.param__icon_offset_list
-    sty magic.temp_selected_icon_store // ??? Not used?
+    sty private.data__curr_icon_type // ??? Not used?
     lda board.data__piece_icon_offset_list,y
     tay
     cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
@@ -113,7 +114,6 @@ vary_square:
     lda board.data__curr_board_col
     ldy board.data__curr_board_row
     jsr board.convert_coord_sprite_pos
-
 !next:
     rts // TODO remove
 
@@ -127,37 +127,50 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
-// 8BAA
-idx__sound_attack_pattern:
-// Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
-// defined above.
-    //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
-    .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
+//---------------------------------------------------------------------------------------------------------------------
+// Private assets.
+.namespace private {
+    // 8BAA
+    idx__sound_attack_pattern:
+    // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array
+    // defined above.
+        //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+        .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
-// BCF2
-// Current color of square in which a battle is being faught.
-// TODO: WHY IS THIS DIFFERENT TO curr_square_color
-curr_battle_square_color: .byte $00
+//---------------------------------------------------------------------------------------------------------------------
+// Private variables.
+.namespace private {
+    // BCF2
+    // Current color of square in which a battle is being faught.
+    // TODO: WHY IS THIS DIFFERENT TO data__curr_square_color_code
+    data__battle_square_color: .byte $00
 
-// BD12
-// Calculated strength adjustment based on color of the challenge square.
-square_strength_adj: .byte $00
+    // BD12
+    // Calculated strength adjustment based on color of the challenge square.
+    data__strength_adj: .byte $00
 
-// BD23
-// Color of square where challenge was initiated. Used for determining icon strength.
-curr_square_color: .byte $00
+    // BD23
+    // Color of square where challenge was initiated. Used for determining icon strength.
+    data__curr_square_color_code: .byte $00
 
-// BF36
-// Calculated strength adjustment based on color of the challenge square plus 1.
-// Doesn't appear to be used in the code.
-data__strength_adj_plus1: .byte $00
+    // BF2E
+    // Temporary storage for selected icon.
+    // Doesn't appear to be used in the code.
+    data__curr_icon_type: .byte $00
 
-// BF41
-// Calculated strength adjustment based on color of the challenge square times 2.
-// Doesn't appear to be used in the code.
-square_strength_adj_x2: .byte $00
+    // BF36
+    // Calculated strength adjustment based on color of the challenge square plus 1.
+    // Doesn't appear to be used in the code.
+    data__strength_adj_plus1: .byte $00
+
+    // BF41
+    // Calculated strength adjustment based on color of the challenge square times 2.
+    // Doesn't appear to be used in the code.
+    data__strength_adj_x2: .byte $00
+}

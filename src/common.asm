@@ -102,7 +102,7 @@ sprite_initialize:
     and #$03
     tay
     lda private.data__elemental_icon_color_list,y
-    bpl intialize_enable_sprite
+    bpl !enable_sprite+
 !next:
     ldy #$00 // Set Y to 0 for light icon, 1 for dark icon
     cmp #MANTICORE // Dark icon
@@ -110,7 +110,7 @@ sprite_initialize:
     iny
 !next:
     lda data__player_icon_color_list,y
-intialize_enable_sprite:
+!enable_sprite:
     sta SP0COL,x
     lda data__math_pow2_list,x
     ora SPENA
@@ -230,7 +230,7 @@ add_sprite_set_to_graphics:
     lda ptr__sprite_mem_list+1,y
     sta FREEZP+3
     cpx #$02
-    bcc add_icon_frames_to_graphics // Copy icon or projectile frames?
+    bcc !add_icons+ // Copy icon or projectile frames?
     // Projectile frames.
     txa
     and #$01
@@ -238,69 +238,69 @@ add_sprite_set_to_graphics:
     lda param__icon_offset_list,y
     and #$07
     cmp #$06
-    bne add_projectile_frames_to_graphics // Banshee/Phoenix?
+    bne !add_projectiles+ // Not Banshee/Phoenix?
     lda #$00
     sta param__icon_sprite_curr_frame
     jmp add_sprite_to_graphics // Add special full height projectile frames for Banshee and Phoneix icons.
 // Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
-add_projectile_frames_to_graphics:
+!add_projectiles:
     lda #$11
     sta param__icon_sprite_curr_frame
-    bne add_individual_frame_to_graphics
+    bne !frame_loop+
 // Copies projectile frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,
 // $02+$80, $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
-add_icon_frames_to_graphics:
+!add_icons:
     lda #$00
     sta param__icon_sprite_curr_frame
-add_individual_frame_to_graphics:
+!frame_loop:
     jsr add_sprite_to_graphics
     inc param__icon_sprite_curr_frame
     cpx #$02
-    bcs check_projectile_frames
+    bcs !check_projectile+
     lda param__icon_sprite_curr_frame
-    bmi check_inverted_icon_frames
+    bmi !check_inverted_icon+
     cmp #$11
-    bcc add_next_frame_to_graphics
+    bcc !add_frame+
     lda #$80 // Jump from frame 10 to 80 (skip 11 to 7f)
     sta param__icon_sprite_curr_frame
-    bmi add_next_frame_to_graphics
-check_inverted_icon_frames:
+    bmi !add_frame+
+!check_inverted_icon:
     cmp #$84
-    bcc add_next_frame_to_graphics
-    beq skip_frames_84_to_8C
+    bcc !add_frame+
+    beq !skip+ // Skip frames 84 to 8C
     cmp #$90
-    bcc add_next_frame_to_graphics
+    bcc !add_frame+
     rts // End after copying frame 8f
-check_projectile_frames:
+!check_projectile:
     lda param__icon_sprite_curr_frame
-    bmi check_inverted_projectile_frames
+    bmi !check_inverted_projectile+
     cmp #$15
-    bcc add_next_frame_to_graphics
+    bcc !add_frame+
     lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
     sta param__icon_sprite_curr_frame
-    bmi add_next_frame_to_graphics
-check_inverted_projectile_frames:
+    bmi !add_frame+
+!check_inverted_projectile:
     cmp #$95
     bcc !next+
     rts // End after copying frame 94
 !next:
     cmp #$92
-    bne add_next_frame_to_graphics
+    bne !add_frame+
     inc param__icon_sprite_curr_frame // Skip frame 92
-    jmp add_next_frame_to_graphics
-skip_frames_84_to_8C:
+    jmp !add_frame+
+!skip:
     lda #$8D
     sta param__icon_sprite_curr_frame
-add_next_frame_to_graphics:
+!add_frame:
     // Incremement frame grpahics pointer to point to next sprite memory location.
     lda private.ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
     sta private.ptr__sprite_mem_lo
     sta FREEZP+2
-    bcc add_individual_frame_to_graphics
+    bcc !frame_loop-
     inc FREEZP+3
-    bcs add_individual_frame_to_graphics
+    bcs !frame_loop-
 
 // 8C6D
 // Copies a sprite frame in to graphical memory.
@@ -320,9 +320,9 @@ add_sprite_to_graphics:
     adc private.data__icon_sprite_frame_mem_offset_list+1,y
     sta FREEZP+1
     lda param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
-    bmi move_sprite
+    bmi !copy+
     cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light bullets, 3 for dark bullets
-    bcc move_sprite
+    bcc !copy+
     //
     // Copy sprites used for attacks (eg projectiles, clubs, sords, screams, fire etc)
     txa
@@ -335,25 +335,25 @@ add_sprite_to_graphics:
     bne !next+
     lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 255 (0 offset)
     sta param__sprite_source_len
-    jmp move_sprite
+    jmp !copy+
 !next:
     // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
     ldy #$00
 !loop:
     lda param__icon_sprite_curr_frame
-    bpl no_invert_attack_frame // +$80 to invert attack frame
+    bpl !skip+ // +$80 to invert attack frame
     // Inversts 8 bits. eg 1000110 becomes 0110001
     lda #$08
     sta private.data__temp_storage
     lda (FREEZP),y
     sta private.data__temp_storage+1
-rotate_loop:
+!rotate_loop:
     ror private.data__temp_storage+1
     rol
     dec private.data__temp_storage
-    bne rotate_loop
+    bne !rotate_loop-
     beq !next+
-no_invert_attack_frame:
+!skip:
     lda (FREEZP),y
 !next:
     sta (FREEZP+2),y
@@ -363,10 +363,10 @@ no_invert_attack_frame:
     cpy param__sprite_source_len
     bcc !loop-
     rts
-move_sprite:
+!copy:
     ldy #$00
     lda param__icon_sprite_curr_frame
-    bmi move_sprite_and_invert
+    bmi !inverted_copy+
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -374,8 +374,8 @@ move_sprite:
     cpy param__sprite_source_len
     bcc !loop-
     rts
-// Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
-move_sprite_and_invert:
+!inverted_copy:
+    // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
     lda #$0A
     sta private.data__temp_storage // Sprite is inverted in 10 blocks
     tya
@@ -394,8 +394,8 @@ move_sprite_and_invert:
     sta private.data__temp_storage+4
     sta private.data__temp_storage+5
 !loop:
-    jsr invert_bytes
-    jsr invert_bytes
+    jsr private.invert_bytes
+    jsr private.invert_bytes
     pha
     and #$C0
     beq !next+
@@ -418,15 +418,7 @@ move_sprite_and_invert:
     sta (FREEZP+2),y
     iny
     cpy param__sprite_source_len
-    bcc move_sprite_and_invert
-    rts
-invert_bytes:
-    rol private.data__temp_storage+3
-    rol private.data__temp_storage+2
-    rol private.data__temp_storage+1
-    ror
-    ror private.data__temp_storage+4
-    ror private.data__temp_storage+5
+    bcc !inverted_copy-
     rts
 
 // 8DD3
@@ -586,20 +578,20 @@ play_music:
     sta private.prt__voice_pattern_data+1
     //
     lda private.cnt__voice_note_delay_list,x
-    beq delay_done
+    beq !done+
     cmp #$02
-    bne decrease_delay
+    bne !delay+
     // Release note just before delay expires.
     lda private.data__voice_control_list,x
     and #%1111_1110
     ldy #$04
     sta (FREEZP+2),y
-decrease_delay:
+!delay:
     dec private.cnt__voice_note_delay_list,x
-    bne skip_command
-delay_done:
+    bne !next+
+!done:
     jsr private.get_next_command
-skip_command:
+!next:
     dex
     bpl !loop-
     rts
@@ -634,10 +626,10 @@ initialize_music:
     ldy #$05
 !loop:
     lda param__is_play_outro
-    bpl intro_music
+    bpl !intro+
     lda private.ptr__outro_voice_init_pattern_list,y
     jmp !next+
-intro_music:
+!intro:
     lda private.ptr__intro_voice_init_pattern_list,y
 !next:
     sta VARTAB,y
@@ -706,6 +698,16 @@ intro_music:
         sta intro.flag__is_complete
         rts
 
+    // 8D33
+    invert_bytes:
+        rol data__temp_storage+3
+        rol data__temp_storage+2
+        rol data__temp_storage+1
+        ror
+        ror data__temp_storage+4
+        ror data__temp_storage+5
+        rts
+
     // AC5B
     // Reads a command from the current pattern data. Commands can be notes or special commands. See `play_music` for
     // details.
@@ -725,13 +727,13 @@ intro_music:
         jmp get_next_command
     !next:
         cmp #SOUND_CMD_NEXT_STATE // Set next into animation state
-        beq set_state
+        beq !set_state+
         cmp #SOUND_CMD_SET_DELAY // Set delay
-        beq set_delay
+        beq !set_delay+
         cmp #SOUND_CMD_NO_NOTE // Stop note
-        beq clear_note
+        beq !clear_note+
         cmp #SOUND_CMD_RELEASE_NOTE // Release note
-        beq release_note
+        beq !release_note+
         // Play note - sets gate filter, loads the command in to voice hi frequency control, reads the next command and
         // then loads that in to the voice lo frequency control.
         pha
@@ -745,8 +747,8 @@ intro_music:
         jsr get_note
         ldy #$00
         sta (FREEZP+2),y
-        jmp set_note
-    set_state:
+        jmp !set_note+
+    !set_state:
         lda intro.idx__substate_fn_ptr
         inc intro.idx__substate_fn_ptr
         asl
@@ -756,20 +758,20 @@ intro_music:
         lda intro.ptr__substate_fn_list+1,y
         sta intro.ptr__substate_fn+1
         jmp get_next_command
-    clear_note:
+    !clear_note:
         ldy #$04
         sta (FREEZP+2),y
         jmp !return+
-    set_delay:
+    !set_delay:
         jsr get_note
         sta data__voice_note_delay,x
         jmp get_next_command
-    release_note:
+    !release_note:
         ldy #$04
         lda data__voice_control_list,x
         and #%1111_1110 // Start gate release on current note
         sta (FREEZP+2),y
-    set_note:
+    !set_note:
         ldy #$04
         lda data__voice_control_list,x // Set default note control value for voice
         sta (FREEZP+2),y

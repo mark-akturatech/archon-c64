@@ -111,7 +111,7 @@ display_options:
     lda #STRING_F3
     jsr write_text
     lda common.flag__ai_player_selection
-    beq display_two_player
+    beq !two_player+
     lda #STRING_COMPUTER
     jsr write_text
     lda #STRING_LIGHT
@@ -119,7 +119,7 @@ display_options:
     bpl !next+
     lda #STRING_DARK
     bpl !next+
-display_two_player:
+!two_player:
     lda #STRING_TWO_PLAYER
 !next:
     jsr write_text
@@ -302,7 +302,7 @@ draw_board:
     lda #(BOARD_NUM_ROWS-1) // Number of rows (0 based, so 9)
     sta private.cnt__board_row
     // Draw each board row.
-draw_row:
+!row_loop:
     lda #(BOARD_NUM_COLS-1) // Number of columns (0 based, so 9)
     sta private.cnt__board_col
     ldy private.cnt__board_row
@@ -326,28 +326,28 @@ draw_row:
     lda ptr__color_row_offset_hi,y
     sta CURLIN+1
     //
-draw_square:
+!square_loop:
     ldy private.cnt__board_col
     bit param__render_square_ctl
-    bvs render_square // Disable icon render
-    bpl render_icon
+    bvs !render_square+ // Disable icon render
+    bpl !render_icon+
     // Only render icon for a given row and coloumn.
     lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
     sta private.data__square_render_icon_offset
     lda data__curr_board_col
     cmp private.cnt__board_col
-    bne draw_empty_square
+    bne !empty_square+
     lda data__curr_board_row
     cmp private.cnt__board_row
-    bne draw_empty_square
-render_icon:
+    bne !empty_square+
+!render_icon:
     lda (FREEZP),y
     bmi !next+ // if $80 (blank)
     tax
     lda data__piece_icon_offset_list,x  // Get icon dot data offset
 !next:
     sta private.data__square_render_icon_offset
-    bmi draw_empty_square
+    bmi !empty_square+ // Empty square
     // Here we calculate the icon starting icon. We do this as follows:
     // - Set $60 if the icon has a light or variable color background
     // - Multiply the icon offset by 6 to allow for 6 characters per icon type
@@ -361,12 +361,12 @@ render_icon:
     dex
     bne !loop-
     sta private.idx__icon_char_dot_data
-    jmp render_square
-draw_empty_square:
+    jmp !render_square+
+!empty_square:
     lda (CURLIN),y
     and #$7F
     sta private.idx__icon_char_dot_data
-render_square:
+!render_square:
     // Draw the square. Squares are 2x2 characters. The start is calculated as follows:
     // - offset = row offset + (current column * 2) + current column
     // We call `render_square_row` which draws 2 characters. We then increase the offset by 40 (moves to next line)
@@ -385,39 +385,20 @@ render_square:
     clc
     adc private.cnt__board_col
     tay
-    jsr draw_square_part
+    jsr private.draw_square_part
     lda private.cnt__board_col
     asl
     clc
     adc private.cnt__board_col
     adc #CHARS_PER_SCREEN_ROW
     tay
-    jsr draw_square_part
-    //
+    jsr private.draw_square_part
     dec private.cnt__board_col
-    bpl draw_square
+    bpl !square_loop-
     dec private.cnt__board_row
     bmi !return+
-    jmp draw_row
+    jmp !row_loop-
 !return:
-    rts
-draw_square_part: // Draws 2 characters of the current row.
-    lda #$03
-    sta private.cnt__square_char
-!loop:
-    lda private.idx__icon_char_dot_data
-    sta (FREEZP+2),y
-    lda (VARPNT),y
-    and #$F0
-    ora private.data__curr_square_color_code
-    sta (VARPNT),y
-    iny
-    lda private.data__square_render_icon_offset
-    bmi !next+
-    inc private.idx__icon_char_dot_data
-!next:
-    dec private.cnt__square_char
-    bne !loop-
     rts
 
 // 916E
@@ -564,8 +545,6 @@ clear_text_area:
 // - OLDTXT/OLDTXT+1: Pointer to sound pattern.
 // - `common.flag__is_player_sound_enabled`: $00 to disable sound for light player, $80 to enable sound
 // - `common.flag__is_player_sound_enabled+1`: $00 to disable sound for dark player, $80 to enable sound
-// Notes:
-// - See `get_note_data` below for special commands within sound pattern.
 play_icon_sound:
     ldx #$01
     // Icon sounds can be played on voices 1 and 2 separately. This allows two icon movement sounds to be played at
@@ -574,82 +553,109 @@ play_icon_sound:
 !loop:
     lda common.flag__is_player_sound_enabled,x
     beq !next+
-    jsr play_voice
+    jsr private.play_icon_sound_effect
 !next:
     dex
     bpl !loop-
     rts
-play_voice:
-    lda common.data__voice_note_delay,x
-    beq configure_voice
-    dec common.data__voice_note_delay,x
-    bne !return+
-configure_voice:
-    txa
-    asl
-    tay
-    lda common.ptr__voice_play_fn_list,y
-    sta common.prt__voice_note_fn
-    lda common.ptr__voice_play_fn_list+1,y
-    sta common.prt__voice_note_fn+1
-    lda common.ptr__voice_ctl_addr_list,y
-    sta FREEZP+2 // SID voice address
-    lda common.ptr__voice_ctl_addr_list+1,y
-    sta FREEZP+3
-get_next_note:
-    jsr common.get_note
-    cmp #SOUND_CMD_NEXT_PATTERN // Repeat pattern
-    beq repeat_pattern
-    cmp #SOUND_CMD_END // Finished - turn off sound
-    beq stop_sound
-    cmp #SOUND_CMD_NO_NOTE // Stop note
-    bne get_note_data
-    ldy #$04
-    sta (FREEZP+2),y
-    jmp get_next_note
-get_note_data:
-    // If the pattern data is not a command (ie FE, FF or 00), then the data represents a note. A note comprises several
-    // bytes as follows:
-    // - 00: Delay/note hold
-    // - 01: Attack/decay
-    // - 02: Sustain/Release
-    // - 03: Frequency Lo
-    // - 04: Frequency Hi
-    // - 05: Voice control (wafeform etc)
-    sta common.data__voice_note_delay,x
-    jsr common.get_note
-    ldy #$05
-    sta (FREEZP+2),y
-    jsr common.get_note
-    ldy #$06
-    sta (FREEZP+2),y
-    jsr common.get_note
-    ldy #$00
-    sta (FREEZP+2),y
-    jsr common.get_note
-    ldy #$01
-    sta (FREEZP+2),y
-    jsr common.get_note
-    ldy #$04
-    sta (FREEZP+2),y
-!return:
-    rts
-repeat_pattern:
-    txa
-    asl
-    tay
-    lda ptr__player_sound_pattern_lo_list,x
-    sta OLDTXT,y
-    lda ptr__player_sound_pattern_hi_list,x
-    sta OLDTXT+1,y
-    jmp get_next_note
-stop_sound:
-    ldy #$04
-    lda #$00
-    sta (FREEZP+2),y
-    sta common.flag__is_player_sound_enabled,x
-    sta common.data__voice_note_delay,x
-    rts
+
+//---------------------------------------------------------------------------------------------------------------------
+// Private functions.
+.namespace private {
+    // 9139
+    // Draws 2 characters of the current row.
+    draw_square_part: 
+        lda #$03
+        sta cnt__square_char
+    !loop:
+        lda idx__icon_char_dot_data
+        sta (FREEZP+2),y
+        lda (VARPNT),y
+        and #$F0
+        ora data__curr_square_color_code
+        sta (VARPNT),y
+        iny
+        lda data__square_render_icon_offset
+        bmi !next+
+        inc idx__icon_char_dot_data
+    !next:
+        dec cnt__square_char
+        bne !loop-
+        rts
+
+    // A0BF
+    play_icon_sound_effect:
+        lda common.data__voice_note_delay,x
+        beq !skip+
+        dec common.data__voice_note_delay,x
+        bne !return+
+    !skip:
+        txa
+        asl
+        tay
+        lda common.ptr__voice_play_fn_list,y
+        sta common.prt__voice_note_fn
+        lda common.ptr__voice_play_fn_list+1,y
+        sta common.prt__voice_note_fn+1
+        lda common.ptr__voice_ctl_addr_list,y
+        sta FREEZP+2 // SID voice address
+        lda common.ptr__voice_ctl_addr_list+1,y
+        sta FREEZP+3
+    !note_loop:
+        jsr common.get_note
+        cmp #SOUND_CMD_NEXT_PATTERN // Repeat pattern
+        beq !loop_pattern+
+        cmp #SOUND_CMD_END // Finished - turn off sound
+        beq !stop_sound+
+        cmp #SOUND_CMD_NO_NOTE // Stop note
+        bne !get_data+
+        ldy #$04
+        sta (FREEZP+2),y
+        jmp !note_loop-
+    !get_data:
+        // If the pattern data is not a command (ie FE, FF or 00), then the data represents a note. A note comprises several
+        // bytes as follows:
+        // - 00: Delay/note hold
+        // - 01: Attack/decay
+        // - 02: Sustain/Release
+        // - 03: Frequency Lo
+        // - 04: Frequency Hi
+        // - 05: Voice control (wafeform etc)
+        sta common.data__voice_note_delay,x
+        jsr common.get_note
+        ldy #$05
+        sta (FREEZP+2),y
+        jsr common.get_note
+        ldy #$06
+        sta (FREEZP+2),y
+        jsr common.get_note
+        ldy #$00
+        sta (FREEZP+2),y
+        jsr common.get_note
+        ldy #$01
+        sta (FREEZP+2),y
+        jsr common.get_note
+        ldy #$04
+        sta (FREEZP+2),y
+    !return:
+        rts
+    !loop_pattern:
+        txa
+        asl
+        tay
+        lda ptr__player_sound_pattern_lo_list,x
+        sta OLDTXT,y
+        lda ptr__player_sound_pattern_hi_list,x
+        sta OLDTXT+1,y
+        jmp !note_loop-
+    !stop_sound:
+        ldy #$04
+        lda #$00
+        sta (FREEZP+2),y
+        sta common.flag__is_player_sound_enabled,x
+        sta common.data__voice_note_delay,x
+        rts        
+}
 
 //---------------------------------------------------------------------------------------------------------------------
 // Assets
