@@ -73,7 +73,7 @@ W7C0A:
 7C0F  8D 70 BD   sta game_curr_stalemate_count
 7C12  9D 03 BD   sta WBD03,x
 W7C15:
-7C15  9D 09 BD   sta game_curr_icon_move_speed,x
+7C15  9D 09 BD   sta game_data__icon_speed,x
 7C18  9D 21 BD   sta WBD21,x
 7C1B  BD 29 BF   lda common.param__icon_offset_list,x
 7C1E  C9 12      cmp #$12
@@ -83,7 +83,7 @@ W7C15:
 7C26  D0 05      bne W7C2D
 W7C28:
 7C28  A9 40      lda #$40
-7C2A  9D 09 BD   sta game_curr_icon_move_speed,x
+7C2A  9D 09 BD   sta game_data__icon_speed,x
 W7C2D:
 7C2D  20 EB 62   jsr board_get_sound_for_piece
 7C30  BC 29 BF   ldy common.param__icon_offset_list,x

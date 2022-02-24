@@ -376,7 +376,7 @@ draw_board:
     lda data__board_player_square_color_list+1
     bpl !skip+
 !next:
-    lda game.curr_color_phase
+    lda game.data__phase_color
 !skip:
     ora #$08 // Derive square color
     sta private.data__curr_square_color_code

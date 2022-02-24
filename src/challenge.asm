@@ -69,7 +69,7 @@ entry:
     lda game.data__phase_cycle_board
     lsr
     tay
-    lda game.curr_color_phase // Phase color
+    lda game.data__phase_color // Phase color
 !next:
     sta private.data__battle_square_color // Square color used to set battle arena border
     tya
@@ -80,11 +80,11 @@ entry:
     sty private.data__strength_adj_plus1 // ??? Not used?
     // Set A with light piece and Y with dark piece.
     lda common.param__icon_type_list
-    ldy game.curr_challenge_icon_type
+    ldy game.data__challenge_icon
     bit game.flag__is_light_turn
     bpl !next+
     ldy common.param__icon_type_list
-    lda game.curr_challenge_icon_type
+    lda game.data__challenge_icon
 !next:
     // Configure battle pieces
     sta common.param__icon_type_list

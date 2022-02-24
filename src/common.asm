@@ -37,7 +37,7 @@ check_option_keypress:
     sta board.cnt__countdown_timer
     sta flag__game_loop_state
     lda flag__ai_player_selection
-    sta game.flag__ai_player_ctl
+    sta game.data__ai_player_ctl
     jmp main.restart_game_loop
 !next:
     cmp #KEY_F5
@@ -72,7 +72,7 @@ check_option_keypress:
     bne !next+
     eor #$FF
 !next:
-    sta game.flag__ai_player_ctl
+    sta game.data__ai_player_ctl
     sta flag__ai_player_selection
     jsr private.advance_intro_state
     jmp main.restart_game_loop

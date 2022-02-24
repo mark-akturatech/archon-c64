@@ -88,7 +88,7 @@ BasicUpstart2(entry)
 entry:
     // Configure defaults.
     lda #FLAG_DISABLE
-    sta game.flag__ai_player_ctl // AI Off - ie Two player
+    sta game.data__ai_player_ctl // AI Off - ie Two player
     sta common.cnt__ai_selection // Set first AI selection (off, AI is light, AI is dark)
     sta common.flag__ai_player_selection // Set AI player selection to none (00=none, 55=light, AA=dark, FF=both)
     lda #PLAYER_LIGHT_COLOR_STATE
@@ -162,7 +162,7 @@ restart_game_loop:
     // strength of each piece. The piece strength may reduce (during battle) or increase (while healing). However a
     // piece always starts with the same initial strength for the icon it represents. So, below we loop through all the
     // pieces and read the icon offset for the piece from `data__piece_icon_offset_list` and use that as an index in to
-    // `data__icon_strength_list` to get the strength for the icon and write it to `curr_icon_strength` at the piece
+    // `data__icon_strength_list` to get the strength for the icon and write it to `data__piece_strength_list` at the piece
     // offset.
     // This type of logic is used a throughout to determine speed, weapon power, sprite group offsets, number of moves
     // per turn and so on.
@@ -170,7 +170,7 @@ restart_game_loop:
 !loop:
     ldy board.data__piece_icon_offset_list,x
     lda game.data__icon_strength_list,y
-    sta game.curr_icon_strength,x
+    sta game.data__piece_strength_list,x
     dex
     bpl !loop-
     //
@@ -190,8 +190,8 @@ restart_game_loop:
     dex
     bpl !loop-
     //
-    sta game.imprisoned_data__icon_id_list // Clear imprisoned icon (light player)
-    sta game.imprisoned_data__icon_id_list+1 // Clear imprisoned icon (dark player)
+    sta game.data__imprisoned_icon_list // Clear imprisoned icon (light player)
+    sta game.data__imprisoned_icon_list+1 // Clear imprisoned icon (dark player)
     //
     // Swap player's turn.
     // The game uses $55 to represent light player and $AA for dark. The reason is that the value can be written to
@@ -210,7 +210,7 @@ restart_game_loop:
     .const MIDDLE_PHASE = 3
     ldy #MIDDLE_PHASE
     lda game.data__phase_color_list,y // Purple
-    sta game.curr_color_phase
+    sta game.data__phase_color
     //
     // Display the game intro if it hasn't already been played.
     lda intro.flag__is_enabed
@@ -257,7 +257,7 @@ restart_game_loop:
     lda #FLAG_DISABLE
     sta intro.flag__is_enabed // Don't play intro again
     lda TIME+1
-    sta game.last_stored_time // Store time - used to start an AI vs AI game if we timeout on the options page
+    sta game.data__curr_time // Store time - used to start an AI vs AI game if we timeout on the options page
     //
     // Clear used spell flags.
     .const NUMBER_SPELLS = 7
@@ -348,7 +348,7 @@ restart_game_loop:
     lsr // Remember we need to divide by 2 to get the color index
     tay
     lda game.data__phase_color_list,y
-    sta game.curr_color_phase // Purple if light first, green if dark first
+    sta game.data__phase_color // Purple if light first, green if dark first
     //
     // Let's play!
     jsr common.clear_screen
