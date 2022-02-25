@@ -27,12 +27,12 @@ select_spell_from_list:
     sty game.data__player_offset
     cpy #$00
     beq !next+
-    ldy #$07
+    ldy #NUM_SPELLS
 !next:
     // End spell selection if no spells left.
     jsr private.count_used_spells
     lda private.data__used_spell_count
-    cmp #$07 // All spells used?
+    cmp #NUM_SPELLS // All spells used?
     bcc !next+
     lda #STRING_NO_SPELLS
     beq cancel_spell_selection
@@ -136,7 +136,7 @@ spell_select:
         pha
         lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
         sta game.flag__is_destination_valid
-        ldy #$04 // 5 magic squares (0 based)
+        ldy #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
     !loop:
         lda board.data__magic_square_col_list,y
         cmp cnt__board_row
@@ -299,8 +299,8 @@ spell_select:
         // magic square is stored and the occupancy check is skipped. This repeats until all squares have been checked.
         // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic squares skipped) and
         // no enemey piece is found, then we show a spell wasted message.
-        ldx #(BOARD_SIZE-1)
-        ldy #$04 // Number magic squares (0 offset)
+        ldx #(BOARD_SIZE - 1) // 0 offset
+        ldy #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
         lda game.data__magic_square_offset_list+4
         sta data__temp_storage
     !loop:
@@ -425,17 +425,18 @@ spell_select:
         stx data__dead_icon_count
         cpx game.data__player_offset
         beq !next+
-        ldx #BOARD_NUM_PLAYER_ICONS // Set offset for player icon strength and type (0=light, 18=dark)
+        ldx #BOARD_NUM_PLAYER_PIECES // Set offset for player icon strength and type (0=light, 18=dark)
     !next:
         // Clear dead icon list.
-        ldy #$07 // Maximum 8 (0 offset) icon types
+        .const MAX_NUM_DEAD_ICONS = $08
+        ldy #(MAX_NUM_DEAD_ICONS - 1) // 0 offset
         lda #DEAD_ICON_SLOT_UNUSED
     !loop:
         sta data__dead_icon_offset_list,y
         dey
         bpl !loop-
         // Populate dead icon list.
-        lda #BOARD_NUM_PLAYER_ICONS
+        lda #BOARD_NUM_PLAYER_PIECES
         sta data__temp_storage
     !loop:
         lda game.data__piece_strength_list,x
@@ -711,7 +712,7 @@ spell_select:
         sec
         sbc #$01
         bpl !next+
-        lda #$07 // Wrap back to last spell
+        lda #NUM_SPELLS // Wrap back to last spell
     !next:
         sta data__temp_storage
         tay
@@ -856,7 +857,7 @@ spell_select:
         pha
         lda #$00
         sta private.data__used_spell_count
-        ldx #$07
+        ldx #NUM_SPELLS
     !loop:
         lda data__light_used_spells_list,y
         cmp #SPELL_USED
@@ -940,7 +941,7 @@ spell_select:
     spell_end_turn:
         sta game.flag__is_new_square_selected
         lda #FLAG_ENABLE
-        sta common.flag__is_enable_next_state
+        sta common.flag__cancel_interrupt_state
         rts
 
     // 881A

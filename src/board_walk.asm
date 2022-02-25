@@ -284,7 +284,7 @@ entry:
     // Animate the icon by walking it to the initial board square location.
     interrupt_handler:
         jsr board.draw_magic_square
-        lda common.flag__is_enable_next_state
+        lda common.flag__cancel_interrupt_state
         bpl !next+
         jmp common.complete_interrupt
     !next:
@@ -350,7 +350,7 @@ entry:
         cpx cnt__pieces_at_final_location
         bne !next+
         lda #FLAG_ENABLE
-        sta common.flag__is_enable_next_state
+        sta common.flag__cancel_interrupt_state
     !next:
         jmp common.complete_interrupt
 }

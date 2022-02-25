@@ -38,7 +38,7 @@ check_option_keypress:
     sta flag__game_loop_state
     lda flag__ai_player_selection
     sta game.data__ai_player_ctl
-    jmp main.restart_game_loop
+    jmp main.game_state_loop
 !next:
     cmp #KEY_F5
     bne !next+
@@ -47,7 +47,7 @@ check_option_keypress:
     eor #$FF
     sta game.data__curr_player_color
     jsr private.advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_state_loop
 !next:
     cmp #KEY_F3
     beq !next+
@@ -75,7 +75,7 @@ check_option_keypress:
     sta game.data__ai_player_ctl
     sta flag__ai_player_selection
     jsr private.advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_state_loop
 
 // 644D
 // Determine sprite source data address for a given icon, set the sprite color and direction and enable.
@@ -161,7 +161,7 @@ check_stop_keypess:
     cmp #KEY_Q
     beq !loop-
     jsr private.advance_intro_state
-    jmp main.restart_game_loop
+    jmp main.game_state_loop
 !next:
     lda intro.flag__is_complete
     eor #$FF
@@ -333,7 +333,7 @@ add_sprite_to_graphics:
     and #$07
     cmp #$06
     bne !next+
-    lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 255 (0 offset)
+    lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 256 (0 offset)
     sta param__sprite_source_len
     jmp !copy+
 !next:
@@ -453,14 +453,14 @@ clear_sprites:
 // 905C
 // Busy wait for STOP, game options (function keys) or Q keypress or game state change.
 // Notes:
-// - Repeats until `flag__is_enable_next_state` is set.
+// - Repeats until `flag__cancel_interrupt_state` is set.
 wait_for_key_or_task_completion:
     lda #FLAG_DISABLE
-    sta flag__is_enable_next_state
+    sta flag__cancel_interrupt_state
 !loop:
     jsr check_option_keypress
     jsr check_stop_keypess
-    lda flag__is_enable_next_state
+    lda flag__cancel_interrupt_state
     beq !loop-
     jmp stop_sound
 
@@ -490,7 +490,7 @@ clear_mem_sprite_48:
     sta FREEZP+2
     lda common.ptr__sprite_48_mem+1
     sta FREEZP+3
-    ldy #(BYTES_PER_SPRITE-1)
+    ldy #(BYTES_PER_SPRITE - 1) // 0 offset
     lda #$00
 !loop:
     sta (FREEZP+2),y
@@ -673,11 +673,10 @@ initialize_music:
         cmp #$40
         bne advance_intro_state
         // Advance game state.
-        .const THIRTY_SECONDS = $07
-        lda #THIRTY_SECONDS
-        sta board.cnt__countdown_timer // Reset auto play to 30 seconds (is was 13 seconds prior)
+        lda #(30 / SECONDS_PER_JIFFY)
+        sta board.cnt__countdown_timer // Reset auto play to 30 seconds (is was 12 seconds prior)
         lda #FLAG_ENABLE
-        sta flag__is_enable_next_state
+        sta flag__cancel_interrupt_state
         // Remove intro interrupt handler.
         sei
         lda #<complete_interrupt
@@ -1031,7 +1030,7 @@ flag__ai_player_selection: .byte $00
 
 // BCD0
 // Is set to $80 to indicate that the game state should be changed to the next state.
-flag__is_enable_next_state: .byte $00
+flag__cancel_interrupt_state: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables

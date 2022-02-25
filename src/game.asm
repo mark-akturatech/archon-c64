@@ -85,7 +85,7 @@ entry:
     // wins.
     lda #$00
     sta private.flag__remaining_player_pieces
-    ldx #$04 // Number of magic squares (0 based - so 5)
+    ldx #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
 !loop:
     ldy board.data__magic_square_col_list,x
     lda board.ptr__board_row_occupancy_lo,y
@@ -99,7 +99,7 @@ entry:
     // then the result should be $40 or $80. If squares are occupied by multiple players, the result will be $C0
     // (ie $80 OR $40) and therefore no winner.
     ldy #$40
-    cmp #BOARD_NUM_PLAYER_ICONS
+    cmp #BOARD_NUM_PLAYER_PIECES
     bcc !next+ // Player 1 icon?
     ldy #$80
 !next:
@@ -120,12 +120,12 @@ entry:
     sta private.cnt__dark_icons
     sta private.cnt__light_icons
     sta private.flag__remaining_player_pieces
-    ldx #(BOARD_TOTAL_NUM_ICONS - 1)
+    ldx #(BOARD_TOTAL_NUM_PIECES - 1)
 !loop:
     lda data__piece_strength_list,x
     beq !check_next+
     ldy #$40
-    cpx #BOARD_NUM_PLAYER_ICONS
+    cpx #BOARD_NUM_PLAYER_PIECES
     bcc !next+
     inc private.cnt__dark_icons
     stx private.data__last_dark_icon
@@ -190,7 +190,7 @@ entry:
     jsr private.regenerate_hitpoints
 !next:
     // Increase strength of all icons on magic squares.
-    ldx #$04 // 5 magic squares (0 offset)
+    ldx #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
 !loop:
     ldy board.data__magic_square_col_list,x
     lda board.ptr__board_row_occupancy_lo,y
@@ -248,7 +248,7 @@ entry:
     // Start 
     lda #FLAG_DISABLE
     sta common.flag__game_loop_state
-    jmp main.restart_game_loop
+    jmp main.game_state_loop
 !next:
     jsr board.display_options
     jmp !check_state-
@@ -399,7 +399,7 @@ play_turn:
 // 8377
 interrupt_handler:
     jsr board.draw_magic_square
-    lda common.flag__is_enable_next_state
+    lda common.flag__cancel_interrupt_state
     bpl !next+
     jmp common.complete_interrupt
 !next:
@@ -507,7 +507,7 @@ interrupt_handler:
     jsr display_message // Display message if selected icon is imprisoned
     jmp common.complete_interrupt
 !next:
-    sta common.flag__is_enable_next_state
+    sta common.flag__cancel_interrupt_state
     sta data__last_interrupt_response_flag
     jmp common.complete_interrupt
     //
@@ -658,10 +658,10 @@ interrupt_handler:
 // wait for interrupt or 'Q' kepress
 wait_for_state_change:
     lda #FLAG_DISABLE
-    sta common.flag__is_enable_next_state
+    sta common.flag__cancel_interrupt_state
 !loop:
     jsr common.check_stop_keypess
-    lda common.flag__is_enable_next_state
+    lda common.flag__cancel_interrupt_state
     beq !loop-
     jmp common.stop_sound
 
@@ -798,7 +798,7 @@ display_message:
     regenerate_hitpoints:
         txa
         sec
-        sbc #BOARD_NUM_PLAYER_ICONS
+        sbc #BOARD_NUM_PLAYER_PIECES
         sta cnt__curr_icon // First player icon (offset by 1)
     !loop:
         lda data__piece_strength_list,x
@@ -986,7 +986,7 @@ display_message:
         bpl !next+
         lda #FLAG_DISABLE
         sta common.flag__game_loop_state
-        jmp main.restart_game_loop
+        jmp main.game_state_loop
     !next:
         jmp !loop-
 
@@ -1227,7 +1227,7 @@ display_message:
     // Notes:
     // - Does not clear color memory.
     clear_last_text_row:
-        ldy #(CHARS_PER_SCREEN_ROW-1)
+        ldy #(CHARS_PER_SCREEN_ROW - 1) // 0 offset
         lda #$00
     !loop:
         sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
@@ -1254,7 +1254,7 @@ display_message:
         and #%1111_1100
         sta XXPAND
         // Configure source icon.
-        lda #(BYTERS_PER_STORED_SPRITE-1)
+        lda #(BYTERS_PER_STORED_SPRITE - 1) // 0 offset
         sta idx__sprite_shape_source_row
         lda board.data__curr_icon_col
         ldy board.data__curr_icon_row
@@ -1333,7 +1333,7 @@ display_message:
     // Performs an animation when transporting an icon from one location to another.
     transport_icon_interrupt:
         jsr board.draw_magic_square
-        lda common.flag__is_enable_next_state
+        lda common.flag__cancel_interrupt_state
         bmi !return+
         // Animate every 4th
         inc cnt__interrupts
@@ -1373,7 +1373,7 @@ display_message:
         jsr board.add_icon_to_matrix
     !next:
         lda #FLAG_ENABLE
-        sta common.flag__is_enable_next_state
+        sta common.flag__cancel_interrupt_state
         jmp common.complete_interrupt
 
     // 91FB
@@ -1486,7 +1486,7 @@ display_message:
     // AE12
     outro_interrupt_handler:
         jsr board.draw_magic_square
-        lda common.flag__is_enable_next_state
+        lda common.flag__cancel_interrupt_state
         bmi !return+
         jmp (ptr__play_music_fn)
     outro_interrupt_handler__play_music:
@@ -1614,7 +1614,7 @@ data__last_interrupt_response_flag: .byte $00
 
 // BDFD
 // Current strength of each board icon.
-data__piece_strength_list: .fill BOARD_TOTAL_NUM_ICONS, $00
+data__piece_strength_list: .fill BOARD_TOTAL_NUM_PIECES, $00
 
 // BCFE
 // Is set if the selected square is a valid selection.

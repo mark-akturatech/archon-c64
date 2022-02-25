@@ -34,7 +34,12 @@
 .const PLAYER_DARK_COLOR_STATE = $AA // Value loaded in to character dot data to represent character color 2
 
 // Phase cycle constants
-.const PHASE_CYCLE_LENGTH = $0E // Length of colour cycle (7 colors forward, then 7 colors in reverse)
+.const PHASE_LENGTH = 7 // Number of color phases
+.const PHASE_MIDDLE = floor(PHASE_LENGTH/2) // Middle phase (used as the intial phase at the start of the game)
+.const PHASE_CYCLE_LENGTH = PHASE_LENGTH*2 // Length of colour cycle (7 colors forward, then 7 colors in reverse)
+
+// Time constants
+.const SECONDS_PER_JIFFY = 4 // Rough number of seconds per jiffy count
 
 //---------------------------------------------------------------------------------------------------------------------
 // Icon constants
@@ -166,8 +171,9 @@
 .const BOARD_NUM_COLS = 9
 .const BOARD_NUM_ROWS = 9
 .const BOARD_SIZE = BOARD_NUM_COLS*BOARD_NUM_ROWS
-.const BOARD_NUM_PLAYER_ICONS = BOARD_NUM_COLS*2
-.const BOARD_TOTAL_NUM_ICONS = BOARD_NUM_PLAYER_ICONS*2
+.const BOARD_NUM_PLAYER_PIECES = BOARD_NUM_COLS*2
+.const BOARD_TOTAL_NUM_PIECES = BOARD_NUM_PLAYER_PIECES*2
+.const BOARD_NUM_MAGIC_SQUARES = 5
 .const BOARD_EMPTY_SQUARE = FLAG_ENABLE
 .const BOARD_DARK_SQUARE = $00
 .const BOARD_LIGHT_SQUARE = $60
@@ -176,6 +182,7 @@
 //---------------------------------------------------------------------------------------------------------------------
 // Spell constants
 
+.const NUM_SPELLS = 7
 .const SPELL_UNUSED = $FD
 .const SPELL_USED = $FE
 .const DEAD_ICON_SLOT_UNUSED = $FF

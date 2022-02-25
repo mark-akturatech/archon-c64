@@ -62,14 +62,14 @@ entry:
     // AA42
     // Play current intro state interrupt.
     interrupt_handler:
-        lda common.flag__is_enable_next_state
+        lda common.flag__cancel_interrupt_state
         bpl !next+
         jmp common.complete_interrupt
     !next:
         // The flag will be set to TRUE when the intro is over. This will then cause the interrupt handler to
         // stop playing into interrupts after the current interrupt is completed.
         lda flag__is_complete
-        sta common.flag__is_enable_next_state
+        sta common.flag__cancel_interrupt_state
         jsr common.play_music
         // Run background task for the current intro state. eg move the Logo icon up by one pixel to scroll the logo
         // up the screen.
@@ -557,7 +557,7 @@ entry:
     // Complete the current game state and move on.
     state__end_intro:
         lda #FLAG_ENABLE
-        sta common.flag__is_enable_next_state
+        sta common.flag__cancel_interrupt_state
         jmp common.complete_interrupt
         rts
 }
