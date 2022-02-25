@@ -296,7 +296,7 @@ play_turn:
     // Copy sprite animation set for selected icon in to graphical memory.
     ldx #$00
     jsr board.convert_coord_sprite_pos
-    jsr common.sprite_initialize
+    jsr common.initialize_sprite
     lda #BYTERS_PER_STORED_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
@@ -964,7 +964,7 @@ display_message:
         sta ptr__play_music_fn+1
         cli
         jsr common.initialize_music
-        // Wait for about 30 seconds before restarting the 
+        // Wait for about 30 seconds before restarting the game
         jsr common.wait_for_key_or_task_completion
         lda TIME+1
         sta data__curr_time
@@ -1262,7 +1262,7 @@ display_message:
         ldy common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
         sta common.param__icon_offset_list
-        jsr common.sprite_initialize
+        jsr common.initialize_sprite
         //
         lda common.ptr__sprite_00_mem
         sta FREEZP+2

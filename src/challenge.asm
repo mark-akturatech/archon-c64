@@ -106,7 +106,7 @@ entry:
     // in to battle position.
 !loop:
     // Create sprite group.
-    jsr common.sprite_initialize
+    jsr common.initialize_sprite
     lda #BYTERS_PER_STORED_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics

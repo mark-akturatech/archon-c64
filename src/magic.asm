@@ -378,7 +378,7 @@ spell_select:
         lda board.data__curr_board_col
         ldy board.data__curr_board_row
         jsr board.convert_coord_sprite_pos
-        jsr common.sprite_initialize
+        jsr common.initialize_sprite
         lda #BYTERS_PER_STORED_SPRITE
         sta common.param__sprite_source_len
         jsr common.add_sprite_set_to_graphics
@@ -551,7 +551,7 @@ spell_select:
         ldx #$00
         stx game.flag__is_moving_icon
         jsr board.get_sound_for_icon
-        jsr common.sprite_initialize
+        jsr common.initialize_sprite
         jsr common.add_sprite_set_to_graphics
         jsr board.render_sprite
         jsr clear_dead_icons_from_screen

@@ -205,7 +205,7 @@ entry:
         ldy common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
         sta common.param__icon_offset_list
-        jsr common.sprite_initialize
+        jsr common.initialize_sprite
         // Configure sprites.
         lda #%1111_1111 // Enable all sprites
         sta SPENA

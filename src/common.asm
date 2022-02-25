@@ -1,11 +1,12 @@
 .filenamespace common
 //---------------------------------------------------------------------------------------------------------------------
-// Common routines used by intro, board and battle arena states.
+// Common code and assets used by intro, board and battle arena states.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Common
 
 // 638E
-// Restore the registers pushed on to the stack and complete the current interrupt.
+// Restore registers pushed on to the stack at the start of an interrupt and complete the current interrupt.
+// This function is called at the completion of each raster interrupt.
 // Requires:
 // - A, X and Y: pushed on to the stack (Y first, then X then A)
 // Sets:
@@ -19,41 +20,54 @@ complete_interrupt:
     rti
 
 // 6394
-// This function is called during intro, board config and options game states. it allows escape to cancel current state
-// and function keys to set game options. eg pressing F1 toggles number of players. You can select this option in
-// any of the non game states. if the game state is not in options state, then the game will jump directly to the
-// options state.
+// Sets game options if an option function ket is pressed.
+// Key are as follows:
+// - F3: Cycle AI state (none, AI is light, AI is dark)
+// - F5: Light first/Dark First
+// - F7: Start game
+// Sets:
+// - `game.data__ai_player_ctl`: Is positive (55) for AI light, negative (AA) for AI dark, (00) for neither, (FF) or
+//    both.
+// - `game.data__curr_player_color`: Is positive (55) for light, negative (AA) for dark.
+// - `flag__game_loop_state`: Set to 00 to indicate a game start.
+// Notes:
+// - Calls `reset_options_state` after each option selection. This waits for the key to be released (so options don't
+//   advance multiple times by accident) and resets the countdown timer before playing an AI vs AI game if no options
+//   selected in a given period.
+// - Calls `main.game_state_loop` after each option selection to redraw board with current settings or play the game if 
+//   `flag__game_loop_state` is disabled.
 check_option_keypress:
     lda LSTX
     cmp #KEY_NONE
-    bne !next+
+    bne !check_f7+
     rts
-!next:
+!check_f7:
     cmp #KEY_F7
-    bne !next+
+    bne !check_f5+
     // Start game.
-    jsr private.advance_intro_state
+    jsr private.reset_options_state
     lda #FLAG_DISABLE
     sta board.cnt__countdown_timer
     sta flag__game_loop_state
     lda flag__ai_player_selection
     sta game.data__ai_player_ctl
     jmp main.game_state_loop
-!next:
+!check_f5:
     cmp #KEY_F5
-    bne !next+
+    bne !check_f3+
     // Toggle first player.
     lda game.data__curr_player_color
     eor #$FF
     sta game.data__curr_player_color
-    jsr private.advance_intro_state
+    jsr private.reset_options_state
     jmp main.game_state_loop
-!next:
+!check_f3:
     cmp #KEY_F3
-    beq !next+
+    beq !skip+
     rts
-!next:
     // Toggle AI between two players, player light, player dark.
+!skip:
+    // Cylce from 0 to 3 on each F3 keypress and repeat.
     lda cnt__ai_selection
     clc
     adc #$01
@@ -74,49 +88,61 @@ check_option_keypress:
 !next:
     sta game.data__ai_player_ctl
     sta flag__ai_player_selection
-    jsr private.advance_intro_state
+    jsr private.reset_options_state
     jmp main.game_state_loop
 
 // 644D
-// Determine sprite source data address for a given icon, set the sprite color and direction and enable.
+// Determine sprite shape data souorce address for a given icon, set the sprite color and direction and enable the
+// sprite.
 // Requires:
-// - X: Sprite number (0 - 4)
-// - `param__icon_offset_list,x`: contains the sprite group pointer offset (see `ptr__icon_sprite_mem_offset_list` for details).
-// - `param__icon_type_list,x`: contains the sprite icons type.
+// - X: Sprite number (0 - 3). This function can be used to initialize up to 4 sprites:
+//   - A single sprite is only needed when moving pieces on the board.
+//   - 2 sprites a needed within the battle arena. TODO: check this - maybe projectiles as well, so maybe 4??
+//   - 4 sprites are used during the introduction chase animation.
+// - `param__icon_offset_list,x`: contains the sprite group pointer offset (see `ptr__icon_sprite_mem_offset_list` for
+//    details) for the selected sprite number.
+// - `param__icon_type_list,x`: contains the sprite icon type for the selected sprite number.
 // Sets:
-// - `private.ptr__sprite_source_lo_list`: Lo pointer to memory containing the sprite definition start address.
-// - `private.ptr__sprite_source_hi_list`: Hi pointer to memory containing the sprite definition start address.
-// - `param__icon_sprite_source_frame_list`: set to #$00 for right facing icons and #$11 for left facing.
-// - Sprite + X is enabled and color configured
-sprite_initialize:
+// - `private.ptr__sprite_source_lo_list`: Low pointer of the sprite shape data memory address.
+// - `private.ptr__sprite_source_hi_list`: High pointer of the sprite shape data memory address.
+// - `param__icon_sprite_source_frame_list,x`: Set to #$00 for right facing icons and #$11 for left facing for the
+//   selected sprite number.
+// - Sprite,x is enabled and the color is configured.
+initialize_sprite:
     lda param__icon_offset_list,x
+    // Get pointer to sprite shape data for the given icon offset.
     asl
     tay
     lda private.ptr__icon_sprite_mem_offset_list,y
     sta private.ptr__sprite_source_lo_list,x
     lda private.ptr__icon_sprite_mem_offset_list+1,y
     sta private.ptr__sprite_source_hi_list,x
+    // Set special color for elementals, otherwise set the color based on the player (yellow for light, blue for dark).
     lda param__icon_type_list,x
-    cmp #AIR_ELEMENTAL // Is sprite an elemental?
-    bcc !next+
-    and #$03
+    cmp #AIR_ELEMENTAL // Is sprite an elemental (air elemental is the first elemental type)?
+    bcc !set_player_color+
+    and #$03 // Convert the elemental to a number from 0 to 3.
     tay
     lda private.data__elemental_icon_color_list,y
     bpl !enable_sprite+
-!next:
+!set_player_color:
     ldy #$00 // Set Y to 0 for light icon, 1 for dark icon
-    cmp #MANTICORE // Dark icon
+    cmp #MANTICORE // Dark icon (manticore is the first dark icon)
     bcc !next+
     iny
 !next:
     lda data__player_icon_color_list,y
+    //
 !enable_sprite:
-    sta SP0COL,x
+    sta SP0COL,x // Set sprite color
     lda data__math_pow2_list,x
     ora SPENA
-    sta SPENA
+    sta SPENA // Enable sprite
+    // Set initial icon direction. Icon with bit 4 set are all dark player icons. Not sure why we'd use this method
+    // here and >= MANTICORE method above, but so be it. This won't work for elementals. Special logic will be needed
+    // later to determine the direction of the elemental based upon the current player.
     lda param__icon_offset_list,x
-    and #$08 // Icons with bit 8 set are dark icons
+    and #%0000_1000
     beq !next+
     lda #$11 // Left facing icon
 !next:
@@ -124,13 +150,10 @@ sprite_initialize:
     rts
 
 // 6490
-// Create a time delay by waiting for a number of jiffies.
+// Create a time delay by waiting for a specified number of jiffies. A jiffy is approximately 1/60th of a second.
+// The time delay can be cancelled by pressing 'Q' however this will restart the game.
 // Requires:
 // - X: number of jiffies (~0.01667s per jiffy) to wait.
-// Preserves:
-// - Y
-// Notes:
-// - Wait time can be cancelled by pressing 'Q' or STOP key.
 wait_for_jiffy:
     lda TIME+2
 !loop:
@@ -150,22 +173,28 @@ wait_for_jiffy:
 // - Game is reset if Q key is pressed.
 // - Subroutine waits for key to be released before exiting.
 check_stop_keypess:
-    // go to next state of RUN/STOP
+    // Get state of RUN/STOP. Note this retuns the top line status in A, so we can read if other keys were pressed
+    // also (as long as it was on the top line).
     jsr STOP
-    beq !next+
+    beq !run_stop_pressed+
     cmp #KEY_Q
     bne !return+
-    // Wait for key to be released.
+    // Q Pressed.
 !loop:
+    // Wait for key to be released.
     jsr STOP
     cmp #KEY_Q
-    beq !loop-
-    jsr private.advance_intro_state
+    beq !loop- 
+    // Restart the game at the options screen.
+    jsr private.reset_options_state
     jmp main.game_state_loop
-!next:
+    //
+!run_stop_pressed:
+    // Toggle introduction complete flag.
     lda intro.flag__is_complete
     eor #$FF
     sta intro.flag__is_complete
+    // Wait for key to be released.
 !loop:
     jsr STOP
     beq !loop-
@@ -173,10 +202,11 @@ check_stop_keypess:
     rts
 
 // 7FAB
-// Stop sound from playing on all 3 voices.
+// Stop sound from playing on the first 2 voices.
 stop_sound:
-    ldx #$01
+    ldx #$01 // Voice counter (0 offset)
 !loop:
+    // Configure loop source address to start of the parameters for the current voice.
     txa
     asl
     tay
@@ -184,43 +214,50 @@ stop_sound:
     sta FREEZP+2
     lda ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
-    ldy #$04
+    // Clear all voice paramaters.
+    ldy #$04 // Voice control register offset
     lda #$00
-    sta (FREEZP+2),y
-    sta flag__is_player_sound_enabled,x
-    sta data__voice_note_delay,x
+    sta (FREEZP+2),y // Clear voice control register
+    sta flag__is_player_sound_enabled,x // Disable voice for each player (light player voice 1, dark player voice 2)
+    sta data__voice_note_delay,x // Reset delay counter
+    // Next voice.
     dex
     bpl !loop-
     rts
 
 // 8BDE
-// Adds a set of sprites for an icon to the graphics memory.
+// Adds a set of sprites for an icon to the graphics memory. A sprite set may contain all the sprites for animations
+// in different directions and the projectiles thrown by the sprite. The set may also include the sprite firing
+// animations.
 // Requires:
-// - X Register = 0 to copy light player icon frames
-// - X Register = 1 to copy dark player icon frames
-// - X Register = 2 to copy light player projectile frames
-// - X Register = 3 to copy dark player projectile frames
+// - X Register:
+//   - 0: to copy light player icon frames
+//   - 1: to copy dark player icon frames
+//   - 2: to copy light player projectile frames
+//   - 3: to copy dark player projectile frames
 // Notes:
 // - Icon frames add 24 sprites as follows:
-//  - 4 x East facing icons (4 animation frames)
-//  - 4 x South facing icons (4 animation frames)
-//  - 4 x North facing icons (4 animation frames)
-//  - 5 x Attack frames (north, north east, east, south east, south facing)
-//  - 4 x West facing icon frames (mirrored representation of east facing icons)
-//  - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
+//   - 4 x East facing icons (4 animation frames)
+//   - 4 x South facing icons (4 animation frames)
+//   - 4 x North facing icons (4 animation frames)
+//   - 5 x Attack frames (north, north east, east, south east, south facing)
+//   - 4 x West facing icon frames (mirrored representation of east facing icons)
+//   - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
 // - Projectile frames are frames used to animate the players projectile (or scream/thrust). There are 7 sprites as
 //   follows:
-//  - 1 x East direction projectile
-//  - 1 x North/south direction projectile (same sprite is used for both directions)
-//  - 1 x North east direction projectile
-//  - 1 x South east direction projectile
-//  - 1 x East direction projectile (mirrored copy of east)
-//  - 1 x North west direction projectile (mirrored copy of north east)
-//  - 1 x South west direction projectile (mirrored copy of south east)
-// - Special player pieces Phoneix and Banshee only copy 4 sprites (east, south, north, west).
+//   - 1 x East direction projectile
+//   - 1 x North/south direction projectile (same sprite is used for both directions)
+//   - 1 x North east direction projectile
+//   - 1 x South east direction projectile
+//   - 1 x West direction projectile (mirrored copy of east)
+//   - 1 x North west direction projectile (mirrored copy of north east)
+//   - 1 x South west direction projectile (mirrored copy of south east)
+//   - Special player pieces Phoneix and Banshee only copy 4 projectile sprites (east, south, north, west).
 // - Mirrored sprite sources are not represented in memory. Instead the sprite uses the original version and logic is
 //   used to create a mirrored copy.
 add_sprite_set_to_graphics:
+    // Set starting sprite location. Is 0, 24, 48 or 56 depending on value of x. This allows icon and projectile sets
+    // to be individually loaded for each player without overwriting previously loaded sprites.
     txa
     asl
     tay
@@ -229,70 +266,87 @@ add_sprite_set_to_graphics:
     sta private.ptr__sprite_mem_lo
     lda ptr__sprite_mem_list+1,y
     sta FREEZP+3
+    //
     cpx #$02
-    bcc !add_icons+ // Copy icon or projectile frames?
+    bcc !add_icons+ 
+    //
     // Projectile frames.
+    // Detect if projectiles are being added for Banshee or Phoenix. These are special pieces which use a full
+    // height 'projectile' that is displayed over the top of the icon itself. ie the Banshee scream or Phoenix fire.
     txa
     and #$01
     tay
     lda param__icon_offset_list,y
-    and #$07
-    cmp #$06
-    bne !add_projectiles+ // Not Banshee/Phoenix?
+    and #%0000_0111
+    cmp #%0000_0110 // The Banshee and Phoenix icon offsets are the only icons with bits 2 and 3 set and bit 0 unset
+    bne !add_projectiles+
+    // Add special full height projectile frames for Banshee and Phoneix icons.
     lda #$00
     sta param__icon_sprite_curr_frame
-    jmp add_sprite_to_graphics // Add special full height projectile frames for Banshee and Phoneix icons.
-// Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame)
+    jmp add_sprite_to_graphics
 !add_projectiles:
+    // Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame).
     lda #$11
     sta param__icon_sprite_curr_frame
     bne !frame_loop+
-// Copies projectile frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,
-// $02+$80, $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame)
+    //
+    // Icon frames.
 !add_icons:
+    // Copies icon frames: $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0a,$0b,$0c,$0d,$0e,$0f,$10,$00+$80,$01+$80,
+    // $02+$80, $03+$83,$0d+$80,$0e+$80,$0f+$80 (80 inverts frame).
     lda #$00
     sta param__icon_sprite_curr_frame
+    //
+    // The following loop has special logic and conditions to create sprites for specific frames. The frames will
+    // be incremented or skipped depending upon whether the sprite set is for projectiles or icons. See the comments
+    // above for details of which icons are copied. 
+    // Note that frames for mirrored directions will use the source frame + $80 to indicate the frame should be
+    // horizontally mirrored when created.
 !frame_loop:
     jsr add_sprite_to_graphics
+    // The logic below just skips sets inverts frames based on hard coded rules to determine the next frame to add to
+    // the sprite graphics area. The game and animation logic will switch the active sprite pointer between the frames
+    // depending on movement direction and animation state.
     inc param__icon_sprite_curr_frame
     cpx #$02
     bcs !check_projectile+
     lda param__icon_sprite_curr_frame
     bmi !check_inverted_icon+
     cmp #$11
-    bcc !add_frame+
-    lda #$80 // Jump from frame 10 to 80 (skip 11 to 7f)
+    bcc !next_block+
+    lda #$80 // Jump from frame 10 to 80 (skip 11 to 7F)
     sta param__icon_sprite_curr_frame
-    bmi !add_frame+
+    bmi !next_block+
 !check_inverted_icon:
     cmp #$84
-    bcc !add_frame+
+    bcc !next_block+
     beq !skip+ // Skip frames 84 to 8C
     cmp #$90
-    bcc !add_frame+
-    rts // End after copying frame 8f
+    bcc !next_block+
+    rts // End after copying frame 8F
 !check_projectile:
     lda param__icon_sprite_curr_frame
     bmi !check_inverted_projectile+
     cmp #$15
-    bcc !add_frame+
+    bcc !next_block+
     lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
     sta param__icon_sprite_curr_frame
-    bmi !add_frame+
+    bmi !next_block+
 !check_inverted_projectile:
     cmp #$95
     bcc !next+
     rts // End after copying frame 94
 !next:
     cmp #$92
-    bne !add_frame+
+    bne !next_block+
     inc param__icon_sprite_curr_frame // Skip frame 92
-    jmp !add_frame+
+    jmp !next_block+
 !skip:
     lda #$8D
     sta param__icon_sprite_curr_frame
-!add_frame:
-    // Incremement frame grpahics pointer to point to next sprite memory location.
+    //
+!next_block:
+    // Incremement graphics pointer to point to next sprite memory location ready for storing the next frame.
     lda private.ptr__sprite_mem_lo
     clc
     adc #BYTES_PER_SPRITE
@@ -303,11 +357,33 @@ add_sprite_set_to_graphics:
     bcs !frame_loop-
 
 // 8C6D
-// Copies a sprite frame in to graphical memory.
-// Also includes additional functionality to add a mirrored sprite to graphics memory.
+// Copies a sprite frame in to graphics memory.
+// So super quick introduction here for sprites. The C64 allows up to 8 sprites to be displayed on the screen at a time.
+// The sprites use shape data stored in the graphics memory visible to the VIC-II. See `GRPMEM` in io.asm. 8 single
+// byte pointers in the last 8 bytes of screen memory are used to point to a block within the graphical memory. This
+// block contains the shape data for that specific sprite. A block is a 64 byte contiguous block of memory starting
+// at the graphics memory start address. Since we can access up to FF blocks per sprite pointer, we can therefore
+// have up to FF blocks of sprite shape data per sprite. This is however limited by memory in real life.
+// Anyway, so the way C64 works is we load a bunch of shape data in to graphics memory (eg sevral sprite shapes for
+// different animation frames in each movement direction) and we can swap what is drawn on the screen by updating
+// the sprite pointer. 
+// Requires:
+// - `FREEZP+2,+3`: Contains the low byte, high byte of the graphic memory address to copy the frame too.
+// - `param__icon_sprite_curr_frame`: Frame to copy in to graphic memory. Will be +$80 to mirror the frame.
+// - `param__is_copy_animation_group`: Set TRUE if copying all animation frames for a specific direction.
+// - X Register (only used if `param__is_copy_animation_group` is set):
+//   - 0: to copy light player icon frames
+//   - 1: to copy dark player icon frames
+//   - 2: to copy light player projectile frames
+//   - 3: to copy dark player projectile frames
+// - `param__sprite_source_len`: Number of bytes to copy for each sprite/sprite group (only used if 
+//   `param__is_copy_animation_group` is set).
+// Notes:
+// - The logic includes functionality to add a mirrored sprite to graphics memory.
 add_sprite_to_graphics:
     lda param__icon_sprite_curr_frame
     and #$7F // The offset has #$80 if the sprite frame should be inverted on copy
+    //
     // Get frame source memory address.
     // This is done by first reading the sprite source offset of the icon set and then adding the frame offset.
     asl
@@ -319,41 +395,42 @@ add_sprite_to_graphics:
     lda private.ptr__sprite_source_hi_list,x
     adc private.data__icon_sprite_frame_mem_offset_list+1,y
     sta FREEZP+1
-    lda param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
-    bmi !copy+
-    cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light bullets, 3 for dark bullets
-    bcc !copy+
     //
-    // Copy sprites used for attacks (eg projectiles, clubs, sords, screams, fire etc)
+    lda param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
+    bmi !copy_icon+
+    cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light projectiles, 3 for dark projectiles
+    bcc !copy_icon+
+    //
+    // Copy sprites used for projectiles (eg bullets, clubs, sords, screams, fire etc).
     txa
     // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
     and #$01
     tay
     lda param__icon_offset_list,y
-    and #$07
-    cmp #$06
+    and #%0000_0111
+    cmp #%0000_0110 // The Banshee and Phoenix icon offsets are the only icons with bits 2 and 3 set and bit 0 unset
     bne !next+
-    lda #$FF // Banshee and Phoenix only have 4 attack frames (e,s,n,w), so is 64*4 = 256 (0 offset)
+    lda #$FF // Banshee and Phoenix only have 4 projectile frames (e,s,n,w), so is 64*4 = 256 (0 offset)
     sta param__sprite_source_len
-    jmp !copy+
+    jmp !copy_icon+
 !next:
-    // All other pieces require 7 attack frames (e, n/s, ne, se, w, nw, sw)
+    // All other pieces require 7 projectile frames (e, n/s, ne, se, w, nw, sw)
     ldy #$00
 !loop:
     lda param__icon_sprite_curr_frame
-    bpl !skip+ // +$80 to invert attack frame
+    bpl !not_mirrored+ // +$80 to invert projectile frame
     // Inversts 8 bits. eg 1000110 becomes 0110001
     lda #$08
     sta private.data__temp_storage
     lda (FREEZP),y
     sta private.data__temp_storage+1
-!rotate_loop:
+!mirror_bit_loop:
     ror private.data__temp_storage+1
     rol
     dec private.data__temp_storage
-    bne !rotate_loop-
+    bne !mirror_bit_loop-
     beq !next+
-!skip:
+!not_mirrored:
     lda (FREEZP),y
 !next:
     sta (FREEZP+2),y
@@ -363,10 +440,13 @@ add_sprite_to_graphics:
     cpy param__sprite_source_len
     bcc !loop-
     rts
-!copy:
+    //
+    // Copy sprites used for icons.
+!copy_icon:
     ldy #$00
     lda param__icon_sprite_curr_frame
-    bmi !inverted_copy+
+    bmi !mirrored_copy+ // +$80 to horizontally mirror the icon
+    // Copy the icon byte for byte.
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
@@ -374,8 +454,10 @@ add_sprite_to_graphics:
     cpy param__sprite_source_len
     bcc !loop-
     rts
-!inverted_copy:
     // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
+    // Not too sure of the formula here. TODO: work it out.
+    // TODO: up to here
+!mirrored_copy:
     lda #$0A
     sta private.data__temp_storage // Sprite is inverted in 10 blocks
     tya
@@ -418,7 +500,7 @@ add_sprite_to_graphics:
     sta (FREEZP+2),y
     iny
     cpy param__sprite_source_len
-    bcc !inverted_copy-
+    bcc !mirrored_copy-
     rts
 
 // 8DD3
@@ -667,11 +749,11 @@ initialize_music:
 .namespace private {
     // 63F3
     // Skip board walk and display game options.
-    advance_intro_state:
+    reset_options_state:
         // Ensure keyboard buffer empty and key released.
         lda LSTX
         cmp #$40
-        bne advance_intro_state
+        bne reset_options_state
         // Advance game state.
         lda #(30 / SECONDS_PER_JIFFY)
         sta board.cnt__countdown_timer // Reset auto play to 30 seconds (is was 12 seconds prior)
@@ -689,7 +771,7 @@ initialize_music:
         lda #%0001_0010
         sta VMCSB
         //
-        lda #FLAG_ENABLE_FF // Go straight to options
+        lda #FLAG_ENABLE_FF // Display options
         sta flag__game_loop_state
         // Skip intro.
         lda #FLAG_DISABLE

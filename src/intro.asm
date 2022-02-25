@@ -96,7 +96,7 @@ entry:
         sty common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
         sta common.param__icon_offset_list,x
-        jsr common.sprite_initialize
+        jsr common.initialize_sprite
         lda flag__is_icon_sprite_mirrored_list,x // Invert frames for icons pointing left
         sta common.param__icon_sprite_curr_frame // Start frames have $80 added to horizontally mirror the sprite
         lda #ICON_ANIMATION_FRAMES
