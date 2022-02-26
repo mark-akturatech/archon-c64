@@ -368,16 +368,16 @@ add_sprite_set_to_graphics:
 // different animation frames in each movement direction) and we can swap what is drawn on the screen by updating
 // the sprite pointer. 
 // Requires:
-// - `FREEZP+2,+3`: Contains the low byte, high byte of the graphic memory address to copy the frame too.
+// - `FREEZP+2,+3`: Contains the low byte and high byte of the graphic memory address to copy the frame too.
 // - `param__icon_sprite_curr_frame`: Frame to copy in to graphic memory. Will be +$80 to mirror the frame.
-// - `param__is_copy_animation_group`: Set TRUE if copying all animation frames for a specific direction.
-// - X Register (only used if `param__is_copy_animation_group` is set):
-//   - 0: to copy light player icon frames
-//   - 1: to copy dark player icon frames
-//   - 2: to copy light player projectile frames
-//   - 3: to copy dark player projectile frames
-// - `param__sprite_source_len`: Number of bytes to copy for each sprite/sprite group (only used if 
-//   `param__is_copy_animation_group` is set).
+// - `param__is_copy_icon_sprites`: Set TRUE to copy icon sprite shape data. Set FALSE to read the type of sprite from
+//   the X register (see below).
+// - X Register (only used if `param__is_copy_icon_sprites` is not set):
+//   - 0 or 1: to copy an icon sprite
+//   - 2: to copy all light player projectile frames (7 frames)
+//   - 3: to copy all dark player projectile frames (7 frames)
+// - `param__sprite_source_len`: Number of bytes to copy for each sprite/sprite group. Will be overwritten if copying
+//   projectile frames for Banshee or Phoenix as this are special cases (see comments below).
 // Notes:
 // - The logic includes functionality to add a mirrored sprite to graphics memory.
 add_sprite_to_graphics:
@@ -396,30 +396,34 @@ add_sprite_to_graphics:
     adc private.data__icon_sprite_frame_mem_offset_list+1,y
     sta FREEZP+1
     //
-    lda param__is_copy_animation_group // Set to $80+ to copy multiple animation frames for a single piece
+    lda param__is_copy_icon_sprites
     bmi !copy_icon+
     cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light projectiles, 3 for dark projectiles
     bcc !copy_icon+
     //
     // Copy sprites used for projectiles (eg bullets, clubs, sords, screams, fire etc).
     txa
-    // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
     and #$01
-    tay
+    tay // Convert X=02 to Y=00 or X=03 to Y=01
+    // Check if piece is Banshee or Phoenix. Thiese pieces have special non-directional attacks.
     lda param__icon_offset_list,y
     and #%0000_0111
     cmp #%0000_0110 // The Banshee and Phoenix icon offsets are the only icons with bits 2 and 3 set and bit 0 unset
-    bne !next+
-    lda #$FF // Banshee and Phoenix only have 4 projectile frames (e,s,n,w), so is 64*4 = 256 (0 offset)
+    bne !copy_projectile+
+    // Banshee and Phoenix only have 4 projectile frames (e,s,n,w), the frames are full width and height sprites (ie 64
+    // bytes in size instead of 54 bytes for smaller sprites) so is 64*4 = 256 bytes to copy
+    lda #(64*4 - 1) // 0 offset
     sta param__sprite_source_len
     jmp !copy_icon+
-!next:
-    // All other pieces require 7 projectile frames (e, n/s, ne, se, w, nw, sw)
+!copy_projectile:
     ldy #$00
 !loop:
     lda param__icon_sprite_curr_frame
     bpl !not_mirrored+ // +$80 to invert projectile frame
-    // Inversts 8 bits. eg 1000110 becomes 0110001
+    // Mirror 8 bits. eg 10001110 becomes 01110001. 01111000 becomes 00011110 etc.
+    // This is achieved by rolling the original value 8 times. Each time we first roll right which shifts the first
+    // bit in to the carry flag and shifts the ramining bits to the right by one position. We then roll the accumulator
+    // left. This moves all the bits in the accumular left and the adds the carry flag value to the right most bit.
     lda #$08
     sta private.data__temp_storage
     lda (FREEZP),y
@@ -455,11 +459,14 @@ add_sprite_to_graphics:
     bcc !loop-
     rts
     // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
-    // Not too sure of the formula here. TODO: work it out.
-    // TODO: up to here
 !mirrored_copy:
     lda #$0A
-    sta private.data__temp_storage // Sprite is inverted in 10 blocks
+    sta private.data__temp_storage
+    // Sprites are 24x21 bits in size with 2 bits used for each color pair. Each sprite row is therefore represented by
+    // 3 bytes. To mirror the sprite, we need to shift each 2 byte pair 12 times with the bits rotated out of each byte
+    // added to the next byte in the 3 byte pair. We need to repeat this then for each row.
+    // NOTE that we normally need to shift 12 times, but Archon sprites are slightly smaller than normal sprites, so
+    // we only need to shift the sprite data 10 times as the first 4 bits of each row are not used. Small optimization.
     tya
     clc
     adc #$02
@@ -476,21 +483,24 @@ add_sprite_to_graphics:
     sta private.data__temp_storage+4
     sta private.data__temp_storage+5
 !loop:
-    jsr private.invert_bytes
-    jsr private.invert_bytes
+    // swap the last two bits of the 3 bytes
+    jsr private.mirror_bits
+    jsr private.mirror_bits
+    // The logic below inverts the 2-bit pair rotated to the start of the first byte back so we don't invert the colors
     pha
-    and #$C0
+    and #%1100_0000
     beq !next+
-    cmp #$C0
+    cmp #%1100_0000
     beq !next+
     pla
-    eor #$C0
+    eor #%1100_0000
     jmp !next++
 !next:
     pla
 !next:
     dec private.data__temp_storage
     bne !loop-
+    // Store the rotated bytes and repeat for the remaning rows.
     sta (FREEZP+2),y
     iny
     lda private.data__temp_storage+4
@@ -504,10 +514,7 @@ add_sprite_to_graphics:
     rts
 
 // 8DD3
-// Clear the video graphics area and reset sprite positions and sprite configuration.
-// Sets:
-// - Clears 4kb of graphical memory with 00 bytes.
-// - All 8 sprites are reset by setting 00 to sprite position and configuration (color, size etc) bytes.
+// Clear the video graphics area and reset sprite positions for first 4 sprites.
 clear_sprites:
     lda #<GRPMEM
     sta FREEZP+2
@@ -523,6 +530,7 @@ clear_sprites:
     inc FREEZP+3
     dex
     bne !loop-
+    //
     // reset sprite positions
     ldx #$07
     sta MSIGX
@@ -533,9 +541,10 @@ clear_sprites:
     rts
 
 // 905C
-// Busy wait for STOP, game options (function keys) or Q keypress or game state change.
+// Busy wait for STOP, game options (function keys), Q keypress or game state change.
 // Notes:
 // - Repeats until `flag__cancel_interrupt_state` is set.
+// - Resets sound before completion.
 wait_for_key_or_task_completion:
     lda #FLAG_DISABLE
     sta flag__cancel_interrupt_state
@@ -548,8 +557,6 @@ wait_for_key_or_task_completion:
 
 // 931F
 // Clear sprite position 24 in graphics memory.
-// Sets:
-// - Clears the 24th sprite position graphical memory (with 00).
 clear_mem_sprite_24:
     lda ptr__sprite_24_mem
     sta FREEZP+2
@@ -565,12 +572,10 @@ clear_mem_sprite_24:
 
 // 92A7
 // Clear sprite position 48 in graphics memory.
-// Sets:
-// - Clears the 48th sprite position graphical memory (with 00).
 clear_mem_sprite_48:
-    lda common.ptr__sprite_48_mem
+    lda ptr__sprite_48_mem
     sta FREEZP+2
-    lda common.ptr__sprite_48_mem+1
+    lda ptr__sprite_48_mem+1
     sta FREEZP+3
     ldy #(BYTES_PER_SPRITE - 1) // 0 offset
     lda #$00
@@ -582,15 +587,13 @@ clear_mem_sprite_48:
 
 // 91E7
 // Clear sprite position 56 and 57 in graphics memory.
-// Sets:
-// - Clears the 56th and 57th sprite position graphical memory (with 00).
 clear_mem_sprite_56_57:
-    lda common.ptr__sprite_56_mem
+    lda ptr__sprite_56_mem
     sta FREEZP+2
-    lda common.ptr__sprite_56_mem+1
+    lda ptr__sprite_56_mem+1
     sta FREEZP+3
     lda #$00
-    ldy #(BYTES_PER_SPRITE*2)
+    ldy #(BYTES_PER_SPRITE*2) // BUG: Should be - 1. No big deal... just clears one more byte than we need to.
 !loop:
     sta (FREEZP+2),y
     dey
@@ -598,9 +601,7 @@ clear_mem_sprite_56_57:
     rts
 
 // 9333
-// Clear the character graphical area.
-// Sets:
-// - Loads $00 to the video matrix SCNMEM to SCNMEM+$3E7.
+// Clear the screen.
 clear_screen:
     lda #<SCNMEM
     sta FREEZP+2
@@ -619,7 +620,7 @@ clear_screen:
 !loop:
     sta (FREEZP+2),y
     iny
-    cpy #$E8
+    cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
     bcc !loop-
     rts
 
@@ -630,19 +631,20 @@ clear_screen:
 //   for voice 3.
 // Notes:
 // - Commands are separated by notes and begin with a special code as follows:
-//      00: stop current note
-//      01-F9: Plays a note (of given note value)
-//      FB: Set delay - next number in pattern is the delay time.
-//      FC: Set early filter gate release (release gate but continue delay).
-//      FD: Set game state (synch state with certain points in the music).
-//      FE: End pattern - move to next pattern in the pattern list.
-//      FF: End music.
+//   - 00: stop current note
+//   - 01-F9: Play a note (of given note value)
+//   - FB: Set delay - next number in pattern is the delay time.
+//   - FC: Set early filter gate release (release gate but continue delay).
+//   - FD: Set introduction sub-state (synchs state with certain points in the music).
+//   - FE: End pattern - move to next pattern in the pattern list.
+//   - FF: End music.
 // - See `initialize_music` for further details of how music and patterns are stored.
-// - This sub is called each time an interrupt occurs. It runs once and processes notes/command on each voice,
-//   increments the pointer to the next command/note and then exits.
+// - This function is called each time a raster interrupt occurs. It runs once and processes notes/command on each
+//   voice, increments the pointer to the next command/note and then exits.
 play_music:
-    ldx #$02
+    ldx #(NUMBER_VOICES - 1) // 0 offset
 !loop:
+    // Configure the voice.
     txa
     asl
     tay
@@ -658,29 +660,28 @@ play_music:
     sta private.prt__voice_pattern_data
     lda private.ptr__voice_pattern_fn_list+1,y
     sta private.prt__voice_pattern_data+1
-    //
     lda private.cnt__voice_note_delay_list,x
-    beq !done+
+    beq !get_next_note+
+    // Wait for note to finish playing and release the note just before delay expires.
     cmp #$02
     bne !delay+
-    // Release note just before delay expires.
     lda private.data__voice_control_list,x
-    and #%1111_1110
-    ldy #$04
+    and #%1111_1110 // Release
+    ldy #$04 // Voice control register
     sta (FREEZP+2),y
 !delay:
     dec private.cnt__voice_note_delay_list,x
-    bne !next+
-!done:
-    jsr private.get_next_command
-!next:
+    bne !return+
+!get_next_note:
+    jsr private.get_next_pattern_command
+!return:
     dex
     bpl !loop-
     rts
 
 // A13E
 // Read note from current music loop and increment the note pointer.
-get_note: // Get note for current voice and increment note pointer
+get_note:
     ldy #$00
     jmp (prt__voice_note_fn)
 
@@ -704,14 +705,17 @@ initialize_music:
     // Full volume.
     lda #%0000_1111
     sta SIGVOL
+    //
     // Configure music pointers.
-    ldy #$05
+    ldy #(NUMBER_VOICES*2 - 1) // Read high/low bytes of the source pattern for each voice (0 offset)
 !loop:
     lda param__is_play_outro
     bpl !intro+
+    // Configure outro music phrasing.
     lda private.ptr__outro_voice_init_pattern_list,y
     jmp !next+
 !intro:
+    // Configure intro music phrasing.
     lda private.ptr__intro_voice_init_pattern_list,y
 !next:
     sta VARTAB,y
@@ -720,11 +724,12 @@ initialize_music:
     sta OLDTXT,y
     dey
     bpl !loop-
+    //
     // Configure voices.
-    ldx #$02
+    ldx #(NUMBER_VOICES - 1) // 0 offset
 !loop:
     lda #$00
-    sta private.cnt__voice_note_delay_list,x
+    sta private.cnt__voice_note_delay_list,x // Reset delay counter
     txa
     asl
     tay
@@ -732,14 +737,14 @@ initialize_music:
     sta FREEZP+2
     lda ptr__voice_ctl_addr_list+1,y
     sta FREEZP+3
-    ldy #$06
-    lda private.data__voice_sustain_value_list,x
-    sta (FREEZP+2),y
-    lda private.data__voice_control_list_value_list,x
-    sta private.data__voice_control_list,x
+    ldy #$06 // Voice sustain
+    lda private.data__voice_initial_sustain_value_list,x
+    sta (FREEZP+2),y // Set initial sustain value
+    lda private.data__voice_initial_control_value_list,x
+    sta private.data__voice_control_list,x // Set initial control
     dey
     lda private.data__voice_attack_value_list,x
-    sta (FREEZP+2),y
+    sta (FREEZP+2),y // Set initial attack
     dex
     bpl !loop-
     rts
@@ -750,16 +755,16 @@ initialize_music:
     // 63F3
     // Skip board walk and display game options.
     reset_options_state:
-        // Ensure keyboard buffer empty and key released.
+        // Ensure keyboard buffer empty and wait for key to be released.
         lda LSTX
-        cmp #$40
+        cmp #%0100_0000 // No key?
         bne reset_options_state
         // Advance game state.
         lda #(30 / SECONDS_PER_JIFFY)
-        sta board.cnt__countdown_timer // Reset auto play to 30 seconds (is was 12 seconds prior)
+        sta board.cnt__countdown_timer // Reset auto play to 30 seconds
         lda #FLAG_ENABLE
-        sta flag__cancel_interrupt_state
-        // Remove intro interrupt handler.
+        sta flag__cancel_interrupt_state // Exit interrupt wait loops
+        // Remove intro interrupt handler and switch it for the default 'no-action' handler.
         sei
         lda #<complete_interrupt
         sta main.ptr__raster_interrupt_fn
@@ -770,17 +775,19 @@ initialize_music:
         // Set character dot data to $0400-$07FF (+VIC bank offset as set in CI2PRA).
         lda #%0001_0010
         sta VMCSB
-        //
-        lda #FLAG_ENABLE_FF // Display options
+        // Stop introduction and display options page.
+        lda #FLAG_ENABLE_FF
         sta flag__game_loop_state
-        // Skip intro.
+        // Stop introduction from being played again on next new game.
         lda #FLAG_DISABLE
         sta intro.flag__is_enabed
         sta intro.flag__is_complete
         rts
 
     // 8D33
-    invert_bytes:
+    // Roll bits from 3 bytes. Used by `add_sprite_to_graphics` to mirror a multi-colored sprite. See
+    // `add_sprite_to_graphics` for further info.
+    mirror_bits:
         rol data__temp_storage+3
         rol data__temp_storage+2
         rol data__temp_storage+1
@@ -790,22 +797,22 @@ initialize_music:
         rts
 
     // AC5B
-    // Reads a command from the current pattern data. Commands can be notes or special commands. See `play_music` for
+    // Reads a command from the current pattern data. Commands may be notes or special commands. See `play_music` for
     // details.
-    get_next_command:
+    get_next_pattern_command:
         jsr get_note
         cmp #SOUND_CMD_END // Stop voice
         bne !next+
         // Reset voice.
-        ldy #$04
+        ldy #$04 // Control register
         lda #$00
         sta (FREEZP+2),y // FREEZP+2 is ptr to base SID control address for current voice
         rts
     !next:
         cmp #SOUND_CMD_NEXT_PATTERN // Pattern finished - load next pattern
         bne !next+
-        jsr get_next_pattern
-        jmp get_next_command
+        jsr get_pattern
+        jmp get_next_pattern_command
     !next:
         cmp #SOUND_CMD_NEXT_STATE // Set next into animation state
         beq !set_state+
@@ -830,6 +837,8 @@ initialize_music:
         sta (FREEZP+2),y
         jmp !set_note+
     !set_state:
+        // Advance the introduction sub state. This allows states to be times with certain points within the
+        // introduction music.
         lda intro.idx__substate_fn_ptr
         inc intro.idx__substate_fn_ptr
         asl
@@ -838,7 +847,7 @@ initialize_music:
         sta intro.ptr__substate_fn
         lda intro.ptr__substate_fn_list+1,y
         sta intro.ptr__substate_fn+1
-        jmp get_next_command
+        jmp get_next_pattern_command
     !clear_note:
         ldy #$04
         sta (FREEZP+2),y
@@ -846,7 +855,7 @@ initialize_music:
     !set_delay:
         jsr get_note
         sta data__voice_note_delay,x
-        jmp get_next_command
+        jmp get_next_pattern_command
     !release_note:
         ldy #$04
         lda data__voice_control_list,x
@@ -863,7 +872,7 @@ initialize_music:
 
     // A143
     // Get note for voice 1 and increment note pointer.
-    get_note_V1:
+    get_note_v1:
         lda (OLDTXT),y
         inc OLDTXT
         bne !next+
@@ -873,7 +882,7 @@ initialize_music:
 
     // A14C
     // Get note for voice 2 and increment note pointer.
-    get_note_V2: 
+    get_note_v2: 
         lda (OLDTXT+2),y
         inc OLDTXT+2
         bne !next-
@@ -882,7 +891,7 @@ initialize_music:
 
     // A155
     // Get note for voice 3 and increment note pointer.
-    get_note_V3:
+    get_note_v3:
         lda (OLDTXT+4),y
         inc OLDTXT+4
         bne !next-
@@ -891,13 +900,13 @@ initialize_music:
 
     // ACDA
     // Read a pattern for the current music loop and increment the pattern pointer.
-    get_next_pattern: // Get pattern for current voice and increment pattern pointer
+    get_pattern:
         ldy #$00
         jmp (prt__voice_pattern_data)
 
     // ACDF
     // Get pattern for voice 1 and increment pattern pointer.
-    get_pattern_V1:
+    get_pattern_v1:
         lda (VARTAB),y
         sta OLDTXT
         iny
@@ -914,7 +923,7 @@ initialize_music:
 
     // ACF4
     // Get pattern for voice 2 and increment pattern pointer.
-    get_pattern_V2:
+    get_pattern_v2:
         lda (VARTAB+2),y
         sta OLDTXT+2
         iny
@@ -930,7 +939,7 @@ initialize_music:
 
     // AD09
     // Get pattern for voice 3 and increment pattern pointer.
-    get_pattern_V3: 
+    get_pattern_v3: 
         lda (VARTAB+4),y
         sta OLDTXT+4
         iny
@@ -952,7 +961,7 @@ initialize_music:
 .segment Assets
 
 // 8DBF
-// List of pointer to sprite graphics block pointers.
+// List of sprite graphics block pointers.
 ptr__sprite_offset_list:
 ptr__sprite_00_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+00 // Sprite 0 screen pointer
 ptr__sprite_24_offset: .byte (VICGOFF/BYTES_PER_SPRITE)+24 // Sprite 24 screen pointer
@@ -972,15 +981,15 @@ ptr__sprite_48_mem: .word GRPMEM+48*BYTES_PER_SPRITE // Pointer to sprite 48 gra
 ptr__sprite_56_mem: .word GRPMEM+56*BYTES_PER_SPRITE // Pointer to sprite 56 graphic memory area
 
 // 906F
-// Color of icon based on side (light, dark).
+// Color of icon for each player side (light, dark).
 data__player_icon_color_list: .byte YELLOW, LIGHT_BLUE
 
 // A0A5
-// Pointer to function to get note and incremement note pointer for each voice
-ptr__voice_play_fn_list: .word private.get_note_V1, private.get_note_V2, private.get_note_V3
+// Pointer to function to read notes for each voice.
+ptr__voice_play_fn_list: .word private.get_note_v1, private.get_note_v2, private.get_note_v3
 
 // A0AB
-// Address offsets for each SID voice control address.
+// Address offsets for the starting SID address for each voice.
 ptr__voice_ctl_addr_list: .word FRELO1, FRELO2, FRELO3
 
 // BF19
@@ -991,13 +1000,11 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 // Private variables.
 .namespace private {
     // 3D40
-    // Music is played by playing notes pointed to by `init_pattern_list_ptr` on each voice.
-    // When the voice pattern list finishes, the music will look at the intro or outro pattern list pointers (
-    // `intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played. This list will then tell the
-    // player which pattern to play next.
-    // When the pattern finishes, it looks at the next pattern in the list and continues until a FE command is reached.
-    //
-    // NOTE: The music is split in to two parts so that we can fit it within the relocatable resource blocks.
+    // Music is played by playing notes within the pattern referenced by `init_pattern_list_ptr` for each voice.
+    // When the voice pattern finishes, the play function will look at the intro or outro pattern list pointers
+    // (`intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played and will select the next
+    // patten to play. This continues until a termination command is read.
+    // Note that the same pattern may be played multiple times during the piece.
     //
     // Pointers for intro music pattern list for each voice.
     ptr__intro_voice_init_pattern_list:
@@ -1060,8 +1067,8 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
     data__elemental_icon_color_list: .byte LIGHT_GRAY, RED, BROWN, BLUE
 
     // 8D44
-    // Memory offset of each sprite frame within a sprite set.
-    // In description below:
+    // Memory offset of each sprite frame within the sprite set.
+    // The following terminology is used in descriptions below:
     // - m-=movement frame, a-=attack frame, p-=projectile (bullet, sword etc) frame
     // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
     // - numbers represent the animation frame. eg movement frames have 4 animations each
@@ -1074,20 +1081,20 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
         .word $02F4, $0008, $0000, $0010, $0018
 
     // AD6A
-    // Voice sustain values.
-    data__voice_sustain_value_list: .byte $a3, $82, $07
+    // Initial voice sustain values.
+    data__voice_initial_sustain_value_list: .byte $a3, $82, $07
 
     // AD6D
-    // Voice control values.
-    data__voice_control_list_value_list: .byte $21, $21, $21
+    // Initial voice control values.
+    data__voice_initial_control_value_list: .byte $21, $21, $21
 
     // AD70
-    // Voice attack values.
+    // Initial voice attack values.
     data__voice_attack_value_list: .byte $07, $07, $07
 
     // AD7D
-    // Pointer to function to get pattern and incremement note pointer for each voice.
-    ptr__voice_pattern_fn_list: .word get_pattern_V1, get_pattern_V2, get_pattern_V3
+    // Pointer to function to read the next pattern for each voice.
+    ptr__voice_pattern_fn_list: .word get_pattern_v1, get_pattern_v2, get_pattern_v3
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1096,8 +1103,8 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 .segment Data
 
 // BCC1
-// Temporary AI selection flag. Is incremented when AI option is selected up to $02 before wrapping back to $00.
-// Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
+// Temporary AI selection counter. The counte ris incremented when AI option is selected up to $02 before wrapping back
+// to $00. Is 0 for none, 1 for computer plays light, 2 for computer plays dark.
 cnt__ai_selection: .byte $00
 
 // BCC3
@@ -1106,7 +1113,7 @@ flag__game_loop_state: .byte $00
 
 // BCC5
 // The AI selection is used to generate a flag representing the side played by the AI.
-// Is positive (55) for light, negative (AA) for dark, ($00) for neither or ($ff) for both.
+// Is positive ($55) for light, negative ($AA) for dark, ($00) for neither or ($ff) for both.
 // Both is selected after a selection timeout.
 flag__ai_player_selection: .byte $00
 
@@ -1127,28 +1134,16 @@ param__sprite_source_len: .byte $00
 // Initial animation for up to 4 sprites.
 param__icon_sprite_source_frame_list: .byte $00, $00, $00, $00
 
-// BCE7
-// Current animation frame.
-cnt__sprite_frame_list: .byte $00, $00, $00, $00
-
-// BD3E
-// Current sprite x-position.
-data__sprite_curr_x_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
-
-// BD46
-// Current sprite y-position.
-data__sprite_curr_y_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
-
 // BD66
 // Function pointer to retrieve a note for the current voice.
 prt__voice_note_fn: .word $0000
 
 // BF08
-// Set to non zero to enable the voice for each player (low is player 1, hi player 2).
+// Set to non zero to enable the voice for each player.
 flag__is_player_sound_enabled: .byte $00, $00
 
 // BF0B
-// New note delay timer.
+// Note delay time.
 data__voice_note_delay: .byte $00, $00, $00
 
 // BF24
@@ -1164,11 +1159,11 @@ param__icon_offset_list: .byte $00, $00, $00, $00
 param__icon_type_list: .byte $00, $00, $00, $00
 
 // BF49
-// Set #$80 to copy individual icon frame in to graphical memory.
-param__is_copy_animation_group: .byte $00
+// Set TRUE to copy icon sprite shape data or FALSE to copy icon or projectile sprite data based on value in X register.
+param__is_copy_icon_sprites: .byte $00
 
 // BF50
-// Is 00 for title music and 80 for game end music.
+// Is FALSE for title music and TRUE for game end music.
 param__is_play_outro: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1183,8 +1178,7 @@ param__is_play_outro: .byte $00
     data__temp_storage: .byte $00, $00, $00, $00, $00, $00
 
     // BF23
-    // Low byte of current sprite memory location pointer. Used to increment to next sprite pointer location (by adding 64
-    // bytes) when adding chasing icon sprites.
+    // Low byte of current sprite memory location pointer. Used to increment to next sprite block pointer location.
     ptr__sprite_mem_lo: .byte $00
 
     // BF4A
@@ -1196,10 +1190,10 @@ param__is_play_outro: .byte $00
     data__voice_control_list: .byte $00, $00, $00
 
     // BCD4
-    // Low byte pointer to sprite frame source data.
+    // Low byte pointer to sprite shape data source data.
     ptr__sprite_source_lo_list: .byte $00, $00, $00, $00
 
     // BCD8
-    // High byte pointer to sprite frame source data.
+    // High byte pointer to sprite shape data source data.
     ptr__sprite_source_hi_list: .byte $00, $00, $00, $00
 }

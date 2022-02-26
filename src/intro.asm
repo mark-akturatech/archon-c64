@@ -80,7 +80,7 @@ entry:
     import_sprites:
         // Copy in icon frames for chase scene.
         lda #FLAG_ENABLE
-        sta common.param__is_copy_animation_group // Copy icon animation frames to animate movement in the chase scene
+        sta common.param__is_copy_icon_sprites
         lda #BYTERS_PER_STORED_SPRITE
         sta common.param__sprite_source_len
         lda common.ptr__sprite_24_mem
@@ -156,10 +156,10 @@ entry:
         sta SP0COL,x
         lda data__logo_sprite_start_x_pos_list,x
         sta SP0X,y
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         lda data__logo_sprite_start_y_pos_list,x
         sta SP0Y,y
-        sta common.data__sprite_curr_y_pos_list,x
+        sta board.data__sprite_curr_y_pos_list,x
         dex
         bpl !loop-
         // Final y-pos of Archon title sprites afters scroll from bottom of screen.
@@ -294,13 +294,13 @@ entry:
     state__scroll_logos:
         ldx #$01 // process two sprites groups ("Archon" comprises 4 sprites and "Freefall" comprises 3)
     !loop:
-        lda common.data__sprite_curr_y_pos_list+3,x
+        lda board.data__sprite_curr_y_pos_list+3,x
         cmp data__sprite_final_y_pos_list,x
         beq !next+ // Stop moving if at final position
         bcs !scroll_up+
         // Scroll down Freefall.
         adc #$02 // Scroll down by 2 pixels
-        sta common.data__sprite_curr_y_pos_list+3,x
+        sta board.data__sprite_curr_y_pos_list+3,x
         ldy #$04
     !move_loop:
         sta SP4Y,y // Move sprites 5 to 7
@@ -313,7 +313,7 @@ entry:
         sbc #$02 // Scroll up by 2 pixels
         ldy #$03
     !update_pos:
-        sta common.data__sprite_curr_y_pos_list,y
+        sta board.data__sprite_curr_y_pos_list,y
         dey
         bpl !update_pos-
         ldy #$06
@@ -417,18 +417,18 @@ entry:
         ldx #$03
         ldy #$06
     !loop:
-        lda common.data__sprite_curr_y_pos_list,x
+        lda board.data__sprite_curr_y_pos_list,x
         // Add the direction pointer to the current sprite positions.
         // The direction pointer is 01 for right and FF (which is same as -1 as number overflows and wraps around) for
         // left direction.
         clc
         adc data__sprite_curr_y_pos
-        sta common.data__sprite_curr_y_pos_list,x
+        sta board.data__sprite_curr_y_pos_list,x
         sta SP0Y,y
-        lda common.data__sprite_curr_x_pos_list,x
+        lda board.data__sprite_curr_x_pos_list,x
         clc
         adc data__sprite_curr_x_pos
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         sta SP0X,y
         dey
         dey
@@ -461,8 +461,8 @@ entry:
         lda cnt__sprite_delay
         and #$07
         bne !return+
-        inc common.cnt__sprite_frame_list
-        lda common.cnt__sprite_frame_list
+        inc board.cnt__sprite_frame_list
+        lda board.cnt__sprite_frame_list
         and #$0F
         sta SPMC0
         clc
@@ -494,9 +494,9 @@ entry:
         // Confifure sprite colors and positions
         ldx #$03
     !loop:
-        lda common.data__sprite_curr_x_pos_list,x
+        lda board.data__sprite_curr_x_pos_list,x
         lsr
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         lda data__icon_sprite_color_list,x
         sta SP0COL,x
         dex
@@ -513,18 +513,18 @@ entry:
         eor #$FF
         sta cnt__sprite_delay
         bmi !return+
-        inc common.cnt__sprite_frame_list // Counter is used to set the animation frame
+        inc board.cnt__sprite_frame_list // Counter is used to set the animation frame
         //Move icon sprites.
     !loop:
         txa
         asl
         tay
-        lda common.data__sprite_curr_x_pos_list,x
+        lda board.data__sprite_curr_x_pos_list,x
         cmp data__logo_sprite_final_x_pos_list,x
         beq !next+
         clc
         adc data__icon_sprite_direction_addend,x
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         asl // Move by two pixels at a time
         sta SP0X,y
         // C64 requires 9 bits for sprite X position. Therefore sprite is set using sprite X position AND we may need to
@@ -542,7 +542,7 @@ entry:
         // Set the sprite pointer to point to one of four sprites used for each icon. A different frame is shown on
         // each movement.
     !skip:
-        lda common.cnt__sprite_frame_list
+        lda board.cnt__sprite_frame_list
         and #$03 // 1-4 animation frames
         clc
         adc ptr__icon_sprite_mem_list,x

@@ -55,11 +55,11 @@ entry:
     jsr board.convert_coord_sprite_pos
     sec
     sbc #$02
-    sta common.data__sprite_curr_x_pos_list+1
+    sta board.data__sprite_curr_x_pos_list+1
     tya
     sec
     sbc #$01
-    sta common.data__sprite_curr_y_pos_list+1
+    sta board.data__sprite_curr_y_pos_list+1
     lda #%1000_1111
     sta SPENA
     // Clear sprite render variables.
@@ -67,7 +67,7 @@ entry:
     lda #$00
 !loop:
     sta common.param__icon_sprite_source_frame_list,y
-    sta common.cnt__sprite_frame_list,y
+    sta board.cnt__sprite_frame_list,y
     dey
     bne !loop-
     //
@@ -584,7 +584,7 @@ interrupt_handler:
     beq !next+
     bmi !move_left+
     // Move sprite right.
-    inc common.data__sprite_curr_x_pos_list,x
+    inc board.data__sprite_curr_x_pos_list,x
     dec private.cnt__sprite_x
     inc private.flag__was_sprite_moved
     bpl !next+
@@ -592,7 +592,7 @@ interrupt_handler:
     and #$7F
     beq !next+
     // Move sprite left.
-    dec common.data__sprite_curr_x_pos_list,x
+    dec board.data__sprite_curr_x_pos_list,x
     dec private.cnt__sprite_x
     inc private.flag__was_sprite_moved
 !next:
@@ -600,7 +600,7 @@ interrupt_handler:
     beq !next+
     bmi !move_up+
     // Move sprite down.
-    inc common.data__sprite_curr_y_pos_list,x
+    inc board.data__sprite_curr_y_pos_list,x
     dec private.cnt__sprite_y
     inc private.flag__was_sprite_moved
     bpl !next+
@@ -608,14 +608,14 @@ interrupt_handler:
     and #$7F
     beq !next+
     // Move sprite up.
-    dec common.data__sprite_curr_y_pos_list,x
+    dec board.data__sprite_curr_y_pos_list,x
     dec private.cnt__sprite_y
     inc private.flag__was_sprite_moved
 !next:
     lda private.flag__was_sprite_moved
     bne !next+
     // Stop sound and reset current animation frame when movemement stopped.
-    sta common.cnt__sprite_frame_list,x // A = 00
+    sta board.cnt__sprite_frame_list,x // A = 00
     cpx #$01 // X is 01 if moving square, 00 for moving icon
     beq !render_sprite+
     sta common.flag__is_player_sound_enabled
@@ -638,7 +638,7 @@ interrupt_handler:
     and #$03
     cmp #$03
     bne !render_sprite+
-    inc common.cnt__sprite_frame_list,x
+    inc board.cnt__sprite_frame_list,x
     // Configure movement sound effect for selected piece.
     lda #FLAG_ENABLE
     cmp common.flag__is_player_sound_enabled
@@ -1281,7 +1281,7 @@ display_message:
         lda #$00
     !loop:
         sta common.param__icon_sprite_source_frame_list,x
-        sta common.cnt__sprite_frame_list,x
+        sta board.cnt__sprite_frame_list,x
         dex
         bpl !loop-
         //

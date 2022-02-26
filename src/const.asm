@@ -96,12 +96,14 @@
 //---------------------------------------------------------------------------------------------------------------------
 // Sound constants
 
-.const SOUND_CMD_NO_NOTE = $00    // Stop note
-.const SOUND_CMD_SET_DELAY = $FB    // Set delay
+.const SOUND_CMD_NO_NOTE = $00 // Stop note
+.const SOUND_CMD_SET_DELAY = $FB // Set delay
 .const SOUND_CMD_RELEASE_NOTE = $FC // Immediate release
-.const SOUND_CMD_NEXT_STATE = $FD   // End state - used to trigger code at points in the music
-.const SOUND_CMD_NEXT_PATTERN = $FE  // Go to next pattern (or repeat current pattern)
-.const SOUND_CMD_END = $FF          // End pattern and turn off voice
+.const SOUND_CMD_NEXT_STATE = $FD // End state - used to trigger code at points in the music
+.const SOUND_CMD_NEXT_PATTERN = $FE // Go to next pattern (or repeat current pattern)
+.const SOUND_CMD_END = $FF // End pattern and turn off voice
+
+.const NUMBER_VOICES = 3 // Total number of voices available on the SID
 
 //---------------------------------------------------------------------------------------------------------------------
 // String constants

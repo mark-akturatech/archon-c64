@@ -34,12 +34,12 @@ get_sound_for_icon:
 // - Y: Board row
 // - X: Sprite number $00 to $07 ($04 is special - see below)
 // Sets:
-// - `common.data__sprite_curr_x_pos_list,x` and `common.data__sprite_curr_y_pos_list,x` with the calculated position.
+// - `data__sprite_curr_x_pos_list,x` and `data__sprite_curr_y_pos_list,x` with the calculated position.
 // - A: Sprite X position
 // - Y: Sprite Y position
 // Notes:
-// - If X is set to $04, then the position is not stored in `common.data__sprite_curr_x_pos_list,x` and
-//   `common.data__sprite_curr_y_pos_list,x`.
+// - If X is set to $04, then the position is not stored in `data__sprite_curr_x_pos_list,x` and
+//   `data__sprite_curr_y_pos_list,x`.
 convert_coord_sprite_pos:
     // Calculate X position.
     pha
@@ -56,7 +56,7 @@ convert_coord_sprite_pos:
     adc #$1A
     cpx #$04
     bcs !next+
-    sta common.data__sprite_curr_x_pos_list,x
+    sta data__sprite_curr_x_pos_list,x
 !next:
     pha
     // Calculate Y position.
@@ -69,7 +69,7 @@ convert_coord_sprite_pos:
     adc #$17
     cpx #$04
     bcs !next+
-    sta common.data__sprite_curr_y_pos_list,x
+    sta data__sprite_curr_y_pos_list,x
 !next:
     tay
     pla
@@ -105,7 +105,7 @@ write_text:
     jmp !loop-
 
 // 6529
-// Displays the game options at the bottom of the board.
+// Displays the game options at the bottom of the 
 display_options:
     ldx #$01
     lda #STRING_F3
@@ -205,9 +205,9 @@ add_icon_to_matrix:
 // Places a sprite at a given location and enables the sprite.
 // Requires:
 // - X: sprite number to be enabled.
-// - `common.data__sprite_curr_x_pos_list`: Screen X location of the sprite.
-// - `common.data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
-// - `common.cnt__sprite_frame_list`: Current frame number (0 to 4) of animated sprite
+// - `data__sprite_curr_x_pos_list`: Screen X location of the sprite.
+// - `data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
+// - `cnt__sprite_frame_list`: Current frame number (0 to 4) of animated sprite
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
@@ -217,7 +217,7 @@ render_sprite:
     txa
     asl
     tay
-    lda common.cnt__sprite_frame_list,x
+    lda cnt__sprite_frame_list,x
     and #$03 // Ensure sprite number is between 0 and 3 to allow multiple animation frames for each sprite id
     clc
     adc common.param__icon_sprite_source_frame_list,x
@@ -229,22 +229,22 @@ render_sprite:
 // Requires:
 // - X: sprite number to be enabled.
 // - Y: 2 * the sprite number to be enabled.
-// - `common.data__sprite_curr_x_pos_list`: Screen X location of the sprite.
-// - `common.data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
+// - `data__sprite_curr_x_pos_list`: Screen X location of the sprite.
+// - `data__sprite_curr_y_pos_list`: Screen Y location of the sprite.
 // Sets:
 // - Enables the sprite and sets X and Y coordinates.
 // Notes:
 // - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
 set_sprite_location:
-    lda common.data__sprite_curr_y_pos_list,x
+    lda data__sprite_curr_y_pos_list,x
     clc
     adc #$32
     sta SP0Y,y
     //
-    lda common.data__sprite_curr_x_pos_list,x
+    lda data__sprite_curr_x_pos_list,x
     clc
-    adc common.data__sprite_curr_x_pos_list,x
+    adc data__sprite_curr_x_pos_list,x
     sta private.data__temp_sprite_y_store
     lda #$00
     adc #$00
@@ -287,7 +287,7 @@ set_player_color:
     rts
 
 // 9076
-// Draws the board squares and renders the occupied characters on the board. The squares are colored according to the
+// Draws the board squares and renders the occupied characters on the  The squares are colored according to the
 // color matrix and the game current color phase.
 // Each square is 3 characters wide and 2 characters high.
 draw_board:
@@ -403,7 +403,7 @@ draw_board:
     rts
 
 // 916E
-// Draws a border around the board.
+// Draws a border around the 
 draw_border:
     .const BORDER_CHARACTER = $C0
     // Draw top border.
@@ -513,9 +513,9 @@ draw_magic_square:
     .const SPRITE_NUMBER=7
     sty private.cnt__magic_square
     lda private.data__magic_square_x_pos_list,y
-    sta common.data__sprite_curr_x_pos_list+SPRITE_NUMBER
+    sta data__sprite_curr_x_pos_list+SPRITE_NUMBER
     lda private.data__magic_square_y_pos_list,y
-    sta common.data__sprite_curr_y_pos_list+SPRITE_NUMBER
+    sta data__sprite_curr_y_pos_list+SPRITE_NUMBER
     //
     ldx #SPRITE_NUMBER
     lda common.ptr__sprite_48_offset
@@ -745,7 +745,7 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
         .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
 
     // 9073
-    // Board background colors used when rendering the player on the board. 
+    // Board background colors used when rendering the player on the  
     data__player_square_bg_color_list: .byte BLACK, YELLOW, LIGHT_BLUE
 
     // 92E1
@@ -801,6 +801,18 @@ cnt__countdown_timer: .byte $00
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
+
+// BCE7
+// Current animation frame.
+cnt__sprite_frame_list: .byte $00, $00, $00, $00
+
+// BD3E
+// Current sprite x-position.
+data__sprite_curr_x_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
+
+// BD46
+// Current sprite y-position.
+data__sprite_curr_y_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 
 // BD14
 // Set to 0 to render all occupied squares, $80 to disable rendering icons and $01-$79 to render a specified

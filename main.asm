@@ -239,14 +239,8 @@ game_state_loop:
     beq !skip+
     jsr board_walk.entry
 !skip:
-    //
-    // Default to copying individual icon frames instead of whole animation groups when creating a sprite set for a
-    // selected icon when using the `add_sprite_to_graphics` function. An animation group contains animations for
-    // movement in all directions, attack animation and projectile animations.
-    // We only need the full sprite sets in the battle arena, so for now, we'll default this feature to off.
     lda #FLAG_DISABLE
-    sta common.param__is_copy_animation_group
-    //
+    sta common.param__is_copy_icon_sprites // There is no real need to initialize this here.
     lda #FLAG_DISABLE
     sta intro.flag__is_enabed // Don't play intro again
     //

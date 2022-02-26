@@ -516,11 +516,11 @@ spell_select:
         jsr board.convert_coord_sprite_pos
         sec
         sbc #$02
-        sta common.data__sprite_curr_x_pos_list+1
+        sta board.data__sprite_curr_x_pos_list+1
         tya
         sec
         sbc #$01
-        sta common.data__sprite_curr_y_pos_list+1
+        sta board.data__sprite_curr_y_pos_list+1
         jsr board.render_sprite
         // Allow user to select a dead icon.
         lda #STRING_REVIVE_WHICH

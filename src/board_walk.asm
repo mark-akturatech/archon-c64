@@ -174,17 +174,17 @@ entry:
         // Set starting X position for each piece sprite in the icon group.
     !loop:
         lda data__sprite_start_x_pos
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         dex
         // BUG: The original source code doesn't have the following line. Without the BMI, this causes a random bit
         // of memory to be overwritten if the number of icons being added to the board is odd (well not actually
-        // random, is memory at common.data__sprite_curr_x_pos_list + 255 bytes). Seems to be lucky in original source
+        // random, is memory at board.data__sprite_curr_x_pos_list + 255 bytes). Seems to be lucky in original source
         // and not cause any issues. But for us, we want the code to be relocatable. Took a while to find and fix this
         // one :(
         bmi !next+
         clc
         adc data__sprite_group_piece_x_offset
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         dex
         bpl !loop-
     !next:
@@ -201,7 +201,7 @@ entry:
         bpl !loop-
         //
         ldx #$00
-        stx common.cnt__sprite_frame_list // Start sprite animation on first frame in sprite group
+        stx board.cnt__sprite_frame_list // Start sprite animation on first frame in sprite group
         ldy common.param__icon_type_list
         lda board.data__piece_icon_offset_list,y
         sta common.param__icon_offset_list
@@ -222,7 +222,7 @@ entry:
         lda SP0COL
         sta SP0COL,x
         lda data__sprite_final_y_pos
-        sta common.data__sprite_curr_y_pos_list,x
+        sta board.data__sprite_curr_y_pos_list,x
         clc
         adc data__sprite_y_offset
         sta data__sprite_final_y_pos // Calculated Y offset for next piece
@@ -231,7 +231,7 @@ entry:
         //
         // Load sprites in to graphical memory. Add first 4 frames of the sprite icon set.
         lda #FLAG_ENABLE
-        sta common.param__is_copy_animation_group
+        sta common.param__is_copy_icon_sprites
         and game.flag__is_light_turn // Starting frame has +$80 if sprite should be horizontally mirrored (left facing)
         sta common.param__icon_sprite_curr_frame
         // Copy 4 frames and start at sprite block 0 in graphical memory
@@ -314,11 +314,11 @@ entry:
         eor #$FF
         sta cnt__sprite_frame_list_adv_delay 
         bmi !check_next_pos+
-        inc common.cnt__sprite_frame_list
+        inc board.cnt__sprite_frame_list
         //
         // Detect if the current sprite is at the final location. Exit when all sprites have reached the location.
     !check_next_pos:
-        lda common.data__sprite_curr_x_pos_list,x
+        lda board.data__sprite_curr_x_pos_list,x
         cmp data__sprite_final_x_pos
         bne !skip+
         // Leave sprite in final location and move to next sprite. Increment count of number of pieces that are at the
@@ -329,12 +329,12 @@ entry:
         // Set sprite horizontal position.
         clc
         adc data__sprite_x_addend
-        sta common.data__sprite_curr_x_pos_list,x
+        sta board.data__sprite_curr_x_pos_list,x
         // Set sprite pointer to point to the current sprite animation frame.
         txa
         asl
         tay
-        lda common.cnt__sprite_frame_list
+        lda board.cnt__sprite_frame_list
         and #$03 // Set animation frame (0 to 3)
         clc
         adc common.ptr__sprite_00_offset
