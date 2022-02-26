@@ -174,7 +174,7 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     // 3D52
     // Music patterns for intro and outro music.
     #import "/assets/sound_music.asm"
-    
+
     // 929B
     // Sprite shape data used to create the magic square icon.
     ptr__sprite_magic_square: .byte $00, $00, $00, $00, $00, $18, $24, $5A, $5A, $5A, $24, $18

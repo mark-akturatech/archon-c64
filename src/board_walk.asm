@@ -26,7 +26,7 @@ entry:
     sta private.idx__icon_location // Default to first icon in the icon location list
     sta SPMC0 // Set sprite second background colour to black
     sta YXPAND // Ensure all icons are not expanded in Y direction
-    lda #%1000_0000 
+    lda #%1000_0000
     sta XXPAND // Ensure icons 0-7 are not expanded in X direction
     lda %0111_1111
     sta SPMC // Set multicolor mode for sprites 0-7
@@ -102,7 +102,7 @@ entry:
         sty data__sprite_final_y_pos
         lda data__num_icons
         // Add icon types with 7 initial pieces (knights, goblins)
-        cmp #$07 // Adding 7 icons 
+        cmp #$07 // Adding 7 icons
         bne !next+
         sta board.data__curr_board_row // Start at row 7
     !add_icon:
@@ -129,7 +129,7 @@ entry:
         sta cnt__board_row
         lda #(BOARD_NUM_ROWS - 1) // 0 offset
         sec
-        sbc board.data__curr_board_row 
+        sbc board.data__curr_board_row
         sta board.data__curr_board_row // 2nd icon is will always be in the vertically mirrored row location
         jsr board.add_icon_to_matrix
         // The code below allows us to to set the first icon in the 2 set icon group as either the first or the last
@@ -312,7 +312,7 @@ entry:
         // Only update animation frame on every second position update.
         lda cnt__sprite_frame_list_adv_delay
         eor #$FF
-        sta cnt__sprite_frame_list_adv_delay 
+        sta cnt__sprite_frame_list_adv_delay
         bmi !check_next_pos+
         inc board.cnt__sprite_frame_list
         //
@@ -323,7 +323,7 @@ entry:
         bne !skip+
         // Leave sprite in final location and move to next sprite. Increment count of number of pieces that are at the
         // final location.
-        inc cnt__pieces_at_final_location 
+        inc cnt__pieces_at_final_location
         jmp !next_sprite+
     !skip:
         // Set sprite horizontal position.
@@ -339,7 +339,7 @@ entry:
         clc
         adc common.ptr__sprite_00_offset
         sta SPTMEM,x
-        // 
+        //
         jsr board.set_sprite_location
         //
     !next_sprite:

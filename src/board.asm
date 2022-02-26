@@ -105,7 +105,7 @@ write_text:
     jmp !loop-
 
 // 6529
-// Displays the game options at the bottom of the 
+// Displays the game options at the bottom of the
 display_options:
     ldx #$01
     lda #STRING_F3
@@ -403,7 +403,7 @@ draw_board:
     rts
 
 // 916E
-// Draws a border around the 
+// Draws a border around the
 draw_border:
     .const BORDER_CHARACTER = $C0
     // Draw top border.
@@ -565,7 +565,7 @@ play_icon_sound:
 .namespace private {
     // 9139
     // Draws 2 characters of the current row.
-    draw_square_part: 
+    draw_square_part:
         lda #$03
         sta cnt__square_char
     !loop:
@@ -655,7 +655,7 @@ play_icon_sound:
         sta (FREEZP+2),y
         sta common.flag__is_player_sound_enabled,x
         sta common.data__voice_note_delay,x
-        rts        
+        rts
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -745,7 +745,7 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
         .byte 06, 08, 08, 00, 02, 02, 10, 08, 20, 08, 06, 00, 02, 04, 02, 08, 02, 02, 00, 04
 
     // 9073
-    // Board background colors used when rendering the player on the  
+    // Board background colors used when rendering the player on the
     data__player_square_bg_color_list: .byte BLACK, YELLOW, LIGHT_BLUE
 
     // 92E1
@@ -759,24 +759,42 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
     // A21E
     // Pointer to start predefined text message. Messages are FF terminated.
     ptr__txt__game_list:
-        .word resources.txt__game_0,  resources.txt__game_1,  resources.txt__game_2,  resources.txt__game_3
-        .word resources.txt__game_4,  resources.txt__game_5,  resources.txt__game_6,  resources.txt__game_7
-        .word resources.txt__game_8,  resources.txt__game_9,  resources.txt__game_10, resources.txt__game_11
-        .word resources.txt__game_12, resources.txt__game_13, resources.txt__game_14, resources.txt__game_15
-        .word resources.txt__game_16, resources.txt__game_17, resources.txt__game_18, resources.txt__game_19
-        .word resources.txt__game_20, resources.txt__game_21, resources.txt__game_22, resources.txt__game_23
-        .word resources.txt__game_24, resources.txt__game_25, resources.txt__game_26, resources.txt__game_27
-        .word resources.txt__game_28, resources.txt__game_29, resources.txt__game_30, resources.txt__game_31
-        .word resources.txt__game_32, resources.txt__game_33, resources.txt__game_34, resources.txt__game_35
-        .word resources.txt__game_36, resources.txt__game_37, resources.txt__game_38, resources.txt__game_39
-        .word resources.txt__game_40, resources.txt__game_41, resources.txt__game_42, resources.txt__game_43
-        .word resources.txt__game_44, resources.txt__game_45, resources.txt__game_46, resources.txt__game_47
-        .word resources.txt__game_48, resources.txt__game_49, resources.txt__game_50, resources.txt__game_51
-        .word resources.txt__game_52, resources.txt__game_53, resources.txt__game_54, resources.txt__game_55
-        .word resources.txt__game_56, resources.txt__game_57, resources.txt__game_58, resources.txt__game_59
-        .word resources.txt__game_60, resources.txt__game_61, resources.txt__game_62, resources.txt__game_63
-        .word resources.txt__game_64, resources.txt__game_65, resources.txt__game_66, resources.txt__game_67
-        .word resources.txt__game_68, resources.txt__game_69, resources.txt__game_70
+        .word resources.txt__game_no_more_spells, resources.txt__game_icon_stuck
+        .word resources.txt__game_challenge, resources.txt__game_limit_reached
+        .word resources.txt__game_square_occupied, resources.txt__game_spell_done
+        .word resources.txt__game_light_wins, resources.txt__game_dark_wins
+        .word resources.txt__game_tie, resources.txt__game_time_reversed
+        .word resources.txt__game_heal_which, resources.txt__game_teleport_which
+        .word resources.txt__game_teleport_where, resources.txt__game_transpose_icon
+        .word resources.txt__game_transpose_with, resources.txt__game_revive_which
+        .word resources.txt__game_place_charmed, resources.txt__game_imprison_which
+        .word resources.txt__game_no_charmed, resources.txt__game_no_dead_icons
+        .word resources.txt__game_icon_imprisoned, resources.txt__game_air
+        .word resources.txt__game_fire, resources.txt__game_earth
+        .word resources.txt__game_water, resources.txt__game_target_where
+        .word resources.txt__game_the_wizard, resources.txt__game_the_sorceress
+        .word resources.txt__game_unicorn, resources.txt__game_wizard
+        .word resources.txt__game_archer, resources.txt__game_golem
+        .word resources.txt__game_valkyrie, resources.txt__game_djinni
+        .word resources.txt__game_phoenix, resources.txt__game_knight
+        .word resources.txt__game_basilisk, resources.txt__game_sourceress
+        .word resources.txt__game_manticore, resources.txt__game_troll
+        .word resources.txt__game_shape_shifter, resources.txt__game_dragon
+        .word resources.txt__game_banshee, resources.txt__game_goblin
+        .word resources.txt__game_spell_teleport, resources.txt__game_spell_heal
+        .word resources.txt__game_spell_shift_time, resources.txt__game_spell_exchange
+        .word resources.txt__game_spell_elemental, resources.txt__game_spell_revive
+        .word resources.txt__game_spell_imprison, resources.txt__game_spell_cease
+        .word resources.txt__game_magic_proof, resources.txt__game_spell_wasted
+        .word resources.txt__game_which_spell, resources.txt__game_option_computer
+        .word resources.txt__game_option_light, resources.txt__game_option_two_player
+        .word resources.txt__game_option_first, resources.txt__game_option_dark
+        .word resources.txt__game_option_ready, resources.txt__game_option_press
+        .word resources.txt__game_spell_cancel, resources.txt__game_ended
+        .word resources.txt__game_stalemate, resources.txt__game_elemental_appears
+        .word resources.txt__game_conjures_spell, resources.txt__game_option_press_run
+        .word resources.txt__game_option_f7, resources.txt__game_option_f5
+        .word resources.txt__game_option_f3
 
     // BEAE
     // Low byte screen memory offset of start of each board row

@@ -245,7 +245,7 @@ entry:
     sta data__curr_time
     dec board.cnt__countdown_timer
     bpl !next+
-    // Start 
+    // Start
     lda #FLAG_DISABLE
     sta common.flag__game_loop_state
     jmp main.game_state_loop
@@ -912,7 +912,7 @@ display_message:
         sta flag__remaining_player_pieces
 
     // 66F8
-    // Print game over message, play outro music and reset 
+    // Print game over message, play outro music and reset
     // Requires:
     // - `private.flag__remaining_player_pieces` contains the winning side:
     //      $40: light player
@@ -1558,7 +1558,7 @@ data__curr_player_color: .byte $00
 flag__is_light_turn: .byte $00
 
 // BCC7
-// Represents the direction of specific phases within the 
+// Represents the direction of specific phases within the
 flag__phase_direction_list:
     .byte $00
     .byte $00

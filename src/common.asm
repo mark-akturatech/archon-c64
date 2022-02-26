@@ -34,7 +34,7 @@ complete_interrupt:
 // - Calls `reset_options_state` after each option selection. This waits for the key to be released (so options don't
 //   advance multiple times by accident) and resets the countdown timer before playing an AI vs AI game if no options
 //   selected in a given period.
-// - Calls `main.game_state_loop` after each option selection to redraw board with current settings or play the game if 
+// - Calls `main.game_state_loop` after each option selection to redraw board with current settings or play the game if
 //   `flag__game_loop_state` is disabled.
 check_option_keypress:
     lda LSTX
@@ -184,7 +184,7 @@ check_stop_keypess:
     // Wait for key to be released.
     jsr STOP
     cmp #KEY_Q
-    beq !loop- 
+    beq !loop-
     // Restart the game at the options screen.
     jsr private.reset_options_state
     jmp main.game_state_loop
@@ -268,7 +268,7 @@ add_sprite_set_to_graphics:
     sta FREEZP+3
     //
     cpx #$02
-    bcc !add_icons+ 
+    bcc !add_icons+
     //
     // Projectile frames.
     // Detect if projectiles are being added for Banshee or Phoenix. These are special pieces which use a full
@@ -299,7 +299,7 @@ add_sprite_set_to_graphics:
     //
     // The following loop has special logic and conditions to create sprites for specific frames. The frames will
     // be incremented or skipped depending upon whether the sprite set is for projectiles or icons. See the comments
-    // above for details of which icons are copied. 
+    // above for details of which icons are copied.
     // Note that frames for mirrored directions will use the source frame + $80 to indicate the frame should be
     // horizontally mirrored when created.
 !frame_loop:
@@ -366,7 +366,7 @@ add_sprite_set_to_graphics:
 // have up to FF blocks of sprite shape data per sprite. This is however limited by memory in real life.
 // Anyway, so the way C64 works is we load a bunch of shape data in to graphics memory (eg sevral sprite shapes for
 // different animation frames in each movement direction) and we can swap what is drawn on the screen by updating
-// the sprite pointer. 
+// the sprite pointer.
 // Requires:
 // - `FREEZP+2,+3`: Contains the low byte and high byte of the graphic memory address to copy the frame too.
 // - `param__icon_sprite_curr_frame`: Frame to copy in to graphic memory. Will be +$80 to mirror the frame.
@@ -868,7 +868,7 @@ initialize_music:
     !return:
         lda data__voice_note_delay,x
         sta cnt__voice_note_delay_list,x
-        rts    
+        rts
 
     // A143
     // Get note for voice 1 and increment note pointer.
@@ -882,7 +882,7 @@ initialize_music:
 
     // A14C
     // Get note for voice 2 and increment note pointer.
-    get_note_v2: 
+    get_note_v2:
         lda (OLDTXT+2),y
         inc OLDTXT+2
         bne !next-
@@ -939,7 +939,7 @@ initialize_music:
 
     // AD09
     // Get pattern for voice 3 and increment pattern pointer.
-    get_pattern_v3: 
+    get_pattern_v3:
         lda (VARTAB+4),y
         sta OLDTXT+4
         iny
@@ -1026,7 +1026,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
         .word resources.snd__music_1
     // Outro music voice 1 pattern list.
     ptr__outro_voice1_pattern_list:
-        .word resources.snd__music_19 
+        .word resources.snd__music_19
     // Intro music voice 2 pattern list.
     ptr__intro_voice2_pattern_list:
         .word resources.snd__music_5, resources.snd__music_5, resources.snd__music_12, resources.snd__music_13
@@ -1152,7 +1152,7 @@ param__icon_sprite_curr_frame: .byte $00
 
 // BF29
 // Icon sprite group offset used to determine which sprite to copy.
-param__icon_offset_list: .byte $00, $00, $00, $00 
+param__icon_offset_list: .byte $00, $00, $00, $00
 
 // BF2D
 // Type of icon (See `icon types` constants).
