@@ -1,6 +1,6 @@
 .filenamespace game
 //---------------------------------------------------------------------------------------------------------------------
-// Main game play loop.
+// Code and assets used during main game play.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Game
 
@@ -85,7 +85,7 @@ entry:
     // wins.
     lda #$00
     sta private.flag__remaining_player_pieces
-    ldx #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
+    ldx #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
 !loop:
     ldy board.data__magic_square_col_list,x
     lda board.ptr__board_row_occupancy_lo,y
@@ -120,7 +120,7 @@ entry:
     sta private.cnt__dark_icons
     sta private.cnt__light_icons
     sta private.flag__remaining_player_pieces
-    ldx #(BOARD_TOTAL_NUM_PIECES - 1)
+    ldx #(BOARD_TOTAL_NUM_PIECES-1)
 !loop:
     lda data__piece_strength_list,x
     beq !check_next+
@@ -190,7 +190,7 @@ entry:
     jsr private.regenerate_hitpoints
 !next:
     // Increase strength of all icons on magic squares.
-    ldx #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
+    ldx #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
 !loop:
     ldy board.data__magic_square_col_list,x
     lda board.ptr__board_row_occupancy_lo,y
@@ -297,7 +297,7 @@ play_turn:
     ldx #$00
     jsr board.convert_coord_sprite_pos
     jsr common.initialize_sprite
-    lda #BYTERS_PER_STORED_SPRITE
+    lda #BYTERS_PER_ICON_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
@@ -335,7 +335,7 @@ play_turn:
     lda #STRING_CANNOT_MOVE
     jsr board.write_text
     jsr board.add_icon_to_matrix
-    ldx #$60 // ~1.5 sec
+    ldx #(1.5*JIFFIES_PER_SECOND)
     jsr common.wait_for_jiffy
     jsr board.clear_text_area
     jmp play_turn
@@ -1227,7 +1227,7 @@ display_message:
     // Notes:
     // - Does not clear color memory.
     clear_last_text_row:
-        ldy #(CHARS_PER_SCREEN_ROW - 1) // 0 offset
+        ldy #(CHARS_PER_SCREEN_ROW-1) // 0 offset
         lda #$00
     !loop:
         sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
@@ -1243,7 +1243,7 @@ display_message:
         // Enable 2 sprites for animating transport from and to - the source sprite is slowly removed from the source
         // location and rebuilt at the destination location. This is done by removing one line from the source (every 3
         // interrupts) and adding it to the destination.
-        lda #%0000_1111
+        lda #EMPTY_SPRITE_BLOCK
         sta SPTMEM
         sta SPTMEM+1
         jsr common.clear_mem_sprite_24
@@ -1254,7 +1254,7 @@ display_message:
         and #%1111_1100
         sta XXPAND
         // Configure source icon.
-        lda #(BYTERS_PER_STORED_SPRITE - 1) // 0 offset
+        lda #(BYTERS_PER_ICON_SPRITE-1) // 0 offset
         sta idx__sprite_shape_source_row
         lda board.data__curr_icon_col
         ldy board.data__curr_icon_row
@@ -1268,7 +1268,7 @@ display_message:
         sta FREEZP+2
         lda common.ptr__sprite_00_mem+1
         sta FREEZP+3
-        lda #BYTERS_PER_STORED_SPRITE
+        lda #BYTERS_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         lda common.param__icon_sprite_source_frame_list
         beq !next+
@@ -1325,7 +1325,7 @@ display_message:
         cli
         // Wait for animation to completee.
         jsr wait_for_state_change
-        lda #%0000_1111
+        lda #EMPTY_SPRITE_BLOCK
         sta SPTMEM
         rts
 

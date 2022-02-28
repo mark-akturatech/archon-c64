@@ -88,7 +88,9 @@ entry:
     lda #FLAG_ENABLE
     sta intro.flag__is_enabed // Enable introduction on game launch
     sta common.flag__game_loop_state // Enable intro game loop state. See `game_state_loop` comment for details.
-    lda #(12 / SECONDS_PER_JIFFY) // Set number of second before game autoplays if no option selected on options menu
+    // Set number of seconds before game autoplays if no option selected within the options menu. The timer reads the
+    // second jiffy counter, which is incremented every 256 jiffies.
+    lda #(12*JIFFIES_PER_SECOND/256)
     sta board.cnt__countdown_timer
     // Relocate resources out graphical memory area.
     lda resources.flag__is_relocated
@@ -113,7 +115,7 @@ game_state_loop:
     sta FREEZP+2
     lda #>private.ptr__variables_start
     sta FREEZP+3
-    ldx #(>(private.ptr__variables_end - private.ptr__variables_start))+1
+    ldx #(>(private.ptr__variables_end-private.ptr__variables_start))+1
     lda #$00
     tay
 !loop:
@@ -158,7 +160,7 @@ game_state_loop:
     // moves per turn and so on.
     // Oh also, lets explain the comment `0 offset` (see below). This just means `0 to n-1` instead of `1 to n`. It is
     // common in logic to cound from 0 especially when the counter is used as an index to a memory address.
-    ldx #(BOARD_TOTAL_NUM_PIECES - 1) // 0 offset
+    ldx #(BOARD_TOTAL_NUM_PIECES-1) // 0 offset
 !loop:
     ldy board.data__piece_icon_offset_list,x
     lda game.data__icon_strength_list,y
@@ -176,7 +178,7 @@ game_state_loop:
     // Clear board square occupancy data.
     // The occupancy matrix is used to keep track of which icon is in which square. Clearing this data effectively
     // removes all icons from the board.
-    ldx #(BOARD_SIZE - 1) // 0 offset
+    ldx #(BOARD_SIZE-1) // 0 offset
 !loop:
     sta board.data__square_occupancy_list,x
     dex
@@ -248,7 +250,7 @@ game_state_loop:
     sta game.data__curr_time // Store time - used to start an AI vs AI game if we timeout on the options page
     //
     // Clear used spell flags.
-    ldx #(NUM_SPELLS*2 - 1) // Clear spells for each player (0 offset)
+    ldx #(NUM_SPELLS*2-1) // Clear spells for each player (0 offset)
     lda #SPELL_UNUSED
 !loop:
     sta magic.data__light_used_spells_list,x
@@ -324,7 +326,7 @@ game_state_loop:
     // divide the phase by 2 to determine the phase color index.
     // Oh and notice it jumps from 2 to 6 and 8 to C - there are two phases (and 2 colors) that arent used at all.
     // These can be enabled and the game works with 2 additional board and arena obstacle colors which is cool.
-    lda #(PHASE_MIDDLE * 2) // Purple
+    lda #(PHASE_MIDDLE*2) // Purple
     ldy game.flag__is_light_turn
     bpl !next+
     clc
@@ -346,7 +348,7 @@ game_state_loop:
 // so that they can be replaced for debugging.
 prep_game_states:
     .const NUMBER_GAME_STATES = 3
-    ldx #(NUMBER_GAME_STATES*2 - 1) // 0 offset
+    ldx #(NUMBER_GAME_STATES*2-1) // 0 offset
 !loop:
     lda private.ptr__source_game_state_fn_list,x
     sta private.ptr__game_state_fn_list,x

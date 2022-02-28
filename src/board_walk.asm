@@ -1,6 +1,6 @@
 .filenamespace board_walk
 //---------------------------------------------------------------------------------------------------------------------
-// Initial board setup animation shown as part of the introduction sequence.
+// Code and assets used during the introduction to walk icons on to the board.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Intro
 
@@ -31,7 +31,7 @@ entry:
     lda %0111_1111
     sta SPMC // Set multicolor mode for sprites 0-7
     //
-    lda #BYTERS_PER_STORED_SPRITE
+    lda #BYTERS_PER_ICON_SPRITE
     sta common.param__sprite_source_len
     // Adds icon types to the board one at a time. Each icon is added by animating it (flying or walking) to the
     // icon's square.
@@ -66,7 +66,7 @@ entry:
     lda private.idx__icon_location
     clc
     adc #$04
-    cmp #(16*4) // Check if finished (16 icon types * 4 data bytes)
+    cmp #(NUM_ICON_TYPES*4) // Check if finished (16 icon types * 4 data bytes)
     bcc !next+
     rts
 !next:
@@ -127,7 +127,7 @@ entry:
         // Add 2 icons.
         lda board.data__curr_board_row
         sta cnt__board_row
-        lda #(BOARD_NUM_ROWS - 1) // 0 offset
+        lda #(BOARD_NUM_ROWS-1) // 0 offset
         sec
         sbc board.data__curr_board_row
         sta board.data__curr_board_row // 2nd icon is will always be in the vertically mirrored row location

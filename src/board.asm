@@ -1,6 +1,6 @@
 .filenamespace board
 //---------------------------------------------------------------------------------------------------------------------
-// Game board rendering.
+// Code and assets used to render the game board.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Common
 
@@ -157,7 +157,7 @@ display_options:
 // - Rows and columns may be out of bounds if the source square is on a board edge.
 surrounding_squares_coords:
     .const NUM_SURROUNDING_SQUARES = 8
-    ldx #(NUM_SURROUNDING_SQUARES+1 - 1) // Surrounding squares plus current square (0 offset)
+    ldx #(NUM_SURROUNDING_SQUARES+1-1) // Surrounding squares plus current square (0 offset)
     ldy data__curr_icon_row
     iny
     sty private.cnt__board_row
@@ -300,11 +300,11 @@ draw_board:
     lda private.data__player_square_bg_color_list
     sta EXTCOL
     //
-    lda #(BOARD_NUM_ROWS - 1) // 0 offset
+    lda #(BOARD_NUM_ROWS-1) // 0 offset
     sta private.cnt__board_row
     // Draw each board row.
 !row_loop:
-    lda #(BOARD_NUM_COLS - 1) // 0 offset
+    lda #(BOARD_NUM_COLS-1) // 0 offset
     sta private.cnt__board_col
     ldy private.cnt__board_row
     //
@@ -418,7 +418,7 @@ draw_border:
     clc
     adc common.data__color_mem_offset
     sta FORPNT+1
-    ldy #(BOARD_NUM_COLS*3+2 - 1) // 9 squares (3 characters per square) + 1 character each side of board (0 offset)
+    ldy #(BOARD_NUM_COLS*3+2-1) // 9 squares (3 characters per square) + 1 character each side of board (0 offset)
 !loop:
     lda #BORDER_CHARACTER // Border character
     sta (FREEZP+2),y
@@ -466,7 +466,7 @@ draw_border:
     inc FREEZP+3
     inc FORPNT+1
 !next:
-    ldy #(BOARD_NUM_COLS*3+2 - 1) // 9 squares (3 characters per square) + 1 character each side of board (0 offset)
+    ldy #(BOARD_NUM_COLS*3+2-1) // 9 squares (3 characters per square) + 1 character each side of board (0 offset)
 !loop:
     lda #BORDER_CHARACTER
     sta (FREEZP+2),y
@@ -528,7 +528,7 @@ draw_magic_square:
 // Sets:
 // - Clears graphical character memory for rows 23 and 24 (0 offset).
 clear_text_area:
-    ldx #(CHARS_PER_SCREEN_ROW*2 - 1) // Two rows of text (0 offset)
+    ldx #(CHARS_PER_SCREEN_ROW*2-1) // Two rows of text (0 offset)
 !loop:
     lda #$00
     sta SCNMEM+23*CHARS_PER_SCREEN_ROW,x // Start at 23rd text row
@@ -547,7 +547,7 @@ clear_text_area:
 // - `common.flag__is_player_sound_enabled`: $00 to disable sound for light player, $80 to enable sound
 // - `common.flag__is_player_sound_enabled+1`: $00 to disable sound for dark player, $80 to enable sound
 play_icon_sound:
-    ldx #$01
+    ldx #(NUM_PLAYERS-1) // 0 offset
     // Icon sounds can be played on voices 1 and 2 separately. This allows two icon movement sounds to be played at
     // the same time.
     // If 00, then means don't play sound for that icon.

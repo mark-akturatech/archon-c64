@@ -1,6 +1,6 @@
 .filenamespace intro
 //---------------------------------------------------------------------------------------------------------------------
-// Play introduction/title sequence.
+// Code and assets used by the introduction.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Intro
 
@@ -83,7 +83,7 @@ entry:
         // Copy in icon frames for the chase scene.
         lda #FLAG_ENABLE
         sta common.param__is_copy_icon_sprites
-        lda #BYTERS_PER_STORED_SPRITE
+        lda #BYTERS_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         lda common.ptr__sprite_24_mem
         sta FREEZP+2
@@ -94,7 +94,7 @@ entry:
         // Add 4 sprite frames for each chase icon. The chase icons are 2 sets of icons at that chase each other off
         // the screen at the end of the introduction.
         .const NUMBER_CHASE_ICONS = 4
-        ldx #(NUMBER_CHASE_ICONS - 1) // 0 offset
+        ldx #(NUMBER_CHASE_ICONS-1) // 0 offset
     !icon_loop:
         ldy data__icon_list,x // Get offset of icons that will be chasing each other
         sty common.param__icon_type_list
@@ -151,9 +151,9 @@ entry:
         //
         // Configure each of the 7 sprites.
         .const NUM_SPRITES = 7
-        lda #(VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES - 1 // 0 offset
+        lda #((VICGOFF/BYTES_PER_SPRITE)+NUM_SPRITES-1) // 0 offset
         sta idx__sprite_shape_block
-        ldx #(NUM_SPRITES - 1) // 0 offset
+        ldx #(NUM_SPRITES-1) // 0 offset
     !loop:
         txa
         asl
@@ -310,7 +310,7 @@ entry:
     // AA56
     state__scroll_logos:
         .const NUMBER_LOGOS = 2
-        ldx #(NUMBER_LOGOS - 1) // "Archon" and "Freefall" (0 offset)
+        ldx #(NUMBER_LOGOS-1) // "Archon" and "Freefall" (0 offset)
     !loop:
         lda board.data__sprite_curr_y_pos_list+3,x
         cmp data__sprite_final_y_pos_list,x
@@ -351,7 +351,7 @@ entry:
         sta param__string_pos_ctl_flag
         // Disable sprites 5 to 7 (Freefall logo). The sprite is replaced with text.
         ldx #$04
-        lda #%0000_1111
+        lda #EMPTY_SPRITE_BLOCK
     !loop:
         sta SPTMEM,x
         inx
@@ -510,7 +510,7 @@ entry:
         lda #FLAG_ENABLE
         sta flag__are_sprites_initialized
         // Configure sprite colors and initial positions.
-        ldx #(NUMBER_CHASE_ICONS - 1) // 0 offset
+        ldx #(NUMBER_CHASE_ICONS-1) // 0 offset
     !loop:
         // The Archon logo is comprised 4 sprites next to each other. Here we take the final Archon logo location (which
         // should be in the middle of the screen) for each of the 4 sprites and replace the sprites with icons. The
@@ -528,7 +528,7 @@ entry:
     // ADC2
     // Animate icons by moving them across the screen and displaying animation frames.
     animate_icons:
-        ldx #(NUMBER_CHASE_ICONS - 1) // 0 offset
+        ldx #(NUMBER_CHASE_ICONS-1) // 0 offset
         // Animate on every other frame.
         lda cnt__sprite_delay
         eor #$FF
@@ -565,7 +565,7 @@ entry:
         // each movement.
     !skip:
         lda board.cnt__sprite_frame_list
-        and #(ICON_ANIMATION_FRAMES - 1) // 0 offset
+        and #(ICON_ANIMATION_FRAMES-1) // 0 offset
         clc
         adc ptr__icon_sprite_mem_list,x
         sta SPTMEM,x

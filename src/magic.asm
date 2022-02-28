@@ -1,6 +1,6 @@
 .filenamespace magic
 //---------------------------------------------------------------------------------------------------------------------
-// Selecting and casting spells within the game.
+// Code and assets used to select and cast spells.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Game
 
@@ -30,8 +30,8 @@ select_spell_from_list:
     ldy #NUM_SPELLS
 !next:
     // End spell selection if no spells left.
-    jsr private.count_used_spells
-    lda private.data__used_spell_count
+    jsr count_used_spells
+    lda data__used_spell_count
     cmp #NUM_SPELLS // All spells used?
     bcc !next+
     lda #STRING_NO_SPELLS
@@ -73,6 +73,33 @@ cancel_spell_selection:
     pla // End turn
     pla
     jmp game.play_turn
+
+// 7205
+// Count number of used spells for the current player.
+// Requires:
+// - Y: is 0 for light player and 7 for dark player.
+// Sets:
+// - `data__used_spell_count`: Number of used spells.
+// Preserves:
+// - X
+count_used_spells:
+    txa
+    pha
+    lda #$00
+    sta data__used_spell_count
+    ldx #NUM_SPELLS
+!loop:
+    lda data__light_used_spells_list,y
+    cmp #SPELL_USED
+    bne !next+
+    inc data__used_spell_count
+!next:
+    iny
+    dex
+    bne !loop-
+    pla
+    tax
+    rts
 
 // 87BC
 // Allows the player to select a square or icon to cast the spell on to. Some spells (eg transport) require multiple
@@ -136,7 +163,7 @@ spell_select:
         pha
         lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
         sta game.flag__is_destination_valid
-        ldy #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
+        ldy #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
     !loop:
         lda board.data__magic_square_col_list,y
         cmp cnt__board_row
@@ -232,7 +259,7 @@ spell_select:
     end_spell_selection:
         sta game.flag__is_new_square_selected
         jsr game.display_message
-        ldx #$80 // ~2 sec
+        ldx #(2*JIFFIES_PER_SECOND)
         jsr common.wait_for_jiffy
         rts
 
@@ -278,7 +305,7 @@ spell_select:
         ldy board.data__curr_icon_row
         jsr set_occupied_square
         jsr board.draw_board
-        ldx #$30 // ~0.75 seconds
+        ldx #(0.75*JIFFIES_PER_SECOND)
         jsr common.wait_for_jiffy
         ldx common.param__icon_type_list
         ldy board.data__curr_icon_row
@@ -299,8 +326,8 @@ spell_select:
         // magic square is stored and the occupancy check is skipped. This repeats until all squares have been checked.
         // The loop exits as soon as an enemy piece is detected. If we check all squares (with magic squares skipped) and
         // no enemey piece is found, then we show a spell wasted message.
-        ldx #(BOARD_SIZE - 1) // 0 offset
-        ldy #(BOARD_NUM_MAGIC_SQUARES - 1) // 0 offset
+        ldx #(BOARD_SIZE-1) // 0 offset
+        ldy #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
         lda game.data__magic_square_offset_list+4
         sta data__temp_storage
     !loop:
@@ -379,7 +406,7 @@ spell_select:
         ldy board.data__curr_board_row
         jsr board.convert_coord_sprite_pos
         jsr common.initialize_sprite
-        lda #BYTERS_PER_STORED_SPRITE
+        lda #BYTERS_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         jsr common.add_sprite_set_to_graphics
         lda game.data__player_offset
@@ -429,7 +456,7 @@ spell_select:
     !next:
         // Clear dead icon list.
         .const MAX_NUM_DEAD_ICONS = $08
-        ldy #(MAX_NUM_DEAD_ICONS - 1) // 0 offset
+        ldy #(MAX_NUM_DEAD_ICONS-1) // 0 offset
         lda #DEAD_ICON_SLOT_UNUSED
     !loop:
         sta data__dead_icon_offset_list,y
@@ -772,7 +799,7 @@ spell_select:
     // 6CAF
     // Abort current spell and return back to spell selection.
     spell_complete:
-        ldx #$60 // ~1.5 sec
+        ldx #(1.5*JIFFIES_PER_SECOND)
         jsr common.wait_for_jiffy
         jsr config_used_spell_ptr
         ldy data__curr_spell_id
@@ -786,7 +813,7 @@ spell_select:
         sta board.data__curr_icon_row
         lda private.data__curr_board_col
         sta board.data__curr_icon_col
-        ldx #$40 // ~1 sec
+        ldx #(1*JIFFIES_PER_SECOND)
         jsr common.wait_for_jiffy
         jmp select_spell_from_list
 
@@ -811,7 +838,7 @@ spell_select:
         cpy #SPELL_ID_IMPRISON
         bcs !done+
         // Summon elemental or revive spell
-        ldx #$40 // ~1 sec
+        ldx #(1*JIFFIES_PER_SECOND)
         jsr common.wait_for_jiffy
         lda flag__is_new_square_selected
         sta game.flag__is_new_square_selected
@@ -842,33 +869,6 @@ spell_select:
         tay
         txa
         sta (OLDLIN),y
-        rts
-
-    // 7205
-    // Count number of used spells for the current player.
-    // Requires:
-    // - Y: is 0 for light player and 7 for dark player.
-    // Sets:
-    // - `data__used_spell_count`: Number of used spells.
-    // Preserves:
-    // - X
-    count_used_spells:
-        txa
-        pha
-        lda #$00
-        sta private.data__used_spell_count
-        ldx #NUM_SPELLS
-    !loop:
-        lda data__light_used_spells_list,y
-        cmp #SPELL_USED
-        bne !next+
-        inc private.data__used_spell_count
-    !next:
-        iny
-        dex
-        bne !loop-
-        pla
-        tax
         rts
 
     // 7912
@@ -1117,6 +1117,10 @@ idx__selected_spell: .byte $00
 data__light_used_spells_list: .byte $00, $00, $00, $00, $00, $00, $00
 data__dark_used_spell_list: .byte $00, $00, $00, $00, $00, $00, $00
 
+// BF23
+// Count of number of used spells for a specific player.
+data__used_spell_count: .byte $00
+
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.
 .namespace private {
@@ -1159,10 +1163,6 @@ data__dark_used_spell_list: .byte $00, $00, $00, $00, $00, $00, $00
     // BF22
     // Is TRUE if a surrounding square is valid for movement or magical spell.
     flag__is_valid_square: .byte $00
-
-    // BF23
-    // Count of number of used spells for a specific player.
-    data__used_spell_count: .byte $00
 
     // BF23
     // Index used to acces an item within the dead icon array.

@@ -1,6 +1,6 @@
 .filenamespace common
 //---------------------------------------------------------------------------------------------------------------------
-// Common code and assets used by intro, board and battle arena states.
+// Library of code and assets used by the intro, board and battle arean states.
 //---------------------------------------------------------------------------------------------------------------------
 .segment Common
 
@@ -103,8 +103,8 @@ check_option_keypress:
 //    details) for the selected sprite number.
 // - `param__icon_type_list,x`: contains the sprite icon type for the selected sprite number.
 // Sets:
-// - `private.ptr__sprite_source_lo_list`: Low pointer of the sprite shape data memory address.
-// - `private.ptr__sprite_source_hi_list`: High pointer of the sprite shape data memory address.
+// - `ptr__sprite_source_lo_list`: Low pointer of the sprite shape data memory address.
+// - `ptr__sprite_source_hi_list`: High pointer of the sprite shape data memory address.
 // - `param__icon_sprite_source_frame_list,x`: Set to #$00 for right facing icons and #$11 for left facing for the
 //   selected sprite number.
 // - Sprite,x is enabled and the color is configured.
@@ -114,9 +114,9 @@ initialize_sprite:
     asl
     tay
     lda private.ptr__icon_sprite_mem_offset_list,y
-    sta private.ptr__sprite_source_lo_list,x
+    sta ptr__sprite_source_lo_list,x
     lda private.ptr__icon_sprite_mem_offset_list+1,y
-    sta private.ptr__sprite_source_hi_list,x
+    sta ptr__sprite_source_hi_list,x
     // Set special color for elementals, otherwise set the color based on the player (yellow for light, blue for dark).
     lda param__icon_type_list,x
     cmp #AIR_ELEMENTAL // Is sprite an elemental (air elemental is the first elemental type)?
@@ -390,9 +390,9 @@ add_sprite_to_graphics:
     tay
     lda private.data__icon_sprite_frame_mem_offset_list,y
     clc
-    adc private.ptr__sprite_source_lo_list,x
+    adc ptr__sprite_source_lo_list,x
     sta FREEZP
-    lda private.ptr__sprite_source_hi_list,x
+    lda ptr__sprite_source_hi_list,x
     adc private.data__icon_sprite_frame_mem_offset_list+1,y
     sta FREEZP+1
     //
@@ -412,7 +412,7 @@ add_sprite_to_graphics:
     bne !copy_projectile+
     // Banshee and Phoenix only have 4 projectile frames (e,s,n,w), the frames are full width and height sprites (ie 64
     // bytes in size instead of 54 bytes for smaller sprites) so is 64*4 = 256 bytes to copy
-    lda #(64*4 - 1) // 0 offset
+    lda #(BYTES_PER_SPRITE*4-1) // 0 offset
     sta param__sprite_source_len
     jmp !copy_icon+
 !copy_projectile:
@@ -424,6 +424,7 @@ add_sprite_to_graphics:
     // This is achieved by rolling the original value 8 times. Each time we first roll right which shifts the first
     // bit in to the carry flag and shifts the ramining bits to the right by one position. We then roll the accumulator
     // left. This moves all the bits in the accumular left and the adds the carry flag value to the right most bit.
+    // This loop is used to horizontally invert a single color sprite.
     lda #$08
     sta private.data__temp_storage
     lda (FREEZP),y
@@ -458,15 +459,13 @@ add_sprite_to_graphics:
     cpy param__sprite_source_len
     bcc !loop-
     rts
-    // Mirror the sprite on copy - used for when sprite is moving in the opposite direction.
+    // Mirror a multicolor sprite - used for when sprite is moving in the opposite direction.
 !mirrored_copy:
     lda #$0A
     sta private.data__temp_storage
     // Sprites are 24x21 bits in size with 2 bits used for each color pair. Each sprite row is therefore represented by
     // 3 bytes. To mirror the sprite, we need to shift each 2 byte pair 12 times with the bits rotated out of each byte
     // added to the next byte in the 3 byte pair. We need to repeat this then for each row.
-    // NOTE that we normally need to shift 12 times, but Archon sprites are slightly smaller than normal sprites, so
-    // we only need to shift the sprite data 10 times as the first 4 bits of each row are not used. Small optimization.
     tya
     clc
     adc #$02
@@ -562,7 +561,7 @@ clear_mem_sprite_24:
     sta FREEZP+2
     lda ptr__sprite_24_mem+1
     sta FREEZP+3
-    ldy #(BYTES_PER_SPRITE - 1)
+    ldy #(BYTES_PER_SPRITE-1)
     lda #$00
 !loop:
     sta (FREEZP+2),y
@@ -577,7 +576,7 @@ clear_mem_sprite_48:
     sta FREEZP+2
     lda ptr__sprite_48_mem+1
     sta FREEZP+3
-    ldy #(BYTES_PER_SPRITE - 1) // 0 offset
+    ldy #(BYTES_PER_SPRITE-1) // 0 offset
     lda #$00
 !loop:
     sta (FREEZP+2),y
@@ -642,7 +641,7 @@ clear_screen:
 // - This function is called each time a raster interrupt occurs. It runs once and processes notes/command on each
 //   voice, increments the pointer to the next command/note and then exits.
 play_music:
-    ldx #(NUMBER_VOICES - 1) // 0 offset
+    ldx #(NUMBER_VOICES-1) // 0 offset
 !loop:
     // Configure the voice.
     txa
@@ -707,7 +706,7 @@ initialize_music:
     sta SIGVOL
     //
     // Configure music pointers.
-    ldy #(NUMBER_VOICES*2 - 1) // Read high/low bytes of the source pattern for each voice (0 offset)
+    ldy #(NUMBER_VOICES*2-1) // Read high/low bytes of the source pattern for each voice (0 offset)
 !loop:
     lda param__is_play_outro
     bpl !intro+
@@ -726,7 +725,7 @@ initialize_music:
     bpl !loop-
     //
     // Configure voices.
-    ldx #(NUMBER_VOICES - 1) // 0 offset
+    ldx #(NUMBER_VOICES-1) // 0 offset
 !loop:
     lda #$00
     sta private.cnt__voice_note_delay_list,x // Reset delay counter
@@ -760,7 +759,7 @@ initialize_music:
         cmp #%0100_0000 // No key?
         bne reset_options_state
         // Advance game state.
-        lda #(30 / SECONDS_PER_JIFFY)
+        lda #(30*JIFFIES_PER_SECOND/256)
         sta board.cnt__countdown_timer // Reset auto play to 30 seconds
         lda #FLAG_ENABLE
         sta flag__cancel_interrupt_state // Exit interrupt wait loops
@@ -1054,13 +1053,13 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
     // though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
     ptr__icon_sprite_mem_offset_list:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, resources.prt__sprites_icon+i*BYTERS_PER_STORED_SPRITE*15
+        .fillword 13, resources.prt__sprites_icon+i*BYTERS_PER_ICON_SPRITE*15
         // DG
-        .fillword 1, resources.prt__sprites_icon+12*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+        .fillword 1, resources.prt__sprites_icon+12*BYTERS_PER_ICON_SPRITE*15+1*BYTERS_PER_ICON_SPRITE*10
         // BS, GB
-        .fillword 2, resources.prt__sprites_icon+(13+i)*BYTERS_PER_STORED_SPRITE*15+1*BYTERS_PER_STORED_SPRITE*10
+        .fillword 2, resources.prt__sprites_icon+(13+i)*BYTERS_PER_ICON_SPRITE*15+1*BYTERS_PER_ICON_SPRITE*10
         // AE, FE, EE, WE
-        .fillword 4, resources.prt__sprites_elemental+i*BYTERS_PER_STORED_SPRITE*15
+        .fillword 4, resources.prt__sprites_elemental+i*BYTERS_PER_ICON_SPRITE*15
 
     // 8BDA
     // Color of each elemental (air, fire, earth, water).
@@ -1126,6 +1125,14 @@ flag__cancel_interrupt_state: .byte $00
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
 
+// BCD4
+// Low byte pointer to sprite shape data source data.
+ptr__sprite_source_lo_list: .byte $00, $00, $00, $00
+
+// BCD8
+// High byte pointer to sprite shape data source data.
+ptr__sprite_source_hi_list: .byte $00, $00, $00, $00
+
 // BCDF
 // Number of bytes to copy for the given sprite.
 param__sprite_source_len: .byte $00
@@ -1188,12 +1195,4 @@ param__is_play_outro: .byte $00
     // BF4D
     // Current voice control value.
     data__voice_control_list: .byte $00, $00, $00
-
-    // BCD4
-    // Low byte pointer to sprite shape data source data.
-    ptr__sprite_source_lo_list: .byte $00, $00, $00, $00
-
-    // BCD8
-    // High byte pointer to sprite shape data source data.
-    ptr__sprite_source_hi_list: .byte $00, $00, $00, $00
 }

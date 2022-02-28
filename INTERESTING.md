@@ -13,10 +13,10 @@
 
 - Sprites are smaller than usual - 54 bytes instead of 64. This is because only 54 bytes are needed to render a sprite big enough to fit within a square. It also uses less memory.
 - There are a lot of sprites. Each icon has several animation frames for each direction, the attack weapon/projectile and the attack stance.
-- Each icon is made up of 15 sprites (except shapeshifter). Each direction (east, north, south) comprises 4 sprites making up animation frames for walking/flying etc, and atatck frames for north, south, east, north east and south east.
+- Each icon is made up of 15 sprites (except shapeshifter). Each direction (east, north, south) comprises 4 sprites making up animation frames for walking/flying etc, and attack frames for north, south, east, north east and south east.
 - Note that there are no sprites for west direction - the sprite copy algorithm takes a parameter that allows the sprite to be horizontally mirrored on copy, thus providing west direction sprites.
-- The shapeshifter only uses 10 sprites as it doesnt need any sprites for a challenge battle.
-- The "ARCHON" sprite at the top of the board during gameplay is dynamically created using the character set dot data for each letter. Change address `$9274` to any 6 letters to display any string you like and it'll be disaplyed at the top of the board.
+- The shapeshifter only uses 10 sprites as it doesn't need any sprites for a challenge battle.
+- The "ARCHON" sprite at the top of the board during gameplay is dynamically created using the character set dot data for each letter. Change address `$9274` to any 6 letters to display any string you like and it'll be displayed at the top of the board.
 
 ## Game play
 
@@ -27,19 +27,19 @@
   04, C3, 03, 03, 83, 84, 85, 03, 03, C3, 03, 03, 85, 84, 83, 03
   ```
   +$80 is added if icon can fly (ie jump over other icons); +$40 is added if icon can cast spells (if $C0 means can fly and cast).
-  The addresses can be modifed however it cannot be increased above 5 as it will cause a buffer overrun.
+  The addresses can be modified however it cannot be increased above 5 as it will cause a buffer overrun.
   Interestingly, you can add flying and spell casting to any character you want. So change a sworder to $C5 and all sworders can now move 5 squares, cast spells (although there is only one spell usage table) and fly.
 - Icons regenerate 1 lost hit point per round when on strongest board color (eg light on white and dark on black).
-- Icons on magic squares regenerate 1 lost hitpoint after each round.
+- Icons on magic squares regenerate 1 lost hit point after each round.
 - It looks like the game was initially designed to have two additional colors in the board phases, but logic was introduced to skip two of them (in brackets below)...
   ```
   BLACK, BLUE, (RED), PURPLE, GREEN, (YELLOW), CYAN, WHITE
   ```
   The additional colors can be enabled by writing a `$00` to addresses `$6599` and `$65D0`.
 - You can draw a game if the last two icons challenge and both kill each other in battle.
-- You can stalemate a game if both players have 3 or less icons and a challenge hasn't occured within 12 rounds.
+- You can stalemate a game if both players have 3 or less icons and a challenge hasn't occurred within 12 rounds.
 - Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc.
-The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golumns.
+The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golemns.
   The icon offsets are defined below:
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
@@ -54,14 +54,14 @@ The addresses use the icon offset. You can change these without any consequence.
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
   09, 0A, 05, 0F, 08, 0F, 0C, 05, 06, 0A, 08, 0E, 0A, 11, 08, 05, 0C, 0A, 11, 0E
   ```
-  The addresses can be modifed however values above $11 can cause display issues.
+  The addresses can be modified however values above $11 can cause display issues.
 - The damage caused by each icon is shown below (address `$8A9F`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
   07, 0A, 05, 0A, 07, 06, 02, 05, 09, 08, 04, 0A, 00, 0B, 01, 05, 05, 09, 09, 06
   ```
   $00 is for shapeshifter as it inherits opponent damage.
-  The addresses can be modifed without issue up to $FF.
+  The addresses can be modified without issue up to $FF.
 - The speed of an icon's projectile is shown below (address `$8A8B`):
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
@@ -69,10 +69,11 @@ The addresses use the icon offset. You can change these without any consequence.
   ```
   $20 is a non projectile directional weapon; $40 is a non projectile non-directional weapon; $01-$07 is the speed of a projectile
   $00 is for shapeshifter as it inherits opponent speed.
-  The addresses can be modifed however high projectile speeds may skip too many pixels during each frame and the projectile could jump over the opponent.
+  The addresses can be modified however high projectile speeds may skip too many pixels during each frame and the projectile could jump over the opponent.
   This is a fun table to play with. You can modify a knight for example by changing to $0F and now the knight can throw it's sword really fast.
-
+- Shape Shifters will assume the initial strength of the icon they are fighting. This means they don't really need to heal and have an advantage over pieces with damage. However, if a Shape Shifter challenges an elemental, the Shape Shifter will have a strength of 10, which is less than most elementals.
+- Pieces will receive an negative strength adjustment when defending the caster magic square based on the number of spells already cast by the spell caster. The caster magic square is the square that the spell caster initially starts the game on. I think the idea here is that the spell caster weakens the square as they cast spells, making the square harder to defend.
 ## Notes
 
 The following acronyms are used in the above tables:
- - UN=Unicorn, WZ=Wizard, AR=Archer, GM=Golem, VK=Balkyrie, DJ=Djinni, PH=Phoenix, KN=Knight, BK=Basilisk, SR=Sourceress, MC=Manticore, TL=Troll, SS=Shape Shifter, DG=Dragon, BS=Banshee, GB=Goblin, AE=Air Elemental, FE=Fire Elemental, EE=Earth Elemental, WE=Water Elemental
+ - UN=Unicorn, WZ=Wizard, AR=Archer, GM=Golem, VK=Valkyrie, DJ=Djinni, PH=Phoenix, KN=Knight, BK=Basilisk, SR=Sourceress, MC=Manticore, TL=Troll, SS=Shape Shifter, DG=Dragon, BS=Banshee, GB=Goblin, AE=Air Elemental, FE=Fire Elemental, EE=Earth Elemental, WE=Water Elemental

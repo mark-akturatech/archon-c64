@@ -1,5 +1,5 @@
 //---------------------------------------------------------------------------------------------------------------------
-// C64 I/O and memory constants
+// Standard C64 memory and IO addresses using "MAPPING THE Commodore 64" constants names.
 //---------------------------------------------------------------------------------------------------------------------
 // Addresses use labels defined in http://unusedino.de/ec64/technical/project64/mapping_c64.html.
 #importonce

@@ -1,10 +1,10 @@
 //---------------------------------------------------------------------------------------------------------------------
-// Application constants
+// Game specific constants.
 //---------------------------------------------------------------------------------------------------------------------
 #importonce
 
 //---------------------------------------------------------------------------------------------------------------------
-// Keyboard key constants
+// Keyboard key constants.
 
 .const KEY_NONE = $40  // Matrix code returned from LSTX if no key pressed
 .const KEY_F3 = $05 // F3 KEY
@@ -13,36 +13,38 @@
 .const KEY_Q = $Bf // Q key
 
 //---------------------------------------------------------------------------------------------------------------------
-// Miscellaneous constants
+// Miscellaneous constants.
 
-// Bytes consumed by each sprite
-.const BYTES_PER_SPRITE = 64;
+// Sprite constants.
+.const BYTES_PER_SPRITE = 64; // Bytes consumed by each sprite
+.const BYTERS_PER_ICON_SPRITE = 54; // Stored icon sprites are not full height and therefore consume less memory.
+.const BYTERS_PER_PROJECTILE_SPRITE = 32; // Projectile sprites are half size.
+// Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
+.const EMPTY_SPRITE_BLOCK = 15
 
-// Stored sprites are not full height (to fit in to square) and therefore consume less memory.
-.const BYTERS_PER_STORED_SPRITE = 54;
-
-// Characters per screen row
+// Characters per screen row.
 .const CHARS_PER_SCREEN_ROW = 40;
 
-// Flag constants
+// Flag constants.
 .const FLAG_DISABLE = $00; // Off
 .const FLAG_ENABLE = $80; // Enabled
 .const FLAG_ENABLE_FF = $FF // Some logic uses FF for Enabled. Shouldn't as $80 will work fine.
 
-// Player fot data color flags
+// Player fot data color flags.
+.const NUM_PLAYERS = 2 // Total bumber of players
 .const PLAYER_LIGHT_COLOR_STATE = $55 // Value loaded in to character dot data to represent character color 1
 .const PLAYER_DARK_COLOR_STATE = $AA // Value loaded in to character dot data to represent character color 2
 
-// Phase cycle constants
+// Phase cycle constants.
 .const PHASE_LENGTH = 7 // Number of color phases
 .const PHASE_MIDDLE = floor(PHASE_LENGTH/2) // Middle phase (used as the intial phase at the start of the game)
 .const PHASE_CYCLE_LENGTH = PHASE_LENGTH*2 // Length of colour cycle (7 colors forward, then 7 colors in reverse)
 
-// Time constants
-.const SECONDS_PER_JIFFY = 4 // Rough number of seconds per jiffy count
+// Time constants.
+.const JIFFIES_PER_SECOND = 64 // Approximate number of jiffies per second.
 
 //---------------------------------------------------------------------------------------------------------------------
-// Icon constants
+// Icon constants.
 
 // Icon type IDs.
 .const VALKYRIE = $00
@@ -90,11 +92,14 @@
 .const WATER_ELEMENTAL_OFFSET = $13
 
 // Miscellaneous icon constants.
+.const NUM_ICON_TYPES = 16 // Total number of different types of icons
 .const ICON_CAN_FLY = $80
 .const ICON_CAN_CAST = $40
+.const ICON_CAN_THRUST = $20 // Icon attack is a local sword or club attack
+.const ICON_CAN_TRANSFORM = $40 // Icon attack is a surround attack (scream/fire)
 
 //---------------------------------------------------------------------------------------------------------------------
-// Sound constants
+// Sound constants.
 
 .const SOUND_CMD_NO_NOTE = $00 // Stop note
 .const SOUND_CMD_SET_DELAY = $FB // Set delay
@@ -106,7 +111,7 @@
 .const NUMBER_VOICES = 3 // Total number of voices available on the SID
 
 //---------------------------------------------------------------------------------------------------------------------
-// String constants
+// String constants.
 
 .const STRING_CMD_END = $FF         // End of string
 .const STRING_CMD_NEWLINE = $80     // New line (row and column offset follow)
@@ -168,7 +173,7 @@
 .const STRING_F3 = 70
 
 //---------------------------------------------------------------------------------------------------------------------
-// Board constants
+// Board constants.
 
 .const BOARD_NUM_COLS = 9
 .const BOARD_NUM_ROWS = 9
@@ -182,7 +187,7 @@
 .const BOARD_VARY_SQUARE = $E0
 
 //---------------------------------------------------------------------------------------------------------------------
-// Spell constants
+// Spell constants.
 
 .const NUM_SPELLS = 7
 .const SPELL_UNUSED = $FD

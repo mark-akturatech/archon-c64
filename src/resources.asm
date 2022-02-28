@@ -1,7 +1,8 @@
 .filenamespace resources
 //---------------------------------------------------------------------------------------------------------------------
-// Adds resources from the '/assets' directory in to build files.
+// Game resources such as sprites, character sets, text and music phraseology.
 //---------------------------------------------------------------------------------------------------------------------
+// Adds resources from the '/assets' directory in to build files.
 // Resources are loaded at the start of the file so that they can be relocated as required to make room for graphics
 // memory. See below for further details.
 .segment Main
@@ -61,7 +62,7 @@ relocate:
     lda #<private.prt__graphic_block_start
     sta FREEZP
     tay // Here the original assumes LSB of graphics area will always start at #$00
-    ldx #(>(private.prt__graphic_block_end - private.prt__graphic_block_start))+1 // Copy to the end of the last block
+    ldx #(>(private.prt__graphic_block_end-private.prt__graphic_block_start))+1 // Copy to the end of the last block
 !loop:
     lda (FREEZP),y
     sta (FREEZP+2),y
