@@ -167,7 +167,7 @@ wait_for_jiffy:
 // 677C
 // Detect if RUN/STOP or Q key is pressed.
 // Sets:
-// - `intro.flag__is_complete` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
+// - `flag__is_complete` is toggled if RUN/STOP pressed. This will force the intro to exit and the options
 //   screen to display.
 // Notes:
 // - Game is reset if Q key is pressed.
@@ -191,9 +191,9 @@ check_stop_keypess:
     //
 !run_stop_pressed:
     // Toggle introduction complete flag.
-    lda intro.flag__is_complete
+    lda flag__is_complete
     eor #$FF
-    sta intro.flag__is_complete
+    sta flag__is_complete
     // Wait for key to be released.
 !loop:
     jsr STOP
@@ -641,7 +641,7 @@ clear_screen:
 // - This function is called each time a raster interrupt occurs. It runs once and processes notes/command on each
 //   voice, increments the pointer to the next command/note and then exits.
 play_music:
-    ldx #(NUMBER_VOICES-1) // 0 offset
+    ldx #(NUM_VOICES-1) // 0 offset
 !loop:
     // Configure the voice.
     txa
@@ -706,7 +706,7 @@ initialize_music:
     sta SIGVOL
     //
     // Configure music pointers.
-    ldy #(NUMBER_VOICES*2-1) // Read high/low bytes of the source pattern for each voice (0 offset)
+    ldy #(NUM_VOICES*2-1) // Read high/low bytes of the source pattern for each voice (0 offset)
 !loop:
     lda param__is_play_outro
     bpl !intro+
@@ -725,7 +725,7 @@ initialize_music:
     bpl !loop-
     //
     // Configure voices.
-    ldx #(NUMBER_VOICES-1) // 0 offset
+    ldx #(NUM_VOICES-1) // 0 offset
 !loop:
     lda #$00
     sta private.cnt__voice_note_delay_list,x // Reset delay counter
@@ -780,7 +780,7 @@ initialize_music:
         // Stop introduction from being played again on next new game.
         lda #FLAG_DISABLE
         sta intro.flag__is_enabed
-        sta intro.flag__is_complete
+        sta flag__is_complete
         rts
 
     // 8D33
@@ -996,7 +996,7 @@ ptr__voice_ctl_addr_list: .word FRELO1, FRELO2, FRELO3
 data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private variables.
+// Private assets.
 .namespace private {
     // 3D40
     // Music is played by playing notes within the pattern referenced by `init_pattern_list_ptr` for each voice.
@@ -1119,6 +1119,10 @@ flag__ai_player_selection: .byte $00
 // BCD0
 // Is set to $80 to indicate that the game state should be changed to the next state.
 flag__cancel_interrupt_state: .byte $00
+
+// BCD3
+// Is set to non zero to stop the current state and advance the game state to the options screen.
+flag__is_complete: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Variables

@@ -72,7 +72,7 @@ entry:
     bne !loop-
     //
     ldx #$01
-    jsr board.render_sprite
+    jsr board.set_icon_sprite_location
     jsr board.create_magic_square_sprite
     // Set interrupt handler to set intro loop state.
     sei
@@ -159,7 +159,7 @@ entry:
     // after each side has moved. The coutner is reset though when a challenge occurs. If the counter reaches ($F0)
     // then the game is a stalemate. It is loaded with $FC instead of $12 so we can differentiate beteew a 0 (ie
     // not set) and $F0 (ie stalemate).
-    lda private.cnt__stalemate_moves
+    lda cnt__stalemate_moves
     beq !new_phase+
     and #$0F
     bne !next+
@@ -167,7 +167,7 @@ entry:
     sta private.flag__remaining_player_pieces
     jmp private.game_over
 !next:
-    dec private.cnt__stalemate_moves
+    dec cnt__stalemate_moves
 !new_phase:
     ldy #$03 // Board phase state
     jsr private.cycle_phase_counters
@@ -263,16 +263,16 @@ play_turn:
     sta data__icon_moves
     sta magic.idx__selected_spell
     sta private.flag__can_icon_cast
-    ldx #$05 // Short delay before start of turn
+    ldx #((1/12)*JIFFIES_PER_SECOND) // Short delay before start of turn
     // Check AI turn.
     lda data__ai_player_ctl
     cmp flag__is_light_turn
     bne !next+
     jsr ai.board_calculate_move
-    ldx #$60 // Normal AI start delay
+    ldx #(1.5*JIFFIES_PER_SECOND) // Normal AI start delay
     lda board.cnt__countdown_timer // Will be FF is option timer expired
     bmi !next+
-    ldx #$40 // Short AI start delay if AI vs AI
+    ldx #(1*JIFFIES_PER_SECOND) // Short AI start delay if AI vs AI
 !next:
     stx private.cnt__turn_delay
     jsr wait_for_state_change
@@ -617,18 +617,18 @@ interrupt_handler:
     // Stop sound and reset current animation frame when movemement stopped.
     sta board.cnt__sprite_frame_list,x // A = 00
     cpx #$01 // X is 01 if moving square, 00 for moving icon
-    beq !render_sprite+
+    beq !set_icon_sprite_location+
     sta common.flag__is_player_sound_enabled
     sta VCREG1
     sta common.data__voice_note_delay
-    jmp !render_sprite+
+    jmp !set_icon_sprite_location+
 !next:
     lda magic.idx__selected_spell
     bmi !next+
     jsr private.clear_last_text_row
 !next:
     cpx #$01 // X is 01 if moving square, 00 for moving icon
-    beq !render_sprite+
+    beq !set_icon_sprite_location+
     // Set animation frame for selected icon and increment frame after 4 pixels of movement.
     // The selected initial frame is dependent on the direction of movement.
     lda private.idx__start_icon_frame
@@ -637,12 +637,12 @@ interrupt_handler:
     lda private.idx__icon_frame
     and #$03
     cmp #$03
-    bne !render_sprite+
+    bne !set_icon_sprite_location+
     inc board.cnt__sprite_frame_list,x
     // Configure movement sound effect for selected piece.
     lda #FLAG_ENABLE
     cmp common.flag__is_player_sound_enabled
-    beq !render_sprite+
+    beq !set_icon_sprite_location+
     sta common.flag__is_player_sound_enabled
     lda #$00
     sta common.data__voice_note_delay
@@ -650,8 +650,8 @@ interrupt_handler:
     sta OLDTXT
     lda board.ptr__player_sound_pattern_hi_list
     sta OLDTXT+1
-!render_sprite:
-    jsr board.render_sprite
+!set_icon_sprite_location:
+    jsr board.set_icon_sprite_location
     jmp common.complete_interrupt
 
 // 8367
@@ -1286,14 +1286,14 @@ display_message:
         bpl !loop-
         //
         tax
-        jsr board.render_sprite
+        jsr board.set_icon_sprite_location
         jsr board.draw_board
         // Configure destination icon.
         ldx #$01
         lda board.data__curr_board_col
         ldy board.data__curr_board_row
         jsr board.convert_coord_sprite_pos
-        jsr board.render_sprite
+        jsr board.set_icon_sprite_location
         // Configure transport sound effect.
         lda #FLAG_ENABLE
         sta common.flag__is_player_sound_enabled
@@ -1594,7 +1594,7 @@ data__challenge_icon: .byte $00
 
 // BD09
 // Delay between movement for selected icon. Is only delayed for Golem and Troll.
-data__icon_speed: .byte $00
+data__icon_speed: .byte $00, $00
 
 // BD11
 // Current board color phase (colors phase between light and dark as time progresses).
@@ -1611,6 +1611,10 @@ flag__is_new_square_selected: .byte $00
 // BD55
 // Interrrupt response saved after interrupt was completed.
 data__last_interrupt_response_flag: .byte $00
+
+// BD70
+// Countdown of moves left until stalemate occurs (0 for disabled).
+cnt__stalemate_moves: .byte $00
 
 // BDFD
 // Current strength of each board icon.
@@ -1669,10 +1673,6 @@ data__phase_cycle_board:
     // BD30
     // Points to the music playing function for playing the outro music during an interrupt.
     ptr__play_music_fn: .word $0000
-
-    // BD70
-    // Countdown of moves left until stalemate occurs (0 for disabled).
-    cnt__stalemate_moves: .byte $00
 
     // BCEE
     // Counter used to advance animation frame (every 4 pixels).

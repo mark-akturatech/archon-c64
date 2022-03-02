@@ -104,7 +104,7 @@ entry:
     ldx #(NUM_PLAYERS-1) // 0 offset
     // Create sprites at original coordinates on board. This will allow us to do the animation where the sprites slide
     // in to battle position.
-!loop:
+!player_loop:
     // Create sprite group.
     jsr common.initialize_sprite
     lda #BYTERS_PER_ICON_SPRITE
@@ -170,7 +170,91 @@ entry:
 !skip_adj:
     sta private.data__player_attack_strength_list,x
     //
-
+    // Configure the icon sprite color.
+    ldy common.param__icon_offset_list,x
+    cpy #PHOENIX_OFFSET
+    bne !set_color+
+    // Enable sprite 3 multicolor for phonex attack animation. X is always 0 here.
+    lda SPMC
+    ora private.data__sprite_offset_bit_list,x
+    sta SPMC
+    lda common.data__player_icon_color_list,x
+    bpl !skip+
+!set_color:
+    lda private.data__icon_projectile_color_list,y
+!skip:
+    sta SP2COL,x
+    // Reset variables.
+    lda #$00
+    sta game.cnt__stalemate_moves // Reset stalemate counter
+    // 7C12  9D 03 BD   sta WBD03,x // TODO
+    sta game.data__icon_speed,x
+    // 7C18  9D 21 BD   sta WBD21,x // TODO
+    // Set icons speed.
+    lda common.param__icon_offset_list,x
+    cmp #EARTH_ELEMENTAL_OFFSET
+    beq !set_slow_speed+
+    and #%0001_0111
+    cmp #$03 // Tests if icon is Golem or Troll
+    bne !skip+
+!set_slow_speed:
+    lda #ICON_SLOW_SPEED
+    sta game.data__icon_speed,x
+!skip:
+    // Configure sound.
+    jsr board.get_sound_for_icon
+    ldy common.param__icon_offset_list,x
+    lda private.idx__sound_attack_pattern,y
+    tay
+    lda board.prt__sound_icon_effect_list,y
+    sta private.ptr__player_attack_pattern_lo_list,x
+    lda board.prt__sound_icon_effect_list+1,y
+    sta private.ptr__player_attack_pattern_hi_list,x
+    jsr board.set_icon_sprite_location
+    //
+    // Next player.
+    dex
+    bmi !next+
+    jmp !player_loop-
+!next:
+    //
+    // 7C4C
+    lda #$11
+    sta common.param__icon_sprite_source_frame_list+1 // Default dark player to left facing
+    lda #$00
+    sta common.flag__is_complete // Flag will be set to exit arena when battle is complete
+    // Create projectile sprites
+    ldx #$02
+!loop:
+    lda #$08 // TODO: Each projectile comprises 4 sprites each of 8 bytes long
+    sta common.param__sprite_source_len
+    jsr common.add_sprite_set_to_graphics
+    inx
+    cpx #$04
+    bcc !loop-
+    // Disable projectile sprites by default (they'll be enabled when one is shot)
+    lda #%0000_1111
+    ora SPENA
+    sta SPENA
+    lda private.data__icon_projectile_color_list+PHOENIX_OFFSET // Set color of Phoenix fire
+    sta SPMC1
+    jsr private.set_multicolor_screen
+    jsr common.clear_screen
+    jsr private.set_arena_colors
+    // Set sprite starting positions. They will be animated from the current square to the starting position.
+    lda #$19
+    sta private.data__sprite_initial_x_pos_list
+    lda #$7B
+    sta private.data__sprite_initial_x_pos_list+1
+    lda #$58
+    sta private.data__sprite_initial_y_pos_list
+    lda #$68
+    sta private.data__sprite_initial_y_pos_list+1
+    // Set player starting location.
+    jsr private.set_player_sprite_location
+    ldx #(1.5*JIFFIES_PER_SECOND)
+    jsr common.wait_for_jiffy
+    jsr common.clear_screen
 
     rts // TODO remove
 
@@ -182,6 +266,64 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 // Private functions.
 .namespace private {
+    // 649D
+    // Move player sprites in to the starting battle location.
+    // `data__sprite_curr_y_pos_list` and `data__sprite_curr_x_pos_list` will be already set to the current location
+    // of the sprites - on top of each other on the battle sqaure.
+    // When moving the icons, the may need to move up or down or left or right depending upon the battle square and
+    // the starting battle position.
+    set_player_sprite_location:
+        // OK here we set the 4th bit in a register. When a player sprite reaches the corrext X or Y position, the
+        // register is shifted right. When the register reaches 0 we know both pieces are now at the corrext X and
+        // Y position (as by then it would have been shifted 4 times). I can't work out why we don't just start with
+        // #$03 and dec each time - maybe this is more efficient if you count clock cycles. But this isn't code that
+        // needs to be highly optimized.
+        lda #%0000_1000
+        sta cnt__moves_remaining
+        //
+        ldx #(NUM_PLAYERS-1) // 0 offset
+    !player_loop:
+        // Adjust Y position
+        lda board.data__sprite_curr_y_pos_list,x
+        cmp data__sprite_initial_y_pos_list,x
+        bcc !move_down+
+        bne !move_up+
+        lsr cnt__moves_remaining // At Y position
+        jmp !next+
+    !move_up:
+        dec board.data__sprite_curr_y_pos_list,x
+        jmp !next+
+    !move_down:
+        inc board.data__sprite_curr_y_pos_list,x
+        // Adjust X position
+    !next:
+        lda board.data__sprite_curr_x_pos_list,x
+        cmp data__sprite_initial_x_pos_list,x
+        bcc !move_right+
+        bne !move_left+
+        lsr cnt__moves_remaining // At X position
+        jmp !next+
+    !move_left:
+        dec board.data__sprite_curr_x_pos_list,x
+        jmp !next+
+    !move_right:
+        inc board.data__sprite_curr_x_pos_list,x
+    !next:
+        jsr board.set_icon_sprite_location
+        dex
+        bpl !player_loop-
+        // Add a short delay before each consecutive move (1/60th second).
+        lda TIME+2
+    !loop:
+        cmp TIME+2
+        beq !loop-
+        // Keep moving to position if the sprites are not at the corretc position.
+        lda cnt__moves_remaining
+        beq !return+
+        jmp set_player_sprite_location
+    !return:
+        rts
+    
     // 7F05
     // Pieces will receive an negative strength adjustment when defending the caster magic square based on the number
     // of spells already cast by the spell caster. The caster magic square is the square that the spell caster
@@ -212,6 +354,81 @@ interrupt_handler:
     !return:
         pla
         rts
+
+    // 7F63
+    // Configures colors for battle arena.
+    set_arena_colors:
+        lda data__battle_square_color
+        bne !skip+
+        lda #DARK_GRAY // Use grey instead of black if fighting on a black square
+    !skip:
+        sta BGCOL0
+        sta EXTCOL
+        sta BGCOL1
+        // Configure color data around the border of the battle arena.
+        lda board.ptr__screen_row_offset_lo
+        sta FREEZP+2
+        sta VARPNT
+        lda board.ptr__screen_row_offset_hi
+        sta FREEZP+3
+        clc
+        adc common.data__color_mem_offset
+        sta VARPNT+1
+        ldx #(BOARD_NUM_ROWS*2) // 2 characters per row
+    !row_loop:
+        ldy #(BOARD_NUM_COLS*3-1) // 3 characters per column (0 offset)
+    !char_loop:
+        .const ARENA_CHARACTER = $60
+        lda #ARENA_CHARACTER
+        sta (FREEZP+2),y // Screen memory
+        lda (VARPNT),y // Color memory
+        // Reset color of all characters in the arena to the background color
+        and #%1111_1000 
+        ora #%0000_1000
+        sta (VARPNT),y
+        dey
+        bpl !char_loop-
+        lda FREEZP+2
+        clc
+        adc #CHARS_PER_SCREEN_ROW
+        sta FREEZP+2
+        sta VARPNT
+        bcc !next+
+        inc FREEZP+3
+        inc VARPNT+1
+    !next:
+        dex
+        bne !row_loop-
+        rts
+
+    // 9367
+    // Enable multicolor character mode for all screen character locations.
+    // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this mode,
+    // the color is controlled using the first 3 bits to select the appropriate color.
+    set_multicolor_screen:
+        lda #<COLRAM
+        sta FREEZP+2
+        lda #>COLRAM
+        sta FREEZP+3
+        ldx #$03
+        ldy #$00
+    !loop:
+        lda (FREEZP+2),y
+        ora #$0000_1000
+        sta (FREEZP+2),y
+        iny
+        bne !loop-
+        inc FREEZP+3
+        dex
+        bne !loop-
+    !loop:
+        lda (FREEZP+2),y
+        ora #$0000_1000
+        sta (FREEZP+2),y
+        iny
+        cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
+        bcc !loop-
+        rts        
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -223,13 +440,13 @@ interrupt_handler:
 // Private assets.
 .namespace private {
     // 8BAA
-    idx__sound_attack_pattern:
     // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array.
+    idx__sound_attack_pattern:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 12, 12, 12, 12, 12, 12, 16, 14, 12, 12, 12, 12, 12, 12, 18, 14, 12, 12, 12, 12
 
     // 8A8B
-    // Attack Speed.
+    // Icon attack Speed.
     // - 0-7 = speed
     // - 20 = non projectile directional weapon
     // - 40 = non projectile, surround weapon
@@ -242,12 +459,29 @@ interrupt_handler:
         //    AE, FE, EE, WE
         .byte 04, 05, 03, 03
 
+    // 8AEB
+    // Color of the icon projectile.
+    data__icon_projectile_color_list:
+        //    UC,     WZ,     AR,    GM     VK     DJ          PH      KN
+        .byte YELLOW, ORANGE, BROWN, BROWN, BROWN, LIGHT_GRAY, ORANGE, WHITE
+        //    BK,          SR,    MC,         TL,   SS,         DG,  BS,         GB
+        .byte LIGHT_GREEN, WHITE, LIGHT_BLUE, GRAY, LIGHT_BLUE, RED, LIGHT_BLUE, BROWN
+        //    AE,         FE,  EE,    WE
+        .byte LIGHT_GRAY, RED, BROWN, BLUE
+
     // 8A9F
-    // Attack Damage.
+    // Icon attack Damage.
     // - 00 = shapeshifter - it gets damage of opponent
     data__icon_attack_damage_list:
         //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
         .byte 07, 10, 05, 10, 07, 06, 02, 05, 09, 08, 04, 10, 00, 11, 01, 05, 05, 09, 09, 06
+
+    // 8AD7
+    // Icon attack recovery speed (in number of jiffies).
+    // - 00 = shapeshifter - it gets the recovery speed from the opponent
+    data__icon_attack_recovery_list:
+        //    UC,  WZ,  AR,  GM,  VK,  DJ,  PH,  KN,  BK,  SR,  MC,  TL,  SS,  DG,  BS,  GB,  AE,  FE,  EE,  WE
+        .byte $3C, $50, $50, $64, $50, $5A, $64, $28, $3C, $50, $50, $64, $00, $78, $64, $28, $46, $3C, $64, $64
 
     // 8B4F
     // Projectile animation sprite offsets. Note that some icons use the same projectiles.
@@ -274,6 +508,13 @@ interrupt_handler:
         .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE // FE
         .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE // EE
         .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE // WE
+
+    // 98B1
+    // Bits used to enable sprite 2 and 3 (and set color mode etc).
+    // - 0 for sprite 2, 1 for sprite 3
+    data__sprite_offset_bit_list:
+        .byte %0000_0100 // Sprite 2 bit
+        .byte %0000_1000 // Sprite 3 bit
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -286,15 +527,18 @@ interrupt_handler:
 .namespace private {
     // BCF2
     // Current color of square in which a battle is being faught.
-    // TODO: Is this used?
     data__battle_square_color: .byte $00
 
+    // BCFE
+    // Holds the number of moves remaining to shift the player pieces in to the starting location.
+    cnt__moves_remaining: .byte $00
+
     // BD01
-    // Attack speed for each challenge icon (light, dark). 
+    // Attack speed for each challenge icon (light, dark).
     data__player_attack_speed_list: .byte $00, $00
 
     // BD05
-    // Starting strength for each challenge icon (light, dark). 
+    // Starting strength for each challenge icon (light, dark).
     data__player_attack_strength_list: .byte $00, $00
 
     // BD07
@@ -305,10 +549,26 @@ interrupt_handler:
     // Calculated strength adjustment based on color of the challenge square.
     data__strength_adj: .byte $00
 
+    // BD15
+    // Starting y position of each player.
+    data__sprite_initial_y_pos_list: .byte $00, $00
+
+    // BD17
+    // Starting x position of each player.
+    data__sprite_initial_x_pos_list: .byte $00, $00
+
     // BD23
     // Color of square where challenge was initiated. Used for determining icon strength.
     // TODO: Is this used?
     data__curr_square_color_code: .byte $00
+
+    // BF0E
+    // Low byte pointer to attack sound pattern for current icon (one byte for each player).
+    ptr__player_attack_pattern_lo_list: .byte $00, $00
+
+    // BF10
+    // High byte pointer to attack sound pattern for current icon (one byte for each player).
+    ptr__player_attack_pattern_hi_list: .byte $00, $00
 
     // BF2E
     // Temporary storage for selected icon.

@@ -70,7 +70,7 @@ entry:
     !next:
         // The flag will be set to TRUE when the intro is over. This will then cause the interrupt handler to
         // stop playing into interrupts after the current interrupt is completed.
-        lda flag__is_complete
+        lda common.flag__is_complete
         sta common.flag__cancel_interrupt_state
         jsr common.play_music
         // Run background task for the current intro state. eg move the Logo icon up by one pixel to scroll the logo
@@ -289,7 +289,7 @@ entry:
         cmp #STRING_CMD_NEWLINE
         bcc !char_data+
         beq get_text_location // Get location of new line and output the string
-        rts // Exit if STRING_CMD_END (ie >$80) 
+        rts // Exit if STRING_CMD_END (ie >$80)
     !char_data:
         sta (FREEZP+2),y // Write character to screen
         lda (FORPNT),y
@@ -674,10 +674,6 @@ flag__is_enabed: .byte $00
 // Variables
 //---------------------------------------------------------------------------------------------------------------------
 .segment Variables
-
-// BCD3
-// Is set to non zero to stop the current intro and advance the game state to the options screen.
-flag__is_complete: .byte $00
 
 // BD30
 // Pointer to code for the current intro substate (eg bounce logo, chase icons, display text etc).

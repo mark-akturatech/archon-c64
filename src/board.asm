@@ -20,9 +20,9 @@ get_sound_for_icon:
     ldy common.param__icon_offset_list,x
     lda private.idx__sound_movement_pattern,y
     tay
-    lda private.prt__sound_icon_effect_list,y
+    lda prt__sound_icon_effect_list,y
     sta ptr__player_sound_pattern_lo_list,x
-    lda private.prt__sound_icon_effect_list+1,y
+    lda prt__sound_icon_effect_list+1,y
     sta ptr__player_sound_pattern_hi_list,x
     rts
 
@@ -202,7 +202,7 @@ add_icon_to_matrix:
     rts
 
 // 8D6E
-// Places a sprite at a given location and enables the sprite.
+// Places an icon sprite at a given location and enables the sprite.
 // Requires:
 // - X: sprite number to be enabled.
 // - `data__sprite_curr_x_pos_list`: Screen X location of the sprite.
@@ -213,7 +213,7 @@ add_icon_to_matrix:
 // Notes:
 // - So that the X and Y position can fit in a single register, the Y position is offset by 50 (so 0 represents 50,
 //   1 = 51 etc) and the X position is halved and then offset by 24 (so 0 is 24, 1 is 26, 2 is 28 etc).
-render_sprite:
+set_icon_sprite_location:
     txa
     asl
     tay
@@ -308,10 +308,10 @@ draw_board:
     sta private.cnt__board_col
     ldy private.cnt__board_row
     //
-    lda private.ptr__screen_row_offset_lo,y
+    lda ptr__screen_row_offset_lo,y
     sta FREEZP+2 // Screen offset
     sta VARPNT // Color memory offset
-    lda private.ptr__screen_row_offset_hi,y
+    lda ptr__screen_row_offset_hi,y
     sta FREEZP+3
     clc
     adc common.data__color_mem_offset
@@ -407,12 +407,12 @@ draw_board:
 draw_border:
     .const BORDER_CHARACTER = $C0
     // Draw top border.
-    lda private.ptr__screen_row_offset_lo
+    lda ptr__screen_row_offset_lo
     sec
     sbc #(CHARS_PER_SCREEN_ROW+1) // 1 row and 1 character before start of board
     sta FREEZP+2 // Screen offset
     sta FORPNT // Color memory offset
-    lda private.ptr__screen_row_offset_hi
+    lda ptr__screen_row_offset_hi
     sbc #$00
     sta FREEZP+3
     clc
@@ -690,9 +690,34 @@ ptr__icon_name_string_id_list:
     //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
     .byte 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
 
+// 8B94
+// Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
+// types.
+prt__sound_icon_effect_list:
+    .word resources.snd__effect_walk_large   // 00
+    .word resources.snd__effect_fly_01       // 02
+    .word resources.snd__effect_fly_02       // 04
+    .word resources.snd__effect_walk_quad    // 06
+    .word resources.snd__effect_fly_03       // 08
+    .word resources.snd__effect_fly_large    // 10
+    .word resources.snd__effect_attack_01    // 12
+    .word resources.snd__effect_attack_02    // 14
+    .word resources.snd__effect_attack_03    // 16
+    .word resources.snd__effect_attack_04    // 18
+    .word resources.snd__effect_walk_slither // 20
+
 // 9071
 // Board square colors.
 data__board_player_square_color_list: .byte BLACK, WHITE
+
+// BEAE
+// Low byte screen memory offset of start of each board row
+.const ROW_START_OFFSET = $7e // Screen memory offset of first character of first cell on first board row
+ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
+
+// BEB7
+// High byte screen memory offset of start of each board row.
+ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
 
 // BED2
 // Memory offset of square color data for each board row.
@@ -720,22 +745,6 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
         .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
         .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
         .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
-
-    // 8B94
-    // Points to a list of sounds that can be made for each icon type. The same sounds may be reused by different icon
-    // types.
-    prt__sound_icon_effect_list:
-        .word resources.snd__effect_walk_large   // 00
-        .word resources.snd__effect_fly_01       // 02
-        .word resources.snd__effect_fly_02       // 04
-        .word resources.snd__effect_walk_quad    // 06
-        .word resources.snd__effect_fly_03       // 08
-        .word resources.snd__effect_fly_large    // 10
-        .word resources.snd__effect_attack_01    // 12
-        .word resources.snd__effect_attack_02    // 14
-        .word resources.snd__effect_attack_03    // 16
-        .word resources.snd__effect_attack_04    // 18
-        .word resources.snd__effect_walk_slither // 20
 
     // 8BBE
     // Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
@@ -795,15 +804,6 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
         .word resources.txt__game_conjures_spell, resources.txt__game_option_press_run
         .word resources.txt__game_option_f7, resources.txt__game_option_f5
         .word resources.txt__game_option_f3
-
-    // BEAE
-    // Low byte screen memory offset of start of each board row
-    .const ROW_START_OFFSET = $7e // Screen memory offset of first character of first cell on first board row
-    ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
-
-    // BEB7
-    // High byte screen memory offset of start of each board row.
-    ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
 }
 
 //---------------------------------------------------------------------------------------------------------------------

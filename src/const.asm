@@ -97,18 +97,18 @@
 .const ICON_CAN_CAST = $40
 .const ICON_CAN_THRUST = $20 // Icon attack is a local sword or club attack
 .const ICON_CAN_TRANSFORM = $40 // Icon attack is a surround attack (scream/fire)
+.const ICON_SLOW_SPEED = $40 // Speed of slow icons (like Golem or Earth Elemental)
 
 //---------------------------------------------------------------------------------------------------------------------
 // Sound constants.
 
+.const NUM_VOICES = 3 // Total number of voices available on the SID
 .const SOUND_CMD_NO_NOTE = $00 // Stop note
 .const SOUND_CMD_SET_DELAY = $FB // Set delay
 .const SOUND_CMD_RELEASE_NOTE = $FC // Immediate release
 .const SOUND_CMD_NEXT_STATE = $FD // End state - used to trigger code at points in the music
 .const SOUND_CMD_NEXT_PATTERN = $FE // Go to next pattern (or repeat current pattern)
 .const SOUND_CMD_END = $FF // End pattern and turn off voice
-
-.const NUMBER_VOICES = 3 // Total number of voices available on the SID
 
 //---------------------------------------------------------------------------------------------------------------------
 // String constants.

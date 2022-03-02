@@ -71,6 +71,14 @@ The addresses use the icon offset. You can change these without any consequence.
   $00 is for shapeshifter as it inherits opponent speed.
   The addresses can be modified however high projectile speeds may skip too many pixels during each frame and the projectile could jump over the opponent.
   This is a fun table to play with. You can modify a knight for example by changing to $0F and now the knight can throw it's sword really fast.
+- The icon attack recovery speed is shown below (address `$8AD7`):
+  ```
+  UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
+  3C, 50, 50, 64, 50, 5A, 64, 28, 3C, 50, 50, 64, 00, 78, 64, 28, 46, 3C, 64, 64
+  ```
+  The speed is the count of jiffies (1/60th second) to wait before the icon can attack again.
+  The value can be changed without issue, however the wait time should be longer than it takes to fire across the screen.
+  Setting a Knight to 01 makes it a pretty tough opponent.
 - Shape Shifters will assume the initial strength of the icon they are fighting. This means they don't really need to heal and have an advantage over pieces with damage. However, if a Shape Shifter challenges an elemental, the Shape Shifter will have a strength of 10, which is less than most elementals.
 - Pieces will receive an negative strength adjustment when defending the caster magic square based on the number of spells already cast by the spell caster. The caster magic square is the square that the spell caster initially starts the game on. I think the idea here is that the spell caster weakens the square as they cast spells, making the square harder to defend.
 ## Notes

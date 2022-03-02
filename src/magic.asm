@@ -414,7 +414,7 @@ spell_select:
         lda #$11 // Left facing icon
     !next:
         sta common.param__icon_sprite_source_frame_list
-        jsr board.render_sprite
+        jsr board.set_icon_sprite_location
         //
         lda game.data__ai_player_ctl
         cmp game.flag__is_light_turn
@@ -427,7 +427,7 @@ spell_select:
         lda common.param__icon_offset_list
         cmp #EARTH_ELEMENTAL_OFFSET
         bne !next+
-        lda #$40 // Slow down animation speed for earth elemental
+        lda #ICON_SLOW_SPEED
         sta game.data__icon_speed
     !next:
         lda #(ICON_CAN_FLY+$0F)
@@ -548,7 +548,7 @@ spell_select:
         sec
         sbc #$01
         sta board.data__sprite_curr_y_pos_list+1
-        jsr board.render_sprite
+        jsr board.set_icon_sprite_location
         // Allow user to select a dead icon.
         lda #STRING_REVIVE_WHICH
         sta game.flag__is_new_square_selected
@@ -580,7 +580,7 @@ spell_select:
         jsr board.get_sound_for_icon
         jsr common.initialize_sprite
         jsr common.add_sprite_set_to_graphics
-        jsr board.render_sprite
+        jsr board.set_icon_sprite_location
         jsr clear_dead_icons_from_screen
         lda #(ICON_CAN_FLY+$0F)
         sta game.data__icon_moves
