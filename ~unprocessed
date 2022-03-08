@@ -1,18 +1,9 @@
 
 
-
-
-
-
-
 ////
 ///
-///
-//
-7C9B  A9 00   lda #$00
-7C9D 8D 21 D0 sta BGCOL0
-7CA0  A9 18   lda #$18
-7CA2 8D 18 D0 sta VMCSB
+
+    // Draw arena border
 7CA5  A9 00   lda #$00
 7CA7  85 FD   sta FREEZP+2
 7CA9  A9 44   lda #$44
@@ -42,6 +33,9 @@ W7CCB:
 7CD1  85 FE      sta  FREEZP+3        
 7CD3  4C AF 7C   jmp  W7CAF              
 W7CD6:
+
+
+
 
 
 W7CD6:
@@ -86,6 +80,13 @@ W7D0A:
 W7D17:
 7D17  CA         dex                        
 7D18  D0 E8      bne  W7D02                 
+
+
+
+
+
+
+
 7D1A  AD 70 90   lda  board_sprite_character_color+1 
 7D1D  8D 23 D0   sta  $D023                 
 7D20  AD 01 7F   lda  W7F01                 
@@ -306,8 +307,8 @@ W7EB9:
 7ED0  9D 15 BD   sta  intro_sprite_final_y_pos,x 
 7ED3  20 9D 64   jsr  set_initial_player_location 
 W7ED6:
-7ED6  A9 12      lda  #$12                  
-7ED8  8D 18 D0   sta  io_VMCSB              
+7ED6  A9 12      lda  #%0001_0010                 
+7ED8  8D 18 D0   sta  VMCSB // Reset character dot data back to board play character set
 7EDB  AD 20 D0   lda  io_EXTCOL             
 7EDE  29 0F      and  #$0F                  
 7EE0  8D F2 BC   sta  game_curr_debounce_count 

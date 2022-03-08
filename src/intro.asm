@@ -20,7 +20,7 @@ entry:
     lda SCROLX
     and #%1110_1111 // Multicolor bitmap mode off
     sta SCROLX
-    lda #%0001_0000 // $0000-$07FF char memory, $0400-$07FF screen memory
+    lda #%0001_0000 // +$0000-$07FF char memory, +$0400-$07FF screen memory
     sta VMCSB
     // Configure sprites.
     lda #%0000_1111 // First 4 sprites multicolor; last 4 sprites single color

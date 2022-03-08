@@ -92,7 +92,7 @@ entry:
     tax
     lda board.data__piece_icon_offset_list,x
     sta common.param__icon_offset_list
-    sty private.data__curr_icon_type // ??? Not used?
+    sty common.param__icon_type_list+1
     lda board.data__piece_icon_offset_list,y
     tay
     cpy #SHAPESHIFTER_OFFSET // Shapeshifter?
@@ -226,7 +226,9 @@ entry:
     // Create projectile sprites
     ldx #$02
 !loop:
-    lda #$08 // TODO: Each projectile comprises 4 sprites each of 8 bytes long
+    // Each projectile comprises 8 bytes. There are 4 sprite frames that are rotated to create sprites for each
+    // direction. Up and down direction use the same sprite.
+    lda #BYTERS_PER_PROJECTILE_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     inx
@@ -255,7 +257,17 @@ entry:
     ldx #(1.5*JIFFIES_PER_SECOND)
     jsr common.wait_for_jiffy
     jsr common.clear_screen
+    //
+    lda #BLACK
+    sta BGCOL0
+    //
+    // The challenge arena has a small character set at $6000
+    lda #%0001_1000 // +$2000-$20FF char memory, +$0400-$07FF screen memory
+    sta VMCSB
+    //
 
+
+    
     rts // TODO remove
 
 
@@ -342,11 +354,11 @@ interrupt_handler:
         bne !return+
         cpx #$00 // Light player
         beq !next+
-        ldy #$08 // Dark player row (Y is left at 0 for light player row)
+        ldy #(BOARD_NUM_COLS-1) // Dark player coloumn (Y remains at 0 for light player row)
     !next:
         cpy board.data__curr_board_col
         bne !return+
-        cpy #$08
+        cpy #(BOARD_NUM_COLS-1)
         bne !skip+
         dey // `count_used_spells` needs 0 for light, 7 for dark in Y
     !skip:
@@ -486,28 +498,27 @@ interrupt_handler:
     // 8B4F
     // Projectile animation sprite offsets. Note that some icons use the same projectiles.
     // Phoenix and Banshee use full height shape data stored with the icon shape data.
-    // TODO: what are sprites at positions 6, 11 and 14
     ptr__projectile_sprite_mem_offset_list:
-        .word resources.ptr__sprites_projectile+00*BYTERS_PER_PROJECTILE_SPRITE // UC
-        .word resources.ptr__sprites_projectile+01*BYTERS_PER_PROJECTILE_SPRITE // WZ
-        .word resources.ptr__sprites_projectile+02*BYTERS_PER_PROJECTILE_SPRITE // AR
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE // GM
-        .word resources.ptr__sprites_projectile+04*BYTERS_PER_PROJECTILE_SPRITE // VK
-        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE // DJ
+        .word resources.ptr__sprites_projectile+00*BYTERS_PER_PROJECTILE_SPRITE*4 // UC
+        .word resources.ptr__sprites_projectile+01*BYTERS_PER_PROJECTILE_SPRITE*4 // WZ
+        .word resources.ptr__sprites_projectile+02*BYTERS_PER_PROJECTILE_SPRITE*4 // AR
+        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // GM
+        .word resources.ptr__sprites_projectile+04*BYTERS_PER_PROJECTILE_SPRITE*4 // VK
+        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE*4 // DJ
         .word resources.prt__sprites_icon+PHOENIX_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // PH                                                         // PH
-        .word resources.ptr__sprites_projectile+07*BYTERS_PER_PROJECTILE_SPRITE // KN
-        .word resources.ptr__sprites_projectile+08*BYTERS_PER_PROJECTILE_SPRITE // BK
-        .word resources.ptr__sprites_projectile+09*BYTERS_PER_PROJECTILE_SPRITE // SR
-        .word resources.ptr__sprites_projectile+10*BYTERS_PER_PROJECTILE_SPRITE // MC
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE // TL
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE // SS (not used)
-        .word resources.ptr__sprites_projectile+13*BYTERS_PER_PROJECTILE_SPRITE // DG
+        .word resources.ptr__sprites_projectile+07*BYTERS_PER_PROJECTILE_SPRITE*4 // KN
+        .word resources.ptr__sprites_projectile+08*BYTERS_PER_PROJECTILE_SPRITE*4 // BK
+        .word resources.ptr__sprites_projectile+09*BYTERS_PER_PROJECTILE_SPRITE*4 // SR
+        .word resources.ptr__sprites_projectile+10*BYTERS_PER_PROJECTILE_SPRITE*4 // MC
+        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // TL
+        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // SS (not used)
+        .word resources.ptr__sprites_projectile+13*BYTERS_PER_PROJECTILE_SPRITE*4 // DG
         .word resources.prt__sprites_icon+BANSHEE_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // BS
-        .word resources.ptr__sprites_projectile+15*BYTERS_PER_PROJECTILE_SPRITE // GB
-        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE // AE
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE // FE
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE // EE
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE // WE
+        .word resources.ptr__sprites_projectile+15*BYTERS_PER_PROJECTILE_SPRITE*4 // GB
+        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE*4 // AE
+        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // FE
+        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // EE
+        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // WE
 
     // 98B1
     // Bits used to enable sprite 2 and 3 (and set color mode etc).
@@ -569,11 +580,6 @@ interrupt_handler:
     // BF10
     // High byte pointer to attack sound pattern for current icon (one byte for each player).
     ptr__player_attack_pattern_hi_list: .byte $00, $00
-
-    // BF2E
-    // Temporary storage for selected icon.
-    // TODO: Is this used?
-    data__curr_icon_type: .byte $00
 
     // BF36
     // Calculated strength adjustment based on color of the challenge square plus 1.

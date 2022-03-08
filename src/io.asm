@@ -23,8 +23,8 @@
 .const VICGOFF = videoBankGrphMemOffset.get(videoBank);
 
 // Derive applications specific video bank constants
-.const CHRMEM1  = VICMEM+$0000  // start of character set memory for intro (half set only)
-.const CHRMEM2  = VICMEM+$0800  // start of character set memory for board (full set)
+.const CHRMEM1 = VICMEM+$0000  // start of character set memory for intro (half set only)
+.const CHRMEM2 = VICMEM+$0800  // start of character set memory for board (full set)
 .const SCNMEM = VICMEM+$0400    // start of screen memory (overlaps bottom half CHRMEM1 as CHRMEM1 is a half set)
 .const SPTMEM = SCNMEM+$03F8    // start of sprite location memory
 .const GRPMEM = VICMEM+VICGOFF  // start of graphics/sprite memory

@@ -11,7 +11,7 @@ entry:
     jsr common.clear_screen
     // Configure graphics area again.
     lda #%0001_0010
-    sta VMCSB // $0000-$07FF char memory, $0400-$07FF screen memory
+    sta VMCSB // +$0000-$07FF char memory, +$0400-$07FF screen memory
     lda SCROLX
     ora #%0001_0000 // Multicolor bitmap mode off
     sta SCROLX

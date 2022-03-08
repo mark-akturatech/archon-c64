@@ -220,8 +220,11 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
 
 //---------------------------------------------------------------------------------------------------------------------
 // 6000>
-// ** If required.
 *=$6000 "Additional resources"
+
+// 6000 - 60ff
+// Challenge arena character dot data including font and icons.
+.import binary "/assets/charset-arena.bin"
 
 //---------------------------------------------------------------------------------------------------------------------
 // Resources from $5000 to $5fff will be relocated here.
