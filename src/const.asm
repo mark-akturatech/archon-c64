@@ -22,8 +22,9 @@
 // Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
 .const EMPTY_SPRITE_BLOCK = 15
 
-// Characters per screen row.
-.const CHARS_PER_SCREEN_ROW = 40;
+// Text screen constants.
+.const NUM_SCREEN_COLUMNS = 40;
+.const NUM_SCREEN_ROWS = 25;
 
 // Flag constants.
 .const FLAG_DISABLE = $00; // Off

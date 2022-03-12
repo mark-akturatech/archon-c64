@@ -120,11 +120,12 @@ relocate:
 // This results in a few wasted bytes, but all-in-all we do end up with a fairly well packed file:
 //   - $0801-$080d Basic upstart
 //   - $080e-$3ffa Resources
-//   - $4000-$43ff Character set 1
+//   - $4000-$43ff Character set 1 (intro)
 //   - $4400-$47cb Relocted block #1
-//   - $4800-$4fff Character set 2
+//   - $4800-$4fff Character set 2 (board)
 //   - $5000-$5fb8 Relocted block #2
-//   - $6000>      Source code and assets
+//   - $6000-$60ff Character set 3 (arena)
+//   - $6100>      Source code and assets
 //
 // The relocated resources are placed directly after the end of the asset block.
 .segment Resources

@@ -99,7 +99,7 @@ write_text:
     and #$3F
     clc
     adc #$C0
-    sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x
+    sta (SCNMEM+(NUM_SCREEN_ROWS-2)*NUM_SCREEN_COLUMNS),x
     inx
     iny
     jmp !loop-
@@ -391,7 +391,7 @@ draw_board:
     asl
     clc
     adc private.cnt__board_col
-    adc #CHARS_PER_SCREEN_ROW
+    adc #NUM_SCREEN_COLUMNS
     tay
     jsr private.draw_square_part
     dec private.cnt__board_col
@@ -409,7 +409,7 @@ draw_border:
     // Draw top border.
     lda ptr__screen_row_offset_lo
     sec
-    sbc #(CHARS_PER_SCREEN_ROW+1) // 1 row and 1 character before start of board
+    sbc #(NUM_SCREEN_COLUMNS+1) // 1 row and 1 character before start of board
     sta FREEZP+2 // Screen offset
     sta FORPNT // Color memory offset
     lda ptr__screen_row_offset_hi
@@ -433,7 +433,7 @@ draw_border:
 !loop:
     lda FREEZP+2
     clc
-    adc #CHARS_PER_SCREEN_ROW
+    adc #NUM_SCREEN_COLUMNS
     sta FREEZP+2
     sta FORPNT
     bcc !next+
@@ -459,7 +459,7 @@ draw_border:
     // Draw bottom border.
     lda FREEZP+2
     clc
-    adc #CHARS_PER_SCREEN_ROW
+    adc #NUM_SCREEN_COLUMNS
     sta FREEZP+2
     sta FORPNT
     bcc !next+
@@ -528,14 +528,14 @@ draw_magic_square:
 // Sets:
 // - Clears graphical character memory for rows 23 and 24 (0 offset).
 clear_text_area:
-    ldx #(CHARS_PER_SCREEN_ROW*2-1) // Two rows of text (0 offset)
+    ldx #(NUM_SCREEN_COLUMNS*2-1) // Two rows of text (0 offset)
 !loop:
     lda #$00
-    sta SCNMEM+23*CHARS_PER_SCREEN_ROW,x // Start at 23rd text row
-    lda COLRAM+23*CHARS_PER_SCREEN_ROW,x
+    sta SCNMEM+(NUM_SCREEN_ROWS-2)*NUM_SCREEN_COLUMNS,x // Start at 23rd text row
+    lda COLRAM+(NUM_SCREEN_ROWS-2)*NUM_SCREEN_COLUMNS,x
     and #$F0
     ora #$01
-    sta COLRAM+23*CHARS_PER_SCREEN_ROW,x
+    sta COLRAM+(NUM_SCREEN_ROWS-2)*NUM_SCREEN_COLUMNS,x
     dex
     bpl !loop-
     rts
@@ -713,11 +713,11 @@ data__board_player_square_color_list: .byte BLACK, WHITE
 // BEAE
 // Low byte screen memory offset of start of each board row
 .const ROW_START_OFFSET = $7e // Screen memory offset of first character of first cell on first board row
-ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
+ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*2*NUM_SCREEN_COLUMNS)
 
 // BEB7
 // High byte screen memory offset of start of each board row.
-ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*2*CHARS_PER_SCREEN_ROW)
+ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*2*NUM_SCREEN_COLUMNS)
 
 // BED2
 // Memory offset of square color data for each board row.

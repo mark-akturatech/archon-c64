@@ -1,331 +1,247 @@
-
+(^.*[a-z0-9])\s{2,9}
+$1 
 
 ////
 ///
 
-    // Draw arena border
-7CA5  A9 00   lda #$00
-7CA7  85 FD   sta FREEZP+2
-7CA9  A9 44   lda #$44
-7CAB  85 FE   sta FREEZP+3
-7CAD  A2 02   ldx #$02
-W7CAF:
-7CAF  A0 27   ldy #$27
-W7CB1:
-7CB1  A9 05   lda #$05
-7CB3  91 FD   sta (FREEZP+2),y
-7CB5  88     dey
-7CB6  10 F9   bpl W7CB1
-7CB8  CA     dex
-7CB9  30 1B   bmi W7CD6
-7CBB  F0 0E   beq W7CCB
-7CBD  A5 FD   lda FREEZP+2
-7CBF  18     clc
-7CC0  69 28   adc #$28
-7CC2  85 FD   sta FREEZP+2
-7CC4  90 E9   bcc W7CAF
-7CC6  E6 FE   inc FREEZP+3
-7CC8 4C AF 7C jmp W7CAF
-W7CCB:
-7CCB  A9 C0      lda  #$C0               
-7CCD  85 FD      sta  FREEZP+2        
-7CCF  A9 47      lda  #$47               
-7CD1  85 FE      sta  FREEZP+3        
-7CD3  4C AF 7C   jmp  W7CAF              
-W7CD6:
+// i think this sets the arena hazards
+7D2F A9 00 lda #$00
+7D31 8D C7 BC sta main_state_counter
+7D34 8D C8 BC sta main_state_counter+1
+7D37 A9 FF lda #$FF
+7D39 8D C9 BC sta main_state_counter+2
+7D3C A9 00 lda #$00
+7D3E 8D 3D BF sta main_state_curr_cycle
+7D41 A9 08 lda #$08
+7D43 8D 3E BF sta main_state_curr_cycle+1
+7D46 A9 0A lda #$0A
+7D48 8D 3F BF sta main_state_curr_cycle+2
+7D4B 20 DE 65 jsr W65DE
 
 
-
-
-
-W7CD6:
-7CD6  A2 17      ldx  #$17                  
-7CD8  A9 28      lda  #$28                  
-7CDA  85 FD      sta  io_FREEZP+2           
-7CDC  A9 44      lda  #$44                  
-7CDE  85 FE      sta  io_FREEZP+3           
-W7CE0:
-7CE0  A0 00      ldy  #$00                  
-7CE2  A9 05      lda  #$05                  
-7CE4  91 FD      sta  (io_FREEZP+2),y       
-7CE6  A0 27      ldy  #$27                  
-7CE8  91 FD      sta  (io_FREEZP+2),y       
-7CEA  A5 FD      lda  io_FREEZP+2           
-7CEC  18         clc                        
-7CED  69 28      adc  #$28                  
-7CEF  85 FD      sta  io_FREEZP+2           
-7CF1  90 02      bcc  W7CF5                 
-7CF3  E6 FE      inc  io_FREEZP+3           
-W7CF5:
-7CF5  CA         dex                        
-7CF6  D0 E8      bne  W7CE0                 
-7CF8  A2 18      ldx  #$18                  
-7CFA  A9 00      lda  #$00                  
-7CFC  85 FD      sta  io_FREEZP+2           
-7CFE  A9 D8      lda  #$D8                  
-7D00  85 FE      sta  io_FREEZP+3           
-W7D02:
-7D02  A0 00      ldy  #$00                  
-7D04  B1 FD      lda  (io_FREEZP+2),y       
-7D06  29 F8      and  #$F8                  
-7D08  09 07      ora  #$07                  
-W7D0A:
-7D0A  91 FD      sta  (io_FREEZP+2),y       
-7D0C  A5 FD      lda  io_FREEZP+2           
-7D0E  18         clc                        
-7D0F  69 28      adc  #$28                  
-7D11  85 FD      sta  io_FREEZP+2           
-7D13  90 02      bcc  W7D17                 
-7D15  E6 FE      inc  io_FREEZP+3           
-W7D17:
-7D17  CA         dex                        
-7D18  D0 E8      bne  W7D02                 
-
-
-
-
-
-
-
-7D1A  AD 70 90   lda  board_sprite_character_color+1 
-7D1D  8D 23 D0   sta  $D023                 
-7D20  AD 01 7F   lda  W7F01                 
-7D23  8D 17 BD   sta  main_temp_data__sprite_final_x_pos 
-7D26  AD 02 7F   lda  W7F02                 
-7D29  8D 18 BD   sta  WBD18                 
-7D2C  20 9D 64   jsr  set_initial_player_location 
-7D2F  A9 00      lda  #$00                  
-7D31  8D C7 BC   sta  main_state_counter    
-7D34  8D C8 BC   sta  main_state_counter+1  
-7D37  A9 FF      lda  #$FF                  
-7D39  8D C9 BC   sta  main_state_counter+2  
-7D3C  A9 00      lda  #$00                  
-7D3E  8D 3D BF   sta  main_state_curr_cycle 
-7D41  A9 08      lda  #$08                  
-7D43  8D 3E BF   sta  main_state_curr_cycle+1 
-7D46  A9 0A      lda  #$0A                  
-7D48  8D 3F BF   sta  main_state_curr_cycle+2 
-7D4B  20 DE 65   jsr  W65DE                 
-7D4E  A9 00      lda  #$00                  
-7D50  8D 36 BF   sta  temp_data__light_piece_count 
-7D53  8D 37 BF   sta  temp_data__last_light_piece_id 
-7D56  A2 01      ldx  #$01                  
-7D58  A0 23      ldy  #$23                  
+// this sets the top row of the current strength for each character
+7D4E A9 00 lda #$00
+7D50 8D 36 BF sta temp_data__light_piece_count // data__strength_adj_plus1
+7D53 8D 37 BF sta temp_data__light_piece_count+1
+7D56 A2 01 ldx #$01
+7D58 A0 23 ldy #$23
 W7D5A:
-7D5A  B9 FD BD   lda  board_character_strength_data,y 
-7D5D  F0 03      beq  W7D62                 
-7D5F  FE 36 BF   inc  temp_data__light_piece_count,x 
+7D5A B9 FD BD lda board_character_strength_data,y
+7D5D F0 03 beq W7D62
+7D5F FE 36 BF inc temp_data__light_piece_count,x
 W7D62:
-7D62  88         dey                        
-7D63  30 07      bmi  W7D6C                 
-7D65  C0 11      cpy  #$11                  
-7D67  D0 F1      bne  W7D5A                 
-7D69  CA         dex                        
-7D6A  F0 EE      beq  W7D5A                 
+7D62 88 dey
+7D63 30 07 bmi W7D6C
+7D65 C0 11 cpy #$11
+7D67 D0 F1 bne W7D5A
+7D69 CA dex
+7D6A F0 EE beq W7D5A
+
+
 W7D6C:
-7D6C  AD 26 BF   lda  temp_data__curr_board_row 
-7D6F  8D 30 BF   sta  temp_data__curr_line  
-7D72  AD 28 BF   lda  temp_data__curr_board_col 
-7D75  8D 31 BF   sta  temp_data__curr_column 
+7D6C AD 26 BF lda temp_data__curr_board_row
+7D6F 8D 30 BF sta temp_data__curr_line
+7D72 AD 28 BF lda temp_data__curr_board_col
+7D75 8D 31 BF sta temp_data__curr_column
 W7D78:
-7D78  20 FF 62   jsr  board_test_magic_square_selected 
-7D7B  A9 00      lda  #$00                  
-7D7D  2C FE BC   bit  temp_data__curr_count 
-7D80  30 02      bmi  W7D84                 
-7D82  A9 03      lda  #$03                  
+7D78 20 FF 62 jsr board_test_magic_square_selected
+7D7B A9 00 lda #$00
+7D7D 2C FE BC bit temp_data__curr_count
+7D80 30 02 bmi W7D84
+7D82 A9 03 lda #$03
 W7D84:
-7D84  8D 16 BF   sta  WBF16                 
-7D87  A2 00      ldx  #$00                  
-7D89  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-7D8C  F0 68      beq  W7DF6                 
-7D8E  10 01      bpl  W7D91                 
-7D90  E8         inx                        
+7D84 8D 16 BF sta WBF16
+7D87 A2 00 ldx #$00
+7D89 AD C0 BC lda game_state_flag__ai_player_ctl
+7D8C F0 68 beq W7DF6
+7D8E 10 01 bpl W7D91
+7D90 E8 inx
 W7D91:
-7D91  8E 26 BD   stx  temp_data__curr_sprite_ptr 
-7D94  BC 29 BF   ldy  board_icon_offset,x   
-7D97  B9 27 7F   lda  W7F27,y               
-7D9A  9D 5A BD   sta  WBD5A,x               
-7D9D  8A         txa                        
-7D9E  49 01      eor  #$01                  
-7DA0  A8         tay                        
-7DA1  B9 29 BF   lda  board_icon_offset,y   
-7DA4  A8         tay                        
-7DA5  B9 3B 7F   lda  W7F3B,y               
-7DA8  9D 5C BD   sta  WBD5C,x               
-7DAB  BD 5A BD   lda  WBD5A,x               
-7DAE  C9 10      cmp  #$10                  
-7DB0  B0 0C      bcs  W7DBE                 
-7DB2  BD 5C BD   lda  WBD5C,x               
-7DB5  C9 14      cmp  #$14                  
-7DB7  90 05      bcc  W7DBE                 
-7DB9  A9 14      lda  #$14                  
-7DBB  9D 5C BD   sta  WBD5C,x               
+7D91 8E 26 BD stx temp_data__curr_sprite_ptr
+7D94 BC 29 BF ldy board_icon_offset,x
+7D97 B9 27 7F lda W7F27,y
+7D9A 9D 5A BD sta WBD5A,x
+7D9D 8A txa
+7D9E 49 01 eor #$01
+7DA0 A8 tay
+7DA1 B9 29 BF lda board_icon_offset,y
+7DA4 A8 tay
+7DA5 B9 3B 7F lda W7F3B,y
+7DA8 9D 5C BD sta WBD5C,x
+7DAB BD 5A BD lda WBD5A,x
+7DAE C9 10 cmp #$10
+7DB0 B0 0C bcs W7DBE
+7DB2 BD 5C BD lda WBD5C,x
+7DB5 C9 14 cmp #$14
+7DB7 90 05 bcc W7DBE
+7DB9 A9 14 lda #$14
+7DBB 9D 5C BD sta WBD5C,x
 W7DBE:
-7DBE  B9 4F 7F   lda  W7F4F,y               
-7DC1  9D 60 BD   sta  WBD60,x               
-7DC4  18         clc                        
-7DC5  69 03      adc  #$03                  
-7DC7  9D 5E BD   sta  WBD5E,x               
-7DCA  8A         txa                        
-7DCB  49 01      eor  #$01                  
-7DCD  A8         tay                        
-7DCE  AD 16 BF   lda  WBF16                 
-7DD1  18         clc                        
-7DD2  7D 36 BF   adc  temp_data__light_piece_count,x 
-7DD5  38         sec                        
-7DD6  F9 36 BF   sbc  temp_data__light_piece_count,y 
-7DD9  90 02      bcc  W7DDD                 
-7DDB  D0 02      bne  W7DDF                 
+7DBE B9 4F 7F lda W7F4F,y
+7DC1 9D 60 BD sta WBD60,x
+7DC4 18 clc
+7DC5 69 03 adc #$03
+7DC7 9D 5E BD sta WBD5E,x
+7DCA 8A txa
+7DCB 49 01 eor #$01
+7DCD A8 tay
+7DCE AD 16 BF lda WBF16
+7DD1 18 clc
+7DD2 7D 36 BF adc temp_data__light_piece_count,x
+7DD5 38 sec
+7DD6 F9 36 BF sbc temp_data__light_piece_count,y
+7DD9 90 02 bcc W7DDD
+7DDB D0 02 bne W7DDF
 W7DDD:
-7DDD  A9 01      lda  #$01                  
+7DDD A9 01 lda #$01
 W7DDF:
-7DDF  9D 6E BD   sta  WBD6E,x               
-7DE2  A2 00      ldx  #$00                  
-7DE4  EC CB BC   cpx  board_countdown_timer 
-7DE7  F0 0D      beq  W7DF6                 
-7DE9  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-7DEC  30 01      bmi  W7DEF                 
-7DEE  E8         inx                        
+7DDF 9D 6E BD sta WBD6E,x
+7DE2 A2 00 ldx #$00
+7DE4 EC CB BC cpx board_countdown_timer
+7DE7 F0 0D beq W7DF6
+7DE9 AD C0 BC lda game_state_flag__ai_player_ctl
+7DEC 30 01 bmi W7DEF
+7DEE E8 inx
 W7DEF:
-7DEF  EC 26 BD   cpx  temp_data__curr_sprite_ptr 
-7DF2  F0 02      beq  W7DF6                 
-7DF4  D0 9B      bne  W7D91                 
+7DEF EC 26 BD cpx temp_data__curr_sprite_ptr
+7DF2 F0 02 beq W7DF6
+7DF4 D0 9B bne W7D91
 W7DF6:
-7DF6  A9 00      lda  #$00                  
-7DF8  A2 03      ldx  #$03                  
+7DF6 A9 00 lda #$00
+7DF8 A2 03 ldx #$03
 W7DFA:
-7DFA  9D 36 BF   sta  temp_data__light_piece_count,x 
-7DFD  9D 32 BF   sta  temp_data__dark_piece_count,x 
+7DFA 9D 36 BF sta temp_data__light_piece_count,x
+7DFD 9D 32 BF sta temp_data__dark_piece_count,x
 W7E00:
-7E00  9D E7 BC   sta  common_sprite_curr_animation_frame,x 
-7E03  CA         dex                        
-7E04  10 F4      bpl  W7DFA                 
-7E06  A2 01      ldx  #$01                  
+7E00 9D E7 BC sta common_sprite_curr_animation_frame,x
+7E03 CA dex
+7E04 10 F4 bpl W7DFA
+7E06 A2 01 ldx #$01
 W7E08:
-7E08  9D F6 BC   sta  WBCF6,x               
-7E0B  9D 6C BD   sta  WBD6C,x               
-7E0E  CA         dex                        
-7E0F  10 F7      bpl  W7E08                 
-7E11  85 A2      sta  io_TIME+2             
-7E13  85 A1      sta  io_TIME+1             
-7E15  8D F3 BC   sta  game_delay_before_turn 
-7E18  AD 1E D0   lda  $D01E                 
-7E1B  AD 1F D0   lda  $D01F                 
-7E1E  20 67 83   jsr  game_wait_for_state_change 
-7E21  A9 80      lda  #$80                  
-7E23  8D 1A BF   sta  temp_data__temp_store 
-7E26  A9 0F      lda  #$0F                  
-7E28  8D FA 47   sta  $47FA                 
-7E2B  8D FB 47   sta  $47FB                 
-7E2E  A9 00      lda  #$00                  
-7E30  8D 17 D0   sta  io_YXPAND             
-7E33  A2 01      ldx  #$01                  
+7E08 9D F6 BC sta WBCF6,x
+7E0B 9D 6C BD sta WBD6C,x
+7E0E CA dex
+7E0F 10 F7 bpl W7E08
+7E11 85 A2 sta TIME+2
+7E13 85 A1 sta TIME+1
+7E15 8D F3 BC sta game_delay_before_turn
+7E18 AD 1E D0 lda $D01E
+7E1B AD 1F D0 lda $D01F
+7E1E 20 67 83 jsr game_wait_for_state_change
+7E21 A9 80 lda #$80
+7E23 8D 1A BF sta temp_data__temp_store
+7E26 A9 0F lda #$0F
+7E28 8D FA 47 sta $47FA
+7E2B 8D FB 47 sta $47FB
+7E2E A9 00 lda #$00
+7E30 8D 17 D0 sta YXPAND
+7E33 A2 01 ldx #$01
 W7E35:
-7E35  BC 2D BF   ldy  board_icon_type,x     
-7E38  C0 24      cpy  #$24                  
-7E3A  90 0D      bcc  W7E49                 
-7E3C  A9 0F      lda  #$0F                  
+7E35 BC 2D BF ldy board_icon_type,x
+7E38 C0 24 cpy #$24
+7E3A 90 0D bcc W7E49
+7E3C A9 0F lda #$0F
 W7E3E:
-7E3E  9D F8 47   sta  SPTMEM,x              
-7E41  A9 CE      lda  #$CE                  
-7E43  9D 46 BD   sta  main_sprite_curr_y_pos,x 
-7E46  4C 7C 7E   jmp  W7E7C                 
+7E3E 9D F8 47 sta SPTMEM,x
+7E41 A9 CE lda #$CE
+7E43 9D 46 BD sta main_sprite_curr_y_pos,x
+7E46 4C 7C 7E jmp W7E7C
 
 W7E49:
-7E49  BD 05 BD   lda  data__player_attack_strength_list,x 
-7E4C  D0 14      bne  W7E62                 
-7E4E  98         tya                        
-7E4F  DD 24 BD   cmp  game_imprisoned_icon_id,x 
-7E52  D0 05      bne  W7E59                 
-7E54  A9 FF      lda  #$FF                  
-7E56  9D 24 BD   sta  game_imprisoned_icon_id,x 
+7E49 BD 05 BD lda data__player_attack_strength_list,x
+7E4C D0 14 bne W7E62
+7E4E 98 tya
+7E4F DD 24 BD cmp game_imprisoned_icon_id,x
+7E52 D0 05 bne W7E59
+7E54 A9 FF lda #$FF
+7E56 9D 24 BD sta game_imprisoned_icon_id,x
 W7E59:
-7E59  A9 CE      lda  #$CE                  
-7E5B  9D 46 BD   sta  main_sprite_curr_y_pos,x 
-7E5E  A9 00      lda  #$00                  
-7E60  F0 17      beq  W7E79                 
+7E59 A9 CE lda #$CE
+7E5B 9D 46 BD sta main_sprite_curr_y_pos,x
+7E5E A9 00 lda #$00
+7E60 F0 17 beq W7E79
 W7E62:
-7E62  8C 1A BF   sty  temp_data__temp_store 
+7E62 8C 1A BF sty temp_data__temp_store
 W7E65:
-7E65  D9 FD BD   cmp  board_character_strength_data,y 
-7E68  B0 12      bcs  W7E7C                 
-7E6A  48         pha                        
-7E6B  B9 FF 8A   lda  board_icon_init_matrix,y 
-7E6E  C9 0C      cmp  #$0C                  
-7E70  D0 06      bne  W7E78                 
-7E72  68         pla                        
-7E73  B9 B3 8A   lda  board_character_initial_strength,y 
-7E76  10 01      bpl  W7E79                 
+7E65 D9 FD BD cmp board_character_strength_data,y
+7E68 B0 12 bcs W7E7C
+7E6A 48 pha
+7E6B B9 FF 8A lda board_icon_init_matrix,y
+7E6E C9 0C cmp #$0C
+7E70 D0 06 bne W7E78
+7E72 68 pla
+7E73 B9 B3 8A lda board_character_initial_strength,y
+7E76 10 01 bpl W7E79
 W7E78:
-7E78  68         pla                        
+7E78 68 pla
 W7E79:
-7E79  99 FD BD   sta  board_character_strength_data,y 
+7E79 99 FD BD sta board_character_strength_data,y
 W7E7C:
-7E7C  CA         dex                        
-7E7D  10 B6      bpl  W7E35                 
-7E7F  AD 1A BF   lda  temp_data__temp_store 
-7E82  8D 2D BF   sta  board_icon_type       
-7E85  AC 25 BF   ldy  temp_data__curr_icon_row 
-7E88  8C 26 BF   sty  temp_data__curr_board_row 
-7E8B  AD 27 BF   lda  temp_data__curr_icon_col 
-7E8E  8D 28 BF   sta  temp_data__curr_board_col 
-7E91  A2 04      ldx  #$04                  
-7E93  20 22 64   jsr  board_convert_coord_sprite_pos 
-7E96  48         pha                        
-7E97  98         tya                        
-7E98  48         pha                        
-7E99  20 65 89   jsr  board_add_piece_to_matrix 
-7E9C  20 CA 7F   jsr  W7FCA                 
-7E9F  A2 40      ldx  #$40                  
-7EA1  20 90 64   jsr  common_wait_for_jiffy 
-7EA4  A2 00      ldx  #$00                  
-7EA6  AD 2D BF   lda  board_icon_type       
-7EA9  10 05      bpl  W7EB0                 
-7EAB  68         pla                        
-7EAC  68         pla                        
-7EAD  4C D6 7E   jmp  W7ED6                 
+7E7C CA dex
+7E7D 10 B6 bpl W7E35
+7E7F AD 1A BF lda temp_data__temp_store
+7E82 8D 2D BF sta board_icon_type
+7E85 AC 25 BF ldy temp_data__curr_icon_row
+7E88 8C 26 BF sty temp_data__curr_board_row
+7E8B AD 27 BF lda temp_data__curr_icon_col
+7E8E 8D 28 BF sta temp_data__curr_board_col
+7E91 A2 04 ldx #$04
+7E93 20 22 64 jsr board_convert_coord_sprite_pos
+7E96 48 pha
+7E97 98 tya
+7E98 48 pha
+7E99 20 65 89 jsr board_add_piece_to_matrix
+7E9C 20 CA 7F jsr W7FCA
+7E9F A2 40 ldx #$40
+7EA1 20 90 64 jsr common_wait_for_jiffy
+7EA4 A2 00 ldx #$00
+7EA6 AD 2D BF lda board_icon_type
+7EA9 10 05 bpl W7EB0
+7EAB 68 pla
+7EAC 68 pla
+7EAD 4C D6 7E jmp W7ED6
 
 W7EB0:
-7EB0  A0 00      ldy  #$00                  
-7EB2  C9 12      cmp  #$12                  
-7EB4  90 03      bcc  W7EB9                 
-7EB6  A0 11      ldy  #$11                  
-7EB8  E8         inx                        
+7EB0 A0 00 ldy #$00
+7EB2 C9 12 cmp #$12
+7EB4 90 03 bcc W7EB9
+7EB6 A0 11 ldy #$11
+7EB8 E8 inx
 W7EB9:
-7EB9  A9 00      lda  #$00                  
-7EBB  9D E7 BC   sta  common_sprite_curr_animation_frame,x 
-7EBE  98         tya                        
-7EBF  9D E3 BC   sta  common_sprite_init_animation_frame,x 
-7EC2  68         pla                        
-7EC3  9D 15 BD   sta  intro_sprite_final_y_pos,x 
-7EC6  68         pla                        
-7EC7  9D 17 BD   sta  main_temp_data__sprite_final_x_pos,x 
-7ECA  8A         txa                        
-7ECB  49 01      eor  #$01                  
-7ECD  AA         tax                        
-7ECE  A9 CE      lda  #$CE                  
-7ED0  9D 15 BD   sta  intro_sprite_final_y_pos,x 
-7ED3  20 9D 64   jsr  set_initial_player_location 
+7EB9 A9 00 lda #$00
+7EBB 9D E7 BC sta common_sprite_curr_animation_frame,x
+7EBE 98 tya
+7EBF 9D E3 BC sta common_sprite_init_animation_frame,x
+7EC2 68 pla
+7EC3 9D 15 BD sta intro_sprite_final_y_pos,x
+7EC6 68 pla
+7EC7 9D 17 BD sta main_temp_data__sprite_final_x_pos,x
+7ECA 8A txa
+7ECB 49 01 eor #$01
+7ECD AA tax
+7ECE A9 CE lda #$CE
+7ED0 9D 15 BD sta intro_sprite_final_y_pos,x
+7ED3 20 9D 64 jsr set_initial_player_location
 W7ED6:
-7ED6  A9 12      lda  #%0001_0010                 
-7ED8  8D 18 D0   sta  VMCSB // Reset character dot data back to board play character set
-7EDB  AD 20 D0   lda  io_EXTCOL             
-7EDE  29 0F      and  #$0F                  
-7EE0  8D F2 BC   sta  game_curr_debounce_count 
-7EE3  20 33 93   jsr  common_clear_screen   
-7EE6  20 63 7F   jsr  challenge_set_arena_colors 
-7EE9  A2 40      ldx  #$40                  
+7ED6 A9 12 lda #%0001_0010
+7ED8 8D 18 D0 sta VMCSB // Reset character dot data back to board play character set
+7EDB AD 20 D0 lda EXTCOL
+7EDE 29 0F and #$0F
+7EE0 8D F2 BC sta game_curr_debounce_count
+7EE3 20 33 93 jsr common_clear_screen
+7EE6 20 63 7F jsr challenge_set_arena_colors
+7EE9 A2 40 ldx #$40
 W7EEB:
-7EEB  20 90 64   jsr  common_wait_for_jiffy 
+7EEB 20 90 64 jsr common_wait_for_jiffy
 W7EEE:
-7EEE  20 76 90   jsr  board_draw_board      
-7EF1  A9 0F      lda  #$0F                  
-7EF3  8D F8 47   sta  SPTMEM                
-7EF6  8D F9 47   sta  $47F9                 
-7EF9  A2 20      ldx  #$20                  
-7EFB  20 90 64   jsr  common_wait_for_jiffy 
+7EEE 20 76 90 jsr board_draw_board
+7EF1 A9 0F lda #$0F
+7EF3 8D F8 47 sta SPTMEM
+7EF6 8D F9 47 sta $47F9
+7EF9 A2 20 ldx #$20
+7EFB 20 90 64 jsr common_wait_for_jiffy
 W7EFE:
-7EFE  4C 19 80   jmp  game_entry            
+7EFE 4C 19 80 jmp game_entry
 
 
 
@@ -354,339 +270,509 @@ W7EFE:
 // interrupt
 
 challenge_interrupt_handler:
-938D  AD D0 BC   lda  main_state_flag_update_state 
-9390  30 0D      bmi  W939F                 
-9392  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-9395  F0 0B      beq  W93A2                 
-9397  AD D3 BC   lda  main_state_flag_update_on_interrupt 
-939A  10 06      bpl  W93A2                 
-939C  20 AB 7F   jsr  common_stop_sound     
+938D AD D0 BC lda main_state_flag_update_state
+9390 30 0D bmi W939F
+9392 AD C0 BC lda game_state_flag__ai_player_ctl
+9395 F0 0B beq W93A2
+9397 AD D3 BC lda main_state_flag_update_on_interrupt
+939A 10 06 bpl W93A2
+939C 20 AB 7F jsr common_stop_sound
 W939F:
-939F  4C 8E 63   jmp  common_complete_interrupt 
+939F 4C 8E 63 jmp common_complete_interrupt
 
 W93A2:
-93A2  A2 03      ldx  #$03                  
+93A2 A2 03 ldx #$03
 W93A4:
-93A4  E0 02      cpx  #$02                  
-93A6  90 05      bcc  W93AD                 
-93A8  BD 01 BD   lda  data__player_attack_speed_list,x 
-93AB  F0 03      beq  W93B0                 
+93A4 E0 02 cpx #$02
+93A6 90 05 bcc W93AD
+93A8 BD 01 BD lda data__player_attack_speed_list,x
+93AB F0 03 beq W93B0
 W93AD:
-93AD  20 6E 8D   jsr  board_render_sprite   
+93AD 20 6E 8D jsr board_render_sprite
 W93B0:
-93B0  CA         dex                        
-93B1  10 F1      bpl  W93A4                 
-93B3  AD 1E D0   lda  $D01E                 
-93B6  8D 45 BF   sta  WBF45                 
-93B9  AD 1F D0   lda  $D01F                 
-93BC  8D 46 BF   sta  WBF46                 
-93BF  A0 27      ldy  #$27                  
-93C1  A2 01      ldx  #$01                  
-93C3  A9 06      lda  #$06                  
-93C5  8D 1C BF   sta  temp_ptr__sprite+1    
+93B0 CA dex
+93B1 10 F1 bpl W93A4
+93B3 AD 1E D0 lda $D01E
+93B6 8D 45 BF sta WBF45
+93B9 AD 1F D0 lda $D01F
+93BC 8D 46 BF sta WBF46
+93BF A0 27 ldy #$27
+93C1 A2 01 ldx #$01
+93C3 A9 06 lda #$06
+93C5 8D 1C BF sta temp_ptr__sprite+1
 W93C8:
-93C8  8A         txa                        
-93C9  48         pha                        
-93CA  A9 18      lda  #$18                  
-93CC  38         sec                        
-93CD  FD 05 BD   sbc  data__player_attack_strength_list,x 
-93D0  8D 20 BF   sta  main_temp_data__math_store_1 
-93D3  C9 18      cmp  #$18                  
-93D5  D0 15      bne  W93EC                 
-93D7  AD F2 BC   lda  game_curr_debounce_count 
-93DA  10 0D      bpl  W93E9                 
-93DC  AD 03 BD   lda  WBD03                 
-93DF  0D 04 BD   ora  WBD04                 
-93E2  D0 08      bne  W93EC                 
-93E4  A9 80      lda  #$80                  
-93E6  8D D0 BC   sta  main_state_flag_update_state 
+93C8 8A txa
+93C9 48 pha
+93CA A9 18 lda #$18
+93CC 38 sec
+93CD FD 05 BD sbc data__player_attack_strength_list,x
+93D0 8D 20 BF sta main_temp_data__math_store_1
+93D3 C9 18 cmp #$18
+93D5 D0 15 bne W93EC
+93D7 AD F2 BC lda game_curr_debounce_count
+93DA 10 0D bpl W93E9
+93DC AD 03 BD lda WBD03
+93DF 0D 04 BD ora WBD04
+93E2 D0 08 bne W93EC
+93E4 A9 80 lda #$80
+93E6 8D D0 BC sta main_state_flag_update_state
 W93E9:
-93E9  CE F2 BC   dec  game_curr_debounce_count 
+93E9 CE F2 BC dec game_curr_debounce_count
 W93EC:
-93EC  AD 1C BF   lda  temp_ptr__sprite+1    
-93EF  8D 21 BF   sta  main_temp_data__math_store_2 
-93F2  A2 17      ldx  #$17                  
-93F4  A9 98      lda  #$98                  
-93F6  85 FD      sta  io_FREEZP+2           
-93F8  A9 47      lda  #$47                  
-93FA  85 FE      sta  io_FREEZP+3           
+93EC AD 1C BF lda temp_ptr__sprite+1
+93EF 8D 21 BF sta main_temp_data__math_store_2
+93F2 A2 17 ldx #$17
+93F4 A9 98 lda #$98
+93F6 85 FD sta FREEZP+2
+93F8 A9 47 lda #$47
+93FA 85 FE sta FREEZP+3
 W93FC:
-93FC  EC 20 BF   cpx  main_temp_data__math_store_1 
-93FF  B0 04      bcs  W9405                 
-9401  A9 05      lda  #$05                  
-9403  D0 03      bne  W9408                 
+93FC EC 20 BF cpx main_temp_data__math_store_1
+93FF B0 04 bcs W9405
+9401 A9 05 lda #$05
+9403 D0 03 bne W9408
 W9405:
-9405  AD 21 BF   lda  main_temp_data__math_store_2 
+9405 AD 21 BF lda main_temp_data__math_store_2
 W9408:
-9408  91 FD      sta  (io_FREEZP+2),y       
-940A  A5 FD      lda  io_FREEZP+2           
-940C  38         sec                        
-940D  E9 28      sbc  #$28                  
-940F  85 FD      sta  io_FREEZP+2           
-9411  B0 02      bcs  W9415                 
-9413  C6 FE      dec  io_FREEZP+3           
+9408 91 FD sta (FREEZP+2),y
+940A A5 FD lda FREEZP+2
+940C 38 sec
+940D E9 28 sbc #$28
+940F 85 FD sta FREEZP+2
+9411 B0 02 bcs W9415
+9413 C6 FE dec FREEZP+3
 W9415:
-9415  CA         dex                        
-9416  10 E4      bpl  W93FC                 
-9418  A0 00      ldy  #$00                  
-941A  EE 1C BF   inc  temp_ptr__sprite+1    
-941D  68         pla                        
-941E  AA         tax                        
-941F  CA         dex                        
-9420  10 A6      bpl  W93C8                 
-9422  A2 03      ldx  #$03                  
+9415 CA dex
+9416 10 E4 bpl W93FC
+9418 A0 00 ldy #$00
+941A EE 1C BF inc temp_ptr__sprite+1
+941D 68 pla
+941E AA tax
+941F CA dex
+9420 10 A6 bpl W93C8
+9422 A2 03 ldx #$03
 W9424:
-9424  AD 46 BF   lda  WBF46                 
-9427  3D C3 8D   and  main_math_pow2,x      
-942A  F0 3E      beq  W946A                 
-942C  BD 3E BD   lda  main_sprite_curr_x_pos,x 
-942F  38         sec                        
-9430  E9 04      sbc  #$04                  
-9432  4A         lsr                        
-9433  4A         lsr                        
-9434  4A         lsr                        
-9435  A8         tay                        
-9436  4A         lsr                        
-9437  90 01      bcc  W943A                 
-9439  C8         iny                        
+9424 AD 46 BF lda WBF46
+9427 3D C3 8D and main_math_pow2,x
+942A F0 3E beq W946A
+942C BD 3E BD lda main_sprite_curr_x_pos,x
+942F 38 sec
+9430 E9 04 sbc #$04
+9432 4A lsr
+9433 4A lsr
+9434 4A lsr
+9435 A8 tay
+9436 4A lsr
+9437 90 01 bcc W943A
+9439 C8 iny
 W943A:
-943A  98         tya                        
-943B  0A         asl                        
-943C  48         pha                        
-943D  BD 46 BD   lda  main_sprite_curr_y_pos,x 
-9440  C9 10      cmp  #$10                  
-9442  B0 04      bcs  W9448                 
-9444  A0 00      ldy  #$00                  
-9446  F0 0C      beq  W9454                 
+943A 98 tya
+943B 0A asl
+943C 48 pha
+943D BD 46 BD lda main_sprite_curr_y_pos,x
+9440 C9 10 cmp #$10
+9442 B0 04 bcs W9448
+9444 A0 00 ldy #$00
+9446 F0 0C beq W9454
 W9448:
-9448  38         sec                        
-9449  E9 10      sbc  #$10                  
-944B  4A         lsr                        
-944C  4A         lsr                        
-944D  4A         lsr                        
-944E  4A         lsr                        
-944F  A8         tay                        
-9450  4A         lsr                        
-9451  90 01      bcc  W9454                 
-9453  C8         iny                        
+9448 38 sec
+9449 E9 10 sbc #$10
+944B 4A lsr
+944C 4A lsr
+944D 4A lsr
+944E 4A lsr
+944F A8 tay
+9450 4A lsr
+9451 90 01 bcc W9454
+9453 C8 iny
 W9454:
-9454  B9 E4 BE   lda  WBEE4,y               
-9457  85 FB      sta  io_FREEZP             
-9459  B9 EF BE   lda  WBEEF,y               
-945C  85 FC      sta  io_FREEZP+1           
-945E  68         pla                        
-945F  A8         tay                        
-9460  B1 FB      lda  (io_FREEZP),y         
-9462  4A         lsr                        
-9463  4A         lsr                        
-9464  4A         lsr                        
-9465  A8         tay                        
-9466  88         dey                        
-9467  B9 19 BD   lda  WBD19,y               
+9454 B9 E4 BE lda WBEE4,y
+9457 85 FB sta FREEZP
+9459 B9 EF BE lda WBEEF,y
+945C 85 FC sta FREEZP+1
+945E 68 pla
+945F A8 tay
+9460 B1 FB lda (FREEZP),y
+9462 4A lsr
+9463 4A lsr
+9464 4A lsr
+9465 A8 tay
+9466 88 dey
+9467 B9 19 BD lda WBD19,y
 W946A:
-946A  9D F8 BC   sta  WBCF8,x               
-946D  CA         dex                        
-946E  10 B4      bpl  W9424                 
-9470  A5 A1      lda  io_TIME+1             
-9472  CD F3 BC   cmp  game_delay_before_turn 
-9475  F0 0E      beq  W9485                 
-9477  8D F3 BC   sta  game_delay_before_turn 
-947A  A0 02      ldy  #$02                  
+946A 9D F8 BC sta WBCF8,x
+946D CA dex
+946E 10 B4 bpl W9424
+9470 A5 A1 lda TIME+1
+9472 CD F3 BC cmp game_delay_before_turn
+9475 F0 0E beq W9485
+9477 8D F3 BC sta game_delay_before_turn
+947A A0 02 ldy #$02
 W947C:
-947C  20 78 65   jsr  game_cycle_phase_counters 
-947F  88         dey                        
-9480  10 FA      bpl  W947C                 
-9482  20 6C 66   jsr  W666C                 
+947C 20 78 65 jsr game_cycle_phase_counters
+947F 88 dey
+9480 10 FA bpl W947C
+9482 20 6C 66 jsr W666C
 W9485:
-9485  20 B1 A0   jsr  board_play_icon_sound 
-9488  A2 01      ldx  #$01                  
+9485 20 B1 A0 jsr board_play_icon_sound
+9488 A2 01 ldx #$01
 W948A:
-948A  A9 00      lda  #$00                  
-948C  8D 0D BD   sta  temp_data__sprite_x_direction_offset_1 
-948F  8D 10 BD   sta  WBD10                 
-9492  20 2A 99   jsr  W992A                 
-9495  BD 01 BD   lda  data__player_attack_speed_list,x 
-9498  29 60      and  #$60                  
-949A  F0 0F      beq  W94AB                 
-949C  BD 03 BD   lda  WBD03,x               
-949F  F0 0A      beq  W94AB                 
-94A1  BD 29 BF   lda  board_icon_offset,x   
-94A4  C9 0E      cmp  #$0E                  
-94A6  F0 03      beq  W94AB                 
-94A8  4C 28 95   jmp  W9528                 
+948A A9 00 lda #$00
+948C 8D 0D BD sta temp_data__sprite_x_direction_offset_1
+948F 8D 10 BD sta WBD10
+9492 20 2A 99 jsr W992A
+9495 BD 01 BD lda data__player_attack_speed_list,x
+9498 29 60 and #$60
+949A F0 0F beq W94AB
+949C BD 03 BD lda WBD03,x
+949F F0 0A beq W94AB
+94A1 BD 29 BF lda board_icon_offset,x
+94A4 C9 0E cmp #$0E
+94A6 F0 03 beq W94AB
+94A8 4C 28 95 jmp W9528
 
 W94AB:
-94AB  BD 05 BD   lda  data__player_attack_strength_list,x 
-94AE  D0 03      bne  W94B3                 
-94B0  4C 9B 95   jmp  W959B                 
+94AB BD 05 BD lda data__player_attack_strength_list,x
+94AE D0 03 bne W94B3
+94B0 4C 9B 95 jmp W959B
 
 W94B3:
-94B3  BD F8 BC   lda  WBCF8,x               
-94B6  F0 17      beq  W94CF                 
-94B8  10 10      bpl  W94CA                 
-94BA  20 A2 9A   jsr  W9AA2                 
-94BD  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-94C0  F0 05      beq  W94C7                 
-94C2  EC 26 BD   cpx  temp_data__curr_sprite_ptr 
-94C5  F0 31      beq  W94F8                 
+94B3 BD F8 BC lda WBCF8,x
+94B6 F0 17 beq W94CF
+94B8 10 10 bpl W94CA
+94BA 20 A2 9A jsr W9AA2
+94BD AD C0 BC lda game_state_flag__ai_player_ctl
+94C0 F0 05 beq W94C7
+94C2 EC 26 BD cpx temp_data__curr_sprite_ptr
+94C5 F0 31 beq W94F8
 W94C7:
-94C7  4C 9B 95   jmp  W959B                 
+94C7 4C 9B 95 jmp W959B
 
 W94CA:
-94CA  BD 1D BD   lda  WBD1D,x               
-94CD  49 FF      eor  #$FF                  
+94CA BD 1D BD lda WBD1D,x
+94CD 49 FF eor #$FF
 W94CF:
-94CF  9D 1D BD   sta  WBD1D,x               
-94D2  F0 03      beq  W94D7                 
-94D4  4C 9B 95   jmp  W959B                 
+94CF 9D 1D BD sta WBD1D,x
+94D2 F0 03 beq W94D7
+94D4 4C 9B 95 jmp W959B
 
 W94D7:
-94D7  BD 09 BD   lda  game_curr_icon_move_speed,x 
-94DA  F0 12      beq  W94EE                 
-94DC  FE 09 BD   inc  game_curr_icon_move_speed,x 
-94DF  BD 09 BD   lda  game_curr_icon_move_speed,x 
-94E2  29 03      and  #$03                  
-94E4  D0 08      bne  W94EE                 
-94E6  A9 40      lda  #$40                  
-94E8  9D 09 BD   sta  game_curr_icon_move_speed,x 
-94EB  4C 9B 95   jmp  W959B                 
+94D7 BD 09 BD lda game_curr_icon_move_speed,x
+94DA F0 12 beq W94EE
+94DC FE 09 BD inc game_curr_icon_move_speed,x
+94DF BD 09 BD lda game_curr_icon_move_speed,x
+94E2 29 03 and #$03
+94E4 D0 08 bne W94EE
+94E6 A9 40 lda #$40
+94E8 9D 09 BD sta game_curr_icon_move_speed,x
+94EB 4C 9B 95 jmp W959B
 
 W94EE:
-94EE  AD C0 BC   lda  game_state_flag__ai_player_ctl 
-94F1  F0 0B      beq  W94FE                 
-94F3  EC 26 BD   cpx  temp_data__curr_sprite_ptr 
-94F6  D0 06      bne  W94FE                 
+94EE AD C0 BC lda game_state_flag__ai_player_ctl
+94F1 F0 0B beq W94FE
+94F3 EC 26 BD cpx temp_data__curr_sprite_ptr
+94F6 D0 06 bne W94FE
 W94F8:
-94F8  20 E3 9A   jsr  W9AE3                 
-94FB  4C 28 95   jmp  W9528                 
+94F8 20 E3 9A jsr W9AE3
+94FB 4C 28 95 jmp W9528
 
 W94FE:
-94FE  8A         txa                        
-94FF  49 01      eor  #$01                  
-9501  A8         tay                        
-9502  B9 00 DC   lda  IO_CIAPRA,y           
-9505  48         pha                        
-9506  29 08      and  #$08                  
-9508  D0 06      bne  W9510                 
-950A  20 FC 95   jsr  W95FC                 
-950D  4C 19 95   jmp  W9519                 
+94FE 8A txa
+94FF 49 01 eor #$01
+9501 A8 tay
+9502 B9 00 DC lda CIAPRA,y
+9505 48 pha
+9506 29 08 and #$08
+9508 D0 06 bne W9510
+950A 20 FC 95 jsr W95FC
+950D 4C 19 95 jmp W9519
 
 W9510:
-9510  68         pla                        
-9511  48         pha                        
-9512  29 04      and  #$04                  
-9514  D0 03      bne  W9519                 
-9516  20 4B 96   jsr  W964B                 
+9510 68 pla
+9511 48 pha
+9512 29 04 and #$04
+9514 D0 03 bne W9519
+9516 20 4B 96 jsr W964B
 W9519:
-9519  68         pla                        
-951A  4A         lsr                        
-951B  48         pha                        
-951C  B0 03      bcs  W9521                 
-951E  20 A5 96   jsr  W96A5                 
+9519 68 pla
+951A 4A lsr
+951B 48 pha
+951C B0 03 bcs W9521
+951E 20 A5 96 jsr W96A5
 W9521:
-9521  68         pla                        
-9522  4A         lsr                        
-9523  B0 03      bcs  W9528                 
-9525  20 F8 96   jsr  W96F8                 
+9521 68 pla
+9522 4A lsr
+9523 B0 03 bcs W9528
+9525 20 F8 96 jsr W96F8
 W9528:
-9528  AD 0D BD   lda  temp_data__sprite_x_direction_offset_1 
-952B  D0 41      bne  W956E                 
-952D  9D E7 BC   sta  common_sprite_curr_animation_frame,x 
-9530  BD 08 BF   lda  common_sound_flag__enable_voice,x 
-9533  F0 1F      beq  W9554                 
-9535  C9 80      cmp  #$80                  
-9537  D0 1B      bne  W9554                 
-9539  A9 00      lda  #$00                  
-953B  9D 08 BF   sta  common_sound_flag__enable_voice,x 
-953E  9D 0B BF   sta  common_sound_new_note_delay,x 
-9541  8A         txa                        
-9542  0A         asl                        
-9543  A8         tay                        
-9544  B9 AB A0   lda  common_sound_voice_io_addr,y 
-9547  85 FD      sta  io_FREEZP+2           
-9549  B9 AC A0   lda  common_sound_voice_io_addr+1,y 
-954C  85 FE      sta  io_FREEZP+3           
-954E  A9 00      lda  #$00                  
-9550  A0 04      ldy  #$04                  
-9552  91 FD      sta  (io_FREEZP+2),y       
+9528 AD 0D BD lda temp_data__sprite_x_direction_offset_1
+952B D0 41 bne W956E
+952D 9D E7 BC sta common_sprite_curr_animation_frame,x
+9530 BD 08 BF lda common_sound_flag__enable_voice,x
+9533 F0 1F beq W9554
+9535 C9 80 cmp #$80
+9537 D0 1B bne W9554
+9539 A9 00 lda #$00
+953B 9D 08 BF sta common_sound_flag__enable_voice,x
+953E 9D 0B BF sta common_sound_new_note_delay,x
+9541 8A txa
+9542 0A asl
+9543 A8 tay
+9544 B9 AB A0 lda common_sound_voice_addr,y
+9547 85 FD sta FREEZP+2
+9549 B9 AC A0 lda common_sound_voice_addr+1,y
+954C 85 FE sta FREEZP+3
+954E A9 00 lda #$00
+9550 A0 04 ldy #$04
+9552 91 FD sta (FREEZP+2),y
 W9554:
-9554  8A         txa                        
-9555  49 01      eor  #$01                  
-9557  A8         tay                        
-9558  B9 00 DC   lda  IO_CIAPRA,y           
-955B  29 10      and  #$10                  
-955D  D0 3C      bne  W959B                 
-955F  BD 29 BF   lda  board_icon_offset,x   
-9562  29 07      and  #$07                  
-9564  C9 06      cmp  #$06                  
-9566  D0 33      bne  W959B                 
-9568  20 22 97   jsr  W9722                 
-956B  4C 9B 95   jmp  W959B                 
+9554 8A txa
+9555 49 01 eor #$01
+9557 A8 tay
+9558 B9 00 DC lda CIAPRA,y
+955B 29 10 and #$10
+955D D0 3C bne W959B
+955F BD 29 BF lda board_icon_offset,x
+9562 29 07 and #$07
+9564 C9 06 cmp #$06
+9566 D0 33 bne W959B
+9568 20 22 97 jsr W9722
+956B 4C 9B 95 jmp W959B
 
 W956E:
-956E  A9 80      lda  #$80                  
-9570  DD 08 BF   cmp  common_sound_flag__enable_voice,x 
-9573  F0 19      beq  W958E                 
-9575  90 17      bcc  W958E                 
-9577  9D 08 BF   sta  common_sound_flag__enable_voice,x 
-957A  A9 00      lda  #$00                  
-957C  9D 0B BF   sta  common_sound_new_note_delay,x 
-957F  8A         txa                        
-9580  0A         asl                        
-9581  A8         tay                        
-9582  BD 12 BF   lda  board_sound_phrase_lo_ptr,x 
-9585  99 3D 00   sta  io_OLDTXT,y           
-9588  BD 14 BF   lda  board_sound_phrase_hi_ptr,x 
-958B  99 3E 00   sta  io_OLDTXT+1,y         
+956E A9 80 lda #$80
+9570 DD 08 BF cmp common_sound_flag__enable_voice,x
+9573 F0 19 beq W958E
+9575 90 17 bcc W958E
+9577 9D 08 BF sta common_sound_flag__enable_voice,x
+957A A9 00 lda #$00
+957C 9D 0B BF sta common_sound_new_note_delay,x
+957F 8A txa
+9580 0A asl
+9581 A8 tay
+9582 BD 12 BF lda board_sound_phrase_lo_ptr,x
+9585 99 3D 00 sta OLDTXT,y
+9588 BD 14 BF lda board_sound_phrase_hi_ptr,x
+958B 99 3E 00 sta OLDTXT+1,y
 W958E:
-958E  FE EE BC   inc  temp_flag__alternating_state,x 
-9591  BD EE BC   lda  temp_flag__alternating_state,x 
-9594  29 03      and  #$03                  
-9596  D0 03      bne  W959B                 
-9598  FE E7 BC   inc  common_sprite_curr_animation_frame,x 
+958E FE EE BC inc temp_flag__alternating_state,x
+9591 BD EE BC lda temp_flag__alternating_state,x
+9594 29 03 and #$03
+9596 D0 03 bne W959B
+9598 FE E7 BC inc common_sprite_curr_animation_frame,x
 W959B:
-959B  20 A2 97   jsr  W97A2                 
-959E  BD 21 BD   lda  WBD21,x               
-95A1  F0 23      beq  W95C6                 
-95A3  DE 21 BD   dec  WBD21,x               
-95A6  D0 1E      bne  W95C6                 
-95A8  A9 81      lda  #$81                  
-95AA  DD 08 BF   cmp  common_sound_flag__enable_voice,x 
-95AD  90 17      bcc  W95C6                 
-95AF  9D 08 BF   sta  common_sound_flag__enable_voice,x 
-95B2  A9 00      lda  #$00                  
-95B4  9D 0B BF   sta  common_sound_new_note_delay,x 
-95B7  8A         txa                        
-95B8  0A         asl                        
-95B9  A8         tay                        
-95BA  B9 F8 95   lda  W95F8,y               
-95BD  99 3D 00   sta  io_OLDTXT,y           
-95C0  B9 F9 95   lda  W95F9,y               
-95C3  99 3E 00   sta  io_OLDTXT+1,y         
+959B 20 A2 97 jsr W97A2
+959E BD 21 BD lda WBD21,x
+95A1 F0 23 beq W95C6
+95A3 DE 21 BD dec WBD21,x
+95A6 D0 1E bne W95C6
+95A8 A9 81 lda #$81
+95AA DD 08 BF cmp common_sound_flag__enable_voice,x
+95AD 90 17 bcc W95C6
+95AF 9D 08 BF sta common_sound_flag__enable_voice,x
+95B2 A9 00 lda #$00
+95B4 9D 0B BF sta common_sound_new_note_delay,x
+95B7 8A txa
+95B8 0A asl
+95B9 A8 tay
+95BA B9 F8 95 lda W95F8,y
+95BD 99 3D 00 sta OLDTXT,y
+95C0 B9 F9 95 lda W95F9,y
+95C3 99 3E 00 sta OLDTXT+1,y
 W95C6:
-95C6  AD CB BC   lda  board_countdown_timer 
-95C9  F0 06      beq  W95D1                 
-95CB  8A         txa                        
-95CC  49 01      eor  #$01                  
-95CE  8D 26 BD   sta  temp_data__curr_sprite_ptr 
+95C6 AD CB BC lda board_countdown_timer
+95C9 F0 06 beq W95D1
+95CB 8A txa
+95CC 49 01 eor #$01
+95CE 8D 26 BD sta temp_data__curr_sprite_ptr
 W95D1:
-95D1  CA         dex                        
-95D2  30 03      bmi  W95D7                 
-95D4  4C 8A 94   jmp  W948A                 
+95D1 CA dex
+95D2 30 03 bmi W95D7
+95D4 4C 8A 94 jmp W948A
 
 W95D7:
-95D7  AD 2A BF   lda  board_icon_offset+1   
-95DA  C9 0E      cmp  #$0E                  
-95DC  D0 13      bne  W95F1                 
-95DE  AD 04 BD   lda  WBD04                 
-95E1  F0 0E      beq  W95F1                 
-95E3  AD E4 BC   lda  common_sprite_init_animation_frame+1 
-95E6  4A         lsr                        
-95E7  4A         lsr                        
-95E8  C9 03      cmp  #$03                  
-95EA  90 02      bcc  W95EE                 
-95EC  A9 03      lda  #$03                  
+95D7 AD 2A BF lda board_icon_offset+1
+95DA C9 0E cmp #$0E
+95DC D0 13 bne W95F1
+95DE AD 04 BD lda WBD04
+95E1 F0 0E beq W95F1
+95E3 AD E4 BC lda common_sprite_init_animation_frame+1
+95E6 4A lsr
+95E7 4A lsr
+95E8 C9 03 cmp #$03
+95EA 90 02 bcc W95EE
+95EC A9 03 lda #$03
 W95EE:
-95EE  8D E6 BC   sta  common_sprite_init_animation_frame+3 
+95EE 8D E6 BC sta common_sprite_init_animation_frame+3
 W95F1:
-95F1  4C 8E 63   jmp  common_complete_interrupt 
+95F1 4C 8E 63 jmp common_complete_interrupt
+
+
+
+	
+W7F03:
+	.byte $12
+W7F04:
+	.byte $AE
+
+
+
+
+
+
+
+
+
+
+// draw challenge hazards?
+
+W65DE:
+65DE  A9 03      lda  #$03                  
+65E0  8D 23 BF   sta  intro_sprite_y_direction 
+65E3  A9 08      lda  #$08                  
+65E5  8D 24 BF   sta  main_temp_data__character_sprite_frame 
+W65E8:
+65E8  A2 06      ldx  #$06                  
+W65EA:
+65EA  AD 1B D4   lda  io_RANDOM             Random numbers generator oscillator 3
+65ED  29 1E      and  #$1E                  
+65EF  F0 F9      beq  W65EA                 
+65F1  C9 12      cmp  #$12                  
+65F3  B0 F5      bcs  W65EA                 
+65F5  0A         asl                        
+65F6  8D 31 BF   sta  temp_data__curr_column 
+W65F9:
+65F9  AD 1B D4   lda  io_RANDOM             Random numbers generator oscillator 3
+65FC  29 0E      and  #$0E                  
+65FE  C9 0B      cmp  #$0B                  
+W6600:
+6600  B0 F7      bcs  W65F9                 
+6602  8D 30 BF   sta  temp_data__curr_line  
+W6605:
+6605  AD 24 BF   lda  main_temp_data__character_sprite_frame 
+6608  48         pha                        
+W6609:
+6609  20 29 66   jsr  W6629                 
+660C  68         pla                        
+660D  8D 24 BF   sta  main_temp_data__character_sprite_frame 
+6610  AD FE BC   lda  temp_data__curr_count 
+6613  10 D5      bpl  W65EA                 
+6615  CA         dex                        
+6616  D0 D2      bne  W65EA                 
+6618  AD 24 BF   lda  main_temp_data__character_sprite_frame 
+661B  18         clc                        
+661C  69 08      adc  #$08                  
+W661E:
+661E  8D 24 BF   sta  main_temp_data__character_sprite_frame 
+6621  CE 23 BF   dec  intro_sprite_y_direction 
+6624  D0 C2      bne  W65E8                 
+6626  4C 6C 66   jmp  W666C                 
+
+W6629:
+6629  A9 40      lda  #$40                  
+662B  8D FE BC   sta  temp_data__curr_count 
+662E  AC 30 BF   ldy  temp_data__curr_line  
+6631  B9 E4 BE   lda  WBEE4,y               
+6634  85 FD      sta  io_FREEZP+2           
+6636  B9 EF BE   lda  WBEEF,y               
+6639  85 FE      sta  io_FREEZP+3           Free 0 page for user program
+663B  A9 02      lda  #$02                  
+663D  8D 1A BF   sta  temp_data__temp_store 
+W6640:
+6640  AC 31 BF   ldy  temp_data__curr_column 
+6643  B1 FD      lda  (io_FREEZP+2),y       
+6645  D0 24      bne  W666B                 
+6647  AD 24 BF   lda  main_temp_data__character_sprite_frame 
+664A  91 FD      sta  (io_FREEZP+2),y       
+664C  C8         iny                        
+664D  EE 24 BF   inc  main_temp_data__character_sprite_frame 
+6650  AD 24 BF   lda  main_temp_data__character_sprite_frame 
+6653  91 FD      sta  (io_FREEZP+2),y       
+6655  EE 24 BF   inc  main_temp_data__character_sprite_frame 
+6658  A5 FD      lda  io_FREEZP+2           
+665A  18         clc                        
+665B  69 28      adc  #$28                  
+665D  85 FD      sta  io_FREEZP+2           
+665F  90 02      bcc  W6663                 
+6661  E6 FE      inc  io_FREEZP+3           Free 0 page for user program
+W6663:
+6663  CE 1A BF   dec  temp_data__temp_store 
+W6666:
+6666  D0 D8      bne  W6640                 
+6668  0E FE BC   asl  temp_data__curr_count 
+W666B:
+666B  60         rts                        
+
+W666C:
+666C  A0 02      ldy  #$02                  
+W666E:
+666E  A2 00      ldx  #$00                  
+6670  B9 3D BF   lda  main_state_curr_cycle,y 
+6673  F0 08      beq  W667D                 
+6675  A2 40      ldx  #$40                  
+6677  C9 02      cmp  #$02                  
+6679  F0 02      beq  W667D                 
+667B  A2 80      ldx  #$80                  
+W667D:
+667D  8A         txa                        
+667E  99 19 BD   sta  WBD19,y               
+6681  88         dey                        
+6682  10 EA      bpl  W666E                 
+6684  A9 16      lda  #$16                  
+6686  8D 1A BF   sta  temp_data__temp_store 
+6689  AD E4 BE   lda  WBEE4                 
+668C  85 FD      sta  io_FREEZP+2           
+668E  85 47      sta  io_VARPNT             Pointer: BASIC current variable data
+6690  AD EF BE   lda  WBEEF                 
+6693  85 FE      sta  io_FREEZP+3           Free 0 page for user program
+6695  18         clc                        
+6696  6D 19 BF   adc  main_color_mem_offset 
+6699  85 48      sta  io_VARPNT+1           Pointer: BASIC current variable data
+W669B:
+669B  A0 25      ldy  #$25                  
+W669D:
+669D  A2 02      ldx  #$02                  
+669F  B1 FD      lda  (io_FREEZP+2),y       
+66A1  F0 2E      beq  W66D1                 
+66A3  29 18      and  #$18                  
+66A5  C9 18      cmp  #$18                  
+66A7  B0 06      bcs  W66AF                 
+66A9  CA         dex                        
+66AA  C9 10      cmp  #$10                  
+66AC  B0 01      bcs  W66AF                 
+66AE  CA         dex                        
+W66AF:
+66AF  BD 19 BD   lda  WBD19,x               
+66B2  10 07      bpl  W66BB                 
+66B4  B1 FD      lda  (io_FREEZP+2),y       
+66B6  09 04      ora  #$04                  
+66B8  4C BF 66   jmp  W66BF                 
+
+W66BB:
+66BB  B1 FD      lda  (io_FREEZP+2),y       
+66BD  29 FB      and  #$FB                  
+W66BF:
+66BF  91 FD      sta  (io_FREEZP+2),y       
+66C1  BD 3D BF   lda  main_state_curr_cycle,x 
+66C4  4A         lsr                        
+66C5  AA         tax                        
+66C6  B1 47      lda  (io_VARPNT),y         Pointer: BASIC current variable data
+66C8  29 F0      and  #$F0                  
+66CA  09 08      ora  #$08                  
+66CC  1D D2 8B   ora  board_color_phase_data,x 
+66CF  91 47      sta  (io_VARPNT),y         Pointer: BASIC current variable data
+W66D1:
+66D1  88         dey                        
+66D2  10 C9      bpl  W669D                 
+66D4  A5 FD      lda  io_FREEZP+2           
+66D6  18         clc                        
+66D7  69 28      adc  #$28                  
+66D9  85 FD      sta  io_FREEZP+2           
+66DB  85 47      sta  io_VARPNT             Pointer: BASIC current variable data
+66DD  90 04      bcc  W66E3                 
+66DF  E6 FE      inc  io_FREEZP+3           Free 0 page for user program
+66E1  E6 48      inc  io_VARPNT+1           Pointer: BASIC current variable data
+W66E3:
+66E3  CE 1A BF   dec  temp_data__temp_store 
+66E6  D0 B3      bne  W669B                 
+66E8  60         rts          

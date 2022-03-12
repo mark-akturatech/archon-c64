@@ -331,7 +331,7 @@ play_turn:
     dex
     bpl !loop-
     // Show cannot move warning.
-    ldx #CHARS_PER_SCREEN_ROW
+    ldx #NUM_SCREEN_COLUMNS
     lda #STRING_CANNOT_MOVE
     jsr board.write_text
     jsr board.add_icon_to_matrix
@@ -350,7 +350,7 @@ play_turn:
     ora #%0000_0001
     sta SPMC
     lda XXPAND
-    and #%11111_1110
+    and #%1111_1110
     sta XXPAND
     lda SPENA
     ora #%0000_0001
@@ -778,7 +778,7 @@ display_message:
     jsr private.clear_last_text_row
     txa
     pha
-    ldx #CHARS_PER_SCREEN_ROW
+    ldx #NUM_SCREEN_COLUMNS
     lda flag__is_new_square_selected
     and #$7F
     jsr board.write_text
@@ -922,7 +922,7 @@ display_message:
     game_over:
         jsr clear_last_text_row
         lda #STRING_GAME_ENDED
-        ldx #CHARS_PER_SCREEN_ROW
+        ldx #NUM_SCREEN_COLUMNS
         jsr board.write_text
         lda private.flag__remaining_player_pieces
         cmp #$01 // Stalemate?
@@ -1227,10 +1227,10 @@ display_message:
     // Notes:
     // - Does not clear color memory.
     clear_last_text_row:
-        ldy #(CHARS_PER_SCREEN_ROW-1) // 0 offset
+        ldy #(NUM_SCREEN_COLUMNS-1) // 0 offset
         lda #$00
     !loop:
-        sta SCNMEM+24*CHARS_PER_SCREEN_ROW,y
+        sta SCNMEM+(NUM_SCREEN_ROWS-1)*NUM_SCREEN_COLUMNS,y
         dey
         bpl !loop-
         rts

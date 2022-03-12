@@ -251,7 +251,7 @@ entry:
     !loop:
         // Add 40 characters (1 row) to the column value for each row to obtain the starting screen location.
         clc
-        adc #CHARS_PER_SCREEN_ROW
+        adc #NUM_SCREEN_COLUMNS
         bcc !next+
         inc FREEZP+3
         inc FORPNT+1

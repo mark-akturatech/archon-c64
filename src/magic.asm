@@ -358,7 +358,7 @@ spell_select:
         bpl !loop-
         // All opposing icons on charmed squares. Spell wasted. Display warning message.
         lda #STRING_CHARMED_PROOF
-        ldx #CHARS_PER_SCREEN_ROW
+        ldx #NUM_SCREEN_COLUMNS
         jsr board.write_text
         jmp spell_complete
         //
@@ -498,10 +498,10 @@ spell_select:
         //
     !next:
         // Set screen and color memory pointers for displaying the dead icon list.
-        lda #(CHARS_PER_SCREEN_ROW*3)
+        lda #(NUM_SCREEN_COLUMNS*3)
         ldy game.flag__is_light_turn
         bpl !next+
-        lda #(CHARS_PER_SCREEN_ROW*3+CHARS_PER_SCREEN_ROW-4)
+        lda #<(SCNMEM+(NUM_SCREEN_COLUMNS*3+NUM_SCREEN_COLUMNS-4))
     !next:
         sta FREEZP+2 // Screen memory pointer
         sta VARPNT // Color memory pointer
@@ -608,7 +608,7 @@ spell_select:
         bne !loop-
         lda FREEZP+2
         clc
-        adc #CHARS_PER_SCREEN_ROW
+        adc #NUM_SCREEN_COLUMNS
         sta FREEZP+2
         sta VARPNT
         bcc !next+
@@ -636,7 +636,7 @@ spell_select:
         bpl !loop-
         lda FREEZP+2
         clc
-        adc #CHARS_PER_SCREEN_ROW
+        adc #NUM_SCREEN_COLUMNS
         sta FREEZP+2
         bcc !next+
         inc FREEZP+3
@@ -778,14 +778,14 @@ spell_select:
     !show_spell:
         // Clear spell display row.
         lda #$00
-        ldx #CHARS_PER_SCREEN_ROW
+        ldx #NUM_SCREEN_COLUMNS
     !loop:
-        sta (SCNMEM+23*CHARS_PER_SCREEN_ROW),x
+        sta (SCNMEM+(NUM_SCREEN_ROWS-2)*NUM_SCREEN_COLUMNS),x
         inx
-        cpx #(CHARS_PER_SCREEN_ROW+CHARS_PER_SCREEN_ROW)
+        cpx #(NUM_SCREEN_COLUMNS+NUM_SCREEN_COLUMNS)
         bcc !loop-
         // Display the name of the spell.
-        ldx #(CHARS_PER_SCREEN_ROW+10)
+        ldx #(NUM_SCREEN_COLUMNS+10)
         ldy data__temp_storage
         lda private.ptr__spell_string_id_list,y
         jsr board.write_text

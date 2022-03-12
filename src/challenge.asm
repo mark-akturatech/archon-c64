@@ -265,10 +265,99 @@ entry:
     lda #%0001_1000 // +$2000-$20FF char memory, +$0400-$07FF screen memory
     sta VMCSB
     //
+    // Draw arena border.
+    // Top border (row 1).
+    lda #<SCNMEM
+    sta FREEZP+2
+    lda #>SCNMEM
+    sta FREEZP+3
+    .const NUM_HORIZONTAL_BORDERS = 3 // 2 x Top and 1 x bottom border
+    ldx #NUM_HORIZONTAL_BORDERS
+!border_loop:
+    ldy #(NUM_SCREEN_COLUMNS-1) // 0 offset
+!row_loop:
+    .const BORDER_CHARACTER = $05
+    lda #BORDER_CHARACTER // It's not great loading A every time within the loop.
+    sta (FREEZP+2),y
+    dey
+    bpl !row_loop-
+    dex
+    bmi !next+
+    beq !bottom_border+
+    lda FREEZP+2
+    clc
+    adc #NUM_SCREEN_COLUMNS // Next screen row
+    sta FREEZP+2
+    bcc !border_loop-
+    inc FREEZP+3
+    jmp !border_loop-
+    // Bottom border (rows 24 and 25).
+!bottom_border:
+    lda #<(SCNMEM+(NUM_SCREEN_ROWS-1)*NUM_SCREEN_COLUMNS)
+    sta FREEZP+2
+    lda #>(SCNMEM+(NUM_SCREEN_ROWS-1)*NUM_SCREEN_COLUMNS)
+    sta FREEZP+3
+    jmp !border_loop-
+!next:
+    // Side border (columns 1 and 40).
+    ldx #(NUM_SCREEN_ROWS-2)
+    lda #<(SCNMEM+NUM_SCREEN_COLUMNS)
+    sta FREEZP+2
+    lda #>SCNMEM
+    sta FREEZP+3
+!border_loop:
+    ldy #$00
+    lda #BORDER_CHARACTER
+    sta (FREEZP+2),y // Left border
+    ldy #(NUM_SCREEN_COLUMNS-1)
+    sta (FREEZP+2),y // Right border
+    lda FREEZP+2
+    clc
+    adc #NUM_SCREEN_COLUMNS
+    sta FREEZP+2
+    bcc !next+
+    inc FREEZP+3
+!next:
+    dex
+    bne !border_loop-
+    //
+    // Set single color mode for first character on each row.
+    // This is so we can use the same character to represent current strength on both sides. Left side has
+    // multicolor off and therefore will display as green, right side has multicolor on and will display as blue.
+    ldx #(NUM_SCREEN_ROWS-1) // 0 offset
+    lda #<COLRAM
+    sta FREEZP+2
+    lda #>COLRAM
+    sta FREEZP+3
+!loop:
+    ldy #$00
+    lda (FREEZP+2),y
+    and #%1111_1000
+    ora #%0000_0111 // Turn off multicolor bit
+    sta (FREEZP+2),y
+    lda FREEZP+2
+    clc
+    adc #NUM_SCREEN_COLUMNS
+    sta FREEZP+2
+    bcc !next+
+    inc FREEZP+3
+!next:
+    dex
+    bne !loop-
+    // Set default secondary color to blue.
+    lda common.data__player_icon_color_list+1
+    sta BGCOL2
+    // Set player starting positions.
+    lda private.data__light_player_initial_x_pos
+    sta private.data__sprite_initial_x_pos_list
+    lda private.data__dark_player_initial_x_pos
+    sta private.data__sprite_initial_x_pos_list+1
+    jsr private.set_player_sprite_location
+    //    
 
 
-    
-    rts // TODO remove
+!brrrr:
+    jmp !brrrr- // TODO remove
 
 
 // 938D
@@ -335,7 +424,7 @@ interrupt_handler:
         jmp set_player_sprite_location
     !return:
         rts
-    
+
     // 7F05
     // Pieces will receive an negative strength adjustment when defending the caster magic square based on the number
     // of spells already cast by the spell caster. The caster magic square is the square that the spell caster
@@ -395,14 +484,14 @@ interrupt_handler:
         sta (FREEZP+2),y // Screen memory
         lda (VARPNT),y // Color memory
         // Reset color of all characters in the arena to the background color
-        and #%1111_1000 
+        and #%1111_1000
         ora #%0000_1000
         sta (VARPNT),y
         dey
         bpl !char_loop-
         lda FREEZP+2
         clc
-        adc #CHARS_PER_SCREEN_ROW
+        adc #NUM_SCREEN_COLUMNS
         sta FREEZP+2
         sta VARPNT
         bcc !next+
@@ -415,8 +504,8 @@ interrupt_handler:
 
     // 9367
     // Enable multicolor character mode for all screen character locations.
-    // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this mode,
-    // the color is controlled using the first 3 bits to select the appropriate color.
+    // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this
+    // mode, the color is controlled using the first 3 bits to select the appropriate color.
     set_multicolor_screen:
         lda #<COLRAM
         sta FREEZP+2
@@ -426,7 +515,7 @@ interrupt_handler:
         ldy #$00
     !loop:
         lda (FREEZP+2),y
-        ora #$0000_1000
+        ora #%0000_1000
         sta (FREEZP+2),y
         iny
         bne !loop-
@@ -435,12 +524,12 @@ interrupt_handler:
         bne !loop-
     !loop:
         lda (FREEZP+2),y
-        ora #$0000_1000
+        ora #%0000_1000
         sta (FREEZP+2),y
         iny
         cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
         bcc !loop-
-        rts        
+        rts
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -451,6 +540,14 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
+    // 7F01
+    // Starting X position of light player.
+    data__light_player_initial_x_pos: .byte $08
+        
+    // 7F02
+    // Starting X position of dark player.
+    data__dark_player_initial_x_pos: .byte $91
+
     // 8BAA
     // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array.
     idx__sound_attack_pattern:
