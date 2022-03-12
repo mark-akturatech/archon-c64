@@ -711,7 +711,7 @@ prt__sound_icon_effect_list:
 data__board_player_square_color_list: .byte BLACK, WHITE
 
 // BEAE
-// Low byte screen memory offset of start of each board row
+// Low byte screen memory offset of start of each board row.
 .const ROW_START_OFFSET = $7e // Screen memory offset of first character of first cell on first board row
 ptr__screen_row_offset_lo: .fill BOARD_NUM_ROWS, <(SCNMEM+ROW_START_OFFSET+i*2*NUM_SCREEN_COLUMNS)
 

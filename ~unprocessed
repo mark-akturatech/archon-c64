@@ -1,30 +1,14 @@
 (^.*[a-z0-9])\s{2,9}
-$1 
-
-////
-///
-
-// i think this sets the arena hazards
-7D2F A9 00 lda #$00
-7D31 8D C7 BC sta main_state_counter
-7D34 8D C8 BC sta main_state_counter+1
-7D37 A9 FF lda #$FF
-7D39 8D C9 BC sta main_state_counter+2
-7D3C A9 00 lda #$00
-7D3E 8D 3D BF sta main_state_curr_cycle
-7D41 A9 08 lda #$08
-7D43 8D 3E BF sta main_state_curr_cycle+1
-7D46 A9 0A lda #$0A
-7D48 8D 3F BF sta main_state_curr_cycle+2
-7D4B 20 DE 65 jsr W65DE
+$1
 
 
-// this sets the top row of the current strength for each character
+
+// this counts the number of pieces in each side. why?? Maybe AI needs it???
 7D4E A9 00 lda #$00
 7D50 8D 36 BF sta temp_data__light_piece_count // data__strength_adj_plus1
 7D53 8D 37 BF sta temp_data__light_piece_count+1
-7D56 A2 01 ldx #$01
-7D58 A0 23 ldy #$23
+7D56 A2 01 ldx #$01 // dark player
+7D58 A0 23 ldy #(BOARD_TOTAL_NUM_PIECES-1) // 0 offset
 W7D5A:
 7D5A B9 FD BD lda board_character_strength_data,y
 7D5D F0 03 beq W7D62
@@ -32,25 +16,25 @@ W7D5A:
 W7D62:
 7D62 88 dey
 7D63 30 07 bmi W7D6C
-7D65 C0 11 cpy #$11
+7D65 C0 11 cpy #(BOARD_NUM_PLAYER_PIECES-1) // 0 offset
 7D67 D0 F1 bne W7D5A
-7D69 CA dex
+7D69 CA dex // light player
 7D6A F0 EE beq W7D5A
 
 
 W7D6C:
 7D6C AD 26 BF lda temp_data__curr_board_row
-7D6F 8D 30 BF sta temp_data__curr_line
+7D6F 8D 30 BF sta cnt__board_row
 7D72 AD 28 BF lda temp_data__curr_board_col
-7D75 8D 31 BF sta temp_data__curr_column
+7D75 8D 31 BF sta cnt__board_col
 W7D78:
 7D78 20 FF 62 jsr board_test_magic_square_selected
 7D7B A9 00 lda #$00
-7D7D 2C FE BC bit temp_data__curr_count
+7D7D 2C FE BC bit flag__was_barrier_drawn // flag__is_destination_valid
 7D80 30 02 bmi W7D84
 7D82 A9 03 lda #$03
 W7D84:
-7D84 8D 16 BF sta WBF16
+7D84 8D 16 BF sta WBF16 // must be for ai to battle is 00 for normal and 03 for magic sqaure
 7D87 A2 00 ldx #$00
 7D89 AD C0 BC lda game_state_flag__ai_player_ctl
 7D8C F0 68 beq W7DF6
@@ -106,6 +90,10 @@ W7DEF:
 7DEF EC 26 BD cpx temp_data__curr_sprite_ptr
 7DF2 F0 02 beq W7DF6
 7DF4 D0 9B bne W7D91
+
+// ^^ ai
+
+
 W7DF6:
 7DF6 A9 00 lda #$00
 7DF8 A2 03 ldx #$03
@@ -116,20 +104,25 @@ W7E00:
 7E00 9D E7 BC sta common_sprite_curr_animation_frame,x
 7E03 CA dex
 7E04 10 F4 bpl W7DFA
+//
 7E06 A2 01 ldx #$01
 W7E08:
 7E08 9D F6 BC sta WBCF6,x
 7E0B 9D 6C BD sta WBD6C,x
 7E0E CA dex
 7E0F 10 F7 bpl W7E08
-7E11 85 A2 sta TIME+2
+//
+7E11 85 A2 sta TIME+2 // reset timers. used to change the hazards
 7E13 85 A1 sta TIME+1
 7E15 8D F3 BC sta game_delay_before_turn
-7E18 AD 1E D0 lda $D01E
+7E18 AD 1E D0 lda $D01E // clear collision registers?? - used to detect hit by projectile
 7E1B AD 1F D0 lda $D01F
 7E1E 20 67 83 jsr game_wait_for_state_change
+
+
+///
 7E21 A9 80 lda #$80
-7E23 8D 1A BF sta temp_data__temp_store
+7E23 8D 1A BF sta cnt__screen_row
 7E26 A9 0F lda #$0F
 7E28 8D FA 47 sta $47FA
 7E2B 8D FB 47 sta $47FB
@@ -161,7 +154,7 @@ W7E59:
 7E5E A9 00 lda #$00
 7E60 F0 17 beq W7E79
 W7E62:
-7E62 8C 1A BF sty temp_data__temp_store
+7E62 8C 1A BF sty cnt__screen_row
 W7E65:
 7E65 D9 FD BD cmp board_character_strength_data,y
 7E68 B0 12 bcs W7E7C
@@ -179,7 +172,7 @@ W7E79:
 W7E7C:
 7E7C CA dex
 7E7D 10 B6 bpl W7E35
-7E7F AD 1A BF lda temp_data__temp_store
+7E7F AD 1A BF lda cnt__screen_row
 7E82 8D 2D BF sta board_icon_type
 7E85 AC 25 BF ldy temp_data__curr_icon_row
 7E88 8C 26 BF sty temp_data__curr_board_row
@@ -386,9 +379,9 @@ W9448:
 9451 90 01 bcc W9454
 9453 C8 iny
 W9454:
-9454 B9 E4 BE lda WBEE4,y
+9454 B9 E4 BE lda ptr__screen_barrier_row_offset_lo,y
 9457 85 FB sta FREEZP
-9459 B9 EF BE lda WBEEF,y
+9459 B9 EF BE lda ptr__screen_barrier_row_offset_hi,y
 945C 85 FC sta FREEZP+1
 945E 68 pla
 945F A8 tay
@@ -398,7 +391,7 @@ W9454:
 9464 4A lsr
 9465 A8 tay
 9466 88 dey
-9467 B9 19 BD lda WBD19,y
+9467 B9 19 BD lda flag__phase_state_list,y
 W946A:
 946A 9D F8 BC sta WBCF8,x
 946D CA dex
@@ -412,7 +405,7 @@ W947C:
 947C 20 78 65 jsr game_cycle_phase_counters
 947F 88 dey
 9480 10 FA bpl W947C
-9482 20 6C 66 jsr W666C
+9482 20 6C 66 jsr update_barrier_state
 W9485:
 9485 20 B1 A0 jsr board_play_icon_sound
 9488 A2 01 ldx #$01
@@ -609,7 +602,7 @@ W95F1:
 
 
 
-	
+
 W7F03:
 	.byte $12
 W7F04:
@@ -619,160 +612,3 @@ W7F04:
 
 
 
-
-
-
-
-
-// draw challenge hazards?
-
-W65DE:
-65DE  A9 03      lda  #$03                  
-65E0  8D 23 BF   sta  intro_sprite_y_direction 
-65E3  A9 08      lda  #$08                  
-65E5  8D 24 BF   sta  main_temp_data__character_sprite_frame 
-W65E8:
-65E8  A2 06      ldx  #$06                  
-W65EA:
-65EA  AD 1B D4   lda  io_RANDOM             Random numbers generator oscillator 3
-65ED  29 1E      and  #$1E                  
-65EF  F0 F9      beq  W65EA                 
-65F1  C9 12      cmp  #$12                  
-65F3  B0 F5      bcs  W65EA                 
-65F5  0A         asl                        
-65F6  8D 31 BF   sta  temp_data__curr_column 
-W65F9:
-65F9  AD 1B D4   lda  io_RANDOM             Random numbers generator oscillator 3
-65FC  29 0E      and  #$0E                  
-65FE  C9 0B      cmp  #$0B                  
-W6600:
-6600  B0 F7      bcs  W65F9                 
-6602  8D 30 BF   sta  temp_data__curr_line  
-W6605:
-6605  AD 24 BF   lda  main_temp_data__character_sprite_frame 
-6608  48         pha                        
-W6609:
-6609  20 29 66   jsr  W6629                 
-660C  68         pla                        
-660D  8D 24 BF   sta  main_temp_data__character_sprite_frame 
-6610  AD FE BC   lda  temp_data__curr_count 
-6613  10 D5      bpl  W65EA                 
-6615  CA         dex                        
-6616  D0 D2      bne  W65EA                 
-6618  AD 24 BF   lda  main_temp_data__character_sprite_frame 
-661B  18         clc                        
-661C  69 08      adc  #$08                  
-W661E:
-661E  8D 24 BF   sta  main_temp_data__character_sprite_frame 
-6621  CE 23 BF   dec  intro_sprite_y_direction 
-6624  D0 C2      bne  W65E8                 
-6626  4C 6C 66   jmp  W666C                 
-
-W6629:
-6629  A9 40      lda  #$40                  
-662B  8D FE BC   sta  temp_data__curr_count 
-662E  AC 30 BF   ldy  temp_data__curr_line  
-6631  B9 E4 BE   lda  WBEE4,y               
-6634  85 FD      sta  io_FREEZP+2           
-6636  B9 EF BE   lda  WBEEF,y               
-6639  85 FE      sta  io_FREEZP+3           Free 0 page for user program
-663B  A9 02      lda  #$02                  
-663D  8D 1A BF   sta  temp_data__temp_store 
-W6640:
-6640  AC 31 BF   ldy  temp_data__curr_column 
-6643  B1 FD      lda  (io_FREEZP+2),y       
-6645  D0 24      bne  W666B                 
-6647  AD 24 BF   lda  main_temp_data__character_sprite_frame 
-664A  91 FD      sta  (io_FREEZP+2),y       
-664C  C8         iny                        
-664D  EE 24 BF   inc  main_temp_data__character_sprite_frame 
-6650  AD 24 BF   lda  main_temp_data__character_sprite_frame 
-6653  91 FD      sta  (io_FREEZP+2),y       
-6655  EE 24 BF   inc  main_temp_data__character_sprite_frame 
-6658  A5 FD      lda  io_FREEZP+2           
-665A  18         clc                        
-665B  69 28      adc  #$28                  
-665D  85 FD      sta  io_FREEZP+2           
-665F  90 02      bcc  W6663                 
-6661  E6 FE      inc  io_FREEZP+3           Free 0 page for user program
-W6663:
-6663  CE 1A BF   dec  temp_data__temp_store 
-W6666:
-6666  D0 D8      bne  W6640                 
-6668  0E FE BC   asl  temp_data__curr_count 
-W666B:
-666B  60         rts                        
-
-W666C:
-666C  A0 02      ldy  #$02                  
-W666E:
-666E  A2 00      ldx  #$00                  
-6670  B9 3D BF   lda  main_state_curr_cycle,y 
-6673  F0 08      beq  W667D                 
-6675  A2 40      ldx  #$40                  
-6677  C9 02      cmp  #$02                  
-6679  F0 02      beq  W667D                 
-667B  A2 80      ldx  #$80                  
-W667D:
-667D  8A         txa                        
-667E  99 19 BD   sta  WBD19,y               
-6681  88         dey                        
-6682  10 EA      bpl  W666E                 
-6684  A9 16      lda  #$16                  
-6686  8D 1A BF   sta  temp_data__temp_store 
-6689  AD E4 BE   lda  WBEE4                 
-668C  85 FD      sta  io_FREEZP+2           
-668E  85 47      sta  io_VARPNT             Pointer: BASIC current variable data
-6690  AD EF BE   lda  WBEEF                 
-6693  85 FE      sta  io_FREEZP+3           Free 0 page for user program
-6695  18         clc                        
-6696  6D 19 BF   adc  main_color_mem_offset 
-6699  85 48      sta  io_VARPNT+1           Pointer: BASIC current variable data
-W669B:
-669B  A0 25      ldy  #$25                  
-W669D:
-669D  A2 02      ldx  #$02                  
-669F  B1 FD      lda  (io_FREEZP+2),y       
-66A1  F0 2E      beq  W66D1                 
-66A3  29 18      and  #$18                  
-66A5  C9 18      cmp  #$18                  
-66A7  B0 06      bcs  W66AF                 
-66A9  CA         dex                        
-66AA  C9 10      cmp  #$10                  
-66AC  B0 01      bcs  W66AF                 
-66AE  CA         dex                        
-W66AF:
-66AF  BD 19 BD   lda  WBD19,x               
-66B2  10 07      bpl  W66BB                 
-66B4  B1 FD      lda  (io_FREEZP+2),y       
-66B6  09 04      ora  #$04                  
-66B8  4C BF 66   jmp  W66BF                 
-
-W66BB:
-66BB  B1 FD      lda  (io_FREEZP+2),y       
-66BD  29 FB      and  #$FB                  
-W66BF:
-66BF  91 FD      sta  (io_FREEZP+2),y       
-66C1  BD 3D BF   lda  main_state_curr_cycle,x 
-66C4  4A         lsr                        
-66C5  AA         tax                        
-66C6  B1 47      lda  (io_VARPNT),y         Pointer: BASIC current variable data
-66C8  29 F0      and  #$F0                  
-66CA  09 08      ora  #$08                  
-66CC  1D D2 8B   ora  board_color_phase_data,x 
-66CF  91 47      sta  (io_VARPNT),y         Pointer: BASIC current variable data
-W66D1:
-66D1  88         dey                        
-66D2  10 C9      bpl  W669D                 
-66D4  A5 FD      lda  io_FREEZP+2           
-66D6  18         clc                        
-66D7  69 28      adc  #$28                  
-66D9  85 FD      sta  io_FREEZP+2           
-66DB  85 47      sta  io_VARPNT             Pointer: BASIC current variable data
-66DD  90 04      bcc  W66E3                 
-66DF  E6 FE      inc  io_FREEZP+3           Free 0 page for user program
-66E1  E6 48      inc  io_VARPNT+1           Pointer: BASIC current variable data
-W66E3:
-66E3  CE 1A BF   dec  temp_data__temp_store 
-66E6  D0 B3      bne  W669B                 
-66E8  60         rts          

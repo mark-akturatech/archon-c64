@@ -5,7 +5,7 @@
 - Press `Q` will jump straight to options settings (skips icon walk on).
 - Press `F3`, `F5` - will jump straight to options settings and select that option.
 - Press `F7` will immediately start the game with default options (2 player, light first).
-- Memory address `$A907` has 40 empty characters (`$00`) that are displayed under the author's names. This can be easily modified to display any message you want (up to one line long).
+- Memory address `$A907` has 40 empty characters (`$00`) that are displayed under the author's names. One some screenshots of Archon this text contains a copywrite message "COPYRIGHT (C) 1983 FREE FALL ASSOCIATES" but this has been removed in my copy of the source.
 - The intro has it's own character set (although only half a set). It is used to draw the EA and Free fall logos.
 - The music played during the into has special commands that cause the intro to advance to a different state at certain points in the music (eg animate the logo or display chase scene etc).
 

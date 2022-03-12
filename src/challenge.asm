@@ -53,7 +53,7 @@ entry:
     ldy board.data__curr_board_col
     sty board.data__curr_icon_col
     lda (CURLIN),y
-    sta private.data__curr_square_color_code // Color of the sqauare - I don't think this is used anywhere
+    sta private.data__curr_square_color_code // Color of the sqauare - TODO: is this used for one of the hazard colors?
     // Get the battle square color (a) and a number between 0 and 7 (y). 0 is strongest on black, 7 is strongest on
     // white.
     beq !dark_square+
@@ -272,7 +272,7 @@ entry:
     lda #>SCNMEM
     sta FREEZP+3
     .const NUM_HORIZONTAL_BORDERS = 3 // 2 x Top and 1 x bottom border
-    ldx #NUM_HORIZONTAL_BORDERS
+    ldx #(NUM_HORIZONTAL_BORDERS-2) // 0 offset
 !border_loop:
     ldy #(NUM_SCREEN_COLUMNS-1) // 0 offset
 !row_loop:
@@ -353,11 +353,24 @@ entry:
     lda private.data__dark_player_initial_x_pos
     sta private.data__sprite_initial_x_pos_list+1
     jsr private.set_player_sprite_location
-    //    
+    //
+    // Cofigure barrier initial states.
+    // A barrier is an obstacle within the battle arena that is either impermeable or slows down the icon.
+    // The magic numbers set the starting phase of three cycles used to control barrier states.
+    lda #FLAG_DISABLE
+    sta game.flag__phase_direction_list
+    sta game.flag__phase_direction_list+1
+    lda #FLAG_ENABLE_FF
+    sta game.flag__phase_direction_list+2
+    lda #$00
+    sta game.data__phase_cycle
+    lda #$08
+    sta game.data__phase_cycle+1
+    lda #$0A
+    sta game.data__phase_cycle+2
+    jsr private.initialize_barriers
 
-
-!brrrr:
-    jmp !brrrr- // TODO remove
+    jmp * // TODO remove
 
 
 // 938D
@@ -423,6 +436,209 @@ interrupt_handler:
         beq !return+
         jmp set_player_sprite_location
     !return:
+        rts
+
+    // 65DE
+    // Draws a set of random barriers and intializes timings for updating barrier states.
+    // There are 3 types of barriers that use different character dot data and colors. Each barrier type has a maximum
+    // of 6 barriers.
+    // Once the barriers locations are initialized, they will not change locations throughout the entire battle. The
+    // barriers though will slowly change phase through 4 cycles (three different character representations and off).
+    // One phase will allow the character to pass over the barrier however the character will walk slower while doing
+    // so.
+    initialize_barriers:
+        .const NUM_BARRIER_TYPES = 3
+        lda #NUM_BARRIER_TYPES
+        sta cnt__barrier_cycle
+        .const INITIAL_BARRIER_CHARACTER = 8 // Starting barrier character index for first barrier type
+        lda #INITIAL_BARRIER_CHARACTER
+        sta cnt__barrier_character
+    !cycle_loop:
+        .const NUM_BARRIERS_PER_PHASE = 6
+        ldx #NUM_BARRIERS_PER_PHASE
+        // Pick a random even number between $02 and $10. This will represent the column where the barrier is drawn.
+        // BTW at first I thought the algorithm below may favor certain numbers but I must have too much time on my
+        // hands because I wrote small Python script to generate a hundred thousand numbers and the distribution was
+        // even.
+    !barrier_type_loop:
+        lda RANDOM
+        and #%0001_1110 // Even numbers only and take first 5 bits ($10 requires 5 bits)
+        beq !barrier_type_loop-
+        cmp #$12
+        bcs !barrier_type_loop-
+        asl // Ensure there is space between the barriers
+        sta cnt__board_col
+        // Pick a random even number between $00 and $0A. This will represent the row where the barrier is drawn.
+    !loop:
+        lda RANDOM
+        and #%0000_1110
+        cmp #$0B
+        bcs !loop-
+        sta cnt__board_row
+        // Draw the barrier on the screen.
+        // A barrier comprises 4 characters (2 wide and 2 high). The draw function updates the barrier character
+        // counter as the barrier is drawn, so below we push the counter on to the stack and restore it again after
+        // barrier has been drawn.
+        lda cnt__barrier_character
+        pha
+        jsr draw_barrier
+        pla
+        sta cnt__barrier_character
+        // Select another barrier location if the current location will overlap an existing barrier.
+        lda flag__was_barrier_drawn
+        bpl !barrier_type_loop-
+        // Keep drawing barriers so that we have 6 barriers of the current barrier type.
+        dex
+        bne !barrier_type_loop-
+        //
+        // Select the starting barrier character for the next type of barrier.
+        lda cnt__barrier_character
+        clc
+        .const NUM_CHARS_IN_BARRIER_GROUP = 8 // Each barrier type comprises 2 sets of 4 characters
+        adc #NUM_CHARS_IN_BARRIER_GROUP
+        sta cnt__barrier_character
+        dec cnt__barrier_cycle
+        bne !cycle_loop-
+        //
+        jmp update_barrier_state
+
+    // 6629
+    // Draw a single barrier character.
+    // A barrier comprises 4 characters in a 2x2 grid.
+    // Requires:
+    // - cnt__board_row: Screen row where barrier will be drawn.
+    // - cnt__board_col: Screen column where barrier will be drawn.
+    // - cnt__barrier_character: Initial character id of character in top left position of the grid.
+    // Sets:
+    // - flag__was_barrier_drawn: TRUE if the barrier was drawn or FALSE an existing barrier already occupies the
+    //   screen location.
+    // - cnt__barrier_character: Updated to character id of character in bottom right position of the grid.
+    // Preserves:
+    // - X is purposely untouched
+    draw_barrier:
+        lda #$40
+        sta flag__was_barrier_drawn // Default barrier drawn flag to off
+        // Set the starting screen row of the barrier.
+        ldy cnt__board_row
+        lda ptr__screen_barrier_row_offset_lo,y
+        sta FREEZP+2
+        lda ptr__screen_barrier_row_offset_hi,y
+        sta FREEZP+3
+        .const NUMBER_BARRIER_ROWS = 2
+        lda #NUMBER_BARRIER_ROWS
+        sta cnt__screen_row
+    !row_loop:
+        ldy cnt__board_col
+        lda (FREEZP+2),y
+        bne !return+ // don't overwrite an existing barrier
+        // Draw the barrier. Barriers comprise of 4 characters in a 2x2 grid.
+        lda cnt__barrier_character
+        sta (FREEZP+2),y
+        iny
+        inc cnt__barrier_character
+        lda cnt__barrier_character
+        sta (FREEZP+2),y
+        inc cnt__barrier_character
+        // Next row.
+        lda FREEZP+2
+        clc
+        adc #NUM_SCREEN_COLUMNS
+        sta FREEZP+2
+        bcc !next+
+        inc FREEZP+3
+    !next:
+        dec cnt__screen_row
+        bne !row_loop-
+        // Set barrier drawn flag.
+        asl flag__was_barrier_drawn
+    !return:
+        rts
+
+    // 666C
+    // Scans the entire arena memory area to find barrier characters. Sets the color and barrier character index of
+    // each barrier based on the current cycle.
+    update_barrier_state:
+        // Set a state value flag of 0, 40 or 80 for each phase depending upon the current phase cycle. This will be
+        // used to set colors and barrier impermeability.
+        ldy #(NUM_BARRIER_TYPES-1) // 0 0ffset
+    !state_loop:
+        ldx #$00
+        lda game.data__phase_cycle,y
+        beq !next+
+        ldx #$40
+        cmp #$02
+        beq !next+
+        ldx #$80
+    !next:
+        txa
+        sta flag__phase_state_list,y
+        dey
+        bpl !state_loop-
+        //
+        lda #(NUM_SCREEN_ROWS-3) // Number of rows in the arena (3 rows are consumed by the arena borders)
+        sta cnt__screen_row
+        // Configure screen and color area pointers.
+        lda ptr__screen_barrier_row_offset_lo
+        sta FREEZP+2
+        sta VARPNT
+        lda ptr__screen_barrier_row_offset_hi
+        sta FREEZP+3
+        clc
+        adc common.data__color_mem_offset
+        sta VARPNT+1
+    !row_loop:
+        ldy #(NUM_SCREEN_COLUMNS-2-1) // Number of columns in the arean (2 are consumed by borders) 0 Offset
+    !col_loop:
+        ldx #$02 // Would be more efficient if this was after the BEQ below
+        lda (FREEZP+2),y
+        beq !next_char+ // No barrier found at current location
+        //
+        // Detect barrier type of displayed character.
+        and #(INITIAL_BARRIER_CHARACTER+(2*NUM_CHARS_IN_BARRIER_GROUP))
+        cmp #(INITIAL_BARRIER_CHARACTER+(2*NUM_CHARS_IN_BARRIER_GROUP))
+        bcs !next+ // X is 02 for barrier type 3
+        dex
+        cmp #(INITIAL_BARRIER_CHARACTER+(1*NUM_CHARS_IN_BARRIER_GROUP))
+        bcs !next+ // X is 01 for barrier type 2
+        dex // // X is 00 for barrier type 1
+    !next:
+        // Update character index. Here we toggle bit 4 to enable or disabled barrier character set 2 (basically by
+        // adding 4 or removing the addition from the initial character code).
+        lda flag__phase_state_list,x
+        bpl !skip+
+        lda (FREEZP+2),y
+        ora #%0000_0100 
+        jmp !next+
+    !skip:
+        lda (FREEZP+2),y
+        and #%1111_1011
+    !next:
+        sta (FREEZP+2),y
+        // Update the barrier colors.
+        lda game.data__phase_cycle,x
+        lsr
+        tax
+        lda (VARPNT),y
+        and #%1111_0000 // Reset color
+        ora #%0000_1000 // Turn on multi-color
+        ora game.data__phase_color_list,x // Set color based on current phase
+        sta (VARPNT),y
+        //
+    !next_char:
+        dey
+        bpl !col_loop- // Stop at col 1 as this is the left border
+        // Next row.
+        lda FREEZP+2
+        clc
+        adc #NUM_SCREEN_COLUMNS
+        sta FREEZP+2
+        sta VARPNT
+        bcc !next+
+        inc FREEZP+3
+        inc VARPNT+1
+    !next:
+        dec cnt__screen_row
+        bne !row_loop-
         rts
 
     // 7F05
@@ -543,7 +759,7 @@ interrupt_handler:
     // 7F01
     // Starting X position of light player.
     data__light_player_initial_x_pos: .byte $08
-        
+
     // 7F02
     // Starting X position of dark player.
     data__dark_player_initial_x_pos: .byte $91
@@ -623,6 +839,15 @@ interrupt_handler:
     data__sprite_offset_bit_list:
         .byte %0000_0100 // Sprite 2 bit
         .byte %0000_1000 // Sprite 3 bit
+
+    // BEE4
+    // Low byte screen memory offset of start of each board row for a barrier.
+    .const BARRIER_START_OFFSET = $51 // Screen memory offset of first possible barrier character
+    ptr__screen_barrier_row_offset_lo: .fill 11, <(SCNMEM+BARRIER_START_OFFSET+i*2*NUM_SCREEN_COLUMNS)
+
+    // BEEF
+    // High byte screen memory offset of start of each board row.
+    ptr__screen_barrier_row_offset_hi: .fill 11, >(SCNMEM+BARRIER_START_OFFSET+i*2*NUM_SCREEN_COLUMNS)
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -640,6 +865,11 @@ interrupt_handler:
     // BCFE
     // Holds the number of moves remaining to shift the player pieces in to the starting location.
     cnt__moves_remaining: .byte $00
+
+    // BCFE
+    // Is $40 if the barrier was not drawn because it would overlap an existing barrier. Is $80 if the barrier was
+    // drawn.
+    flag__was_barrier_drawn: .byte $00
 
     // BD01
     // Attack speed for each challenge icon (light, dark).
@@ -665,6 +895,11 @@ interrupt_handler:
     // Starting x position of each player.
     data__sprite_initial_x_pos_list: .byte $00, $00
 
+    // BD19
+    // Tristate flag used to represent the current state of each cycle based on the current phase. The flag is
+    // used to set barrier colors and impermeability.
+    flag__phase_state_list: .byte $00, $00, $00
+
     // BD23
     // Color of square where challenge was initiated. Used for determining icon strength.
     // TODO: Is this used?
@@ -677,6 +912,26 @@ interrupt_handler:
     // BF10
     // High byte pointer to attack sound pattern for current icon (one byte for each player).
     ptr__player_attack_pattern_hi_list: .byte $00, $00
+
+    // BF1A
+    // Screen row counter. Used to keep track of the current screen row.
+    cnt__screen_row: .byte $00
+
+    // BF23
+    // Barrier cycle counter. Used to count the current cycle (3 cycles used for setting the barrier phases).
+    cnt__barrier_cycle: .byte $00
+
+    // BF24
+    // Current character dot data index for barrier character.
+    cnt__barrier_character: .byte $00
+
+    // BF30
+    // Current board row.
+    cnt__board_row: .byte $00
+
+    // BF31
+    // Current board column.
+    cnt__board_col: .byte $00
 
     // BF36
     // Calculated strength adjustment based on color of the challenge square plus 1.

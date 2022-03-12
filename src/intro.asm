@@ -275,7 +275,7 @@ entry:
     // - Calls `get_text_location` to determine screen character and color memory on new line command.
     // - Strings are defined as follows:
     //  - A $80 byte in the string represents a 'next line'.
-    //  - A screen row and colum offset must follow a $80 command.
+    //  - A screen row and column offset must follow a $80 command.
     //  - The string is terminated with a $ff byte.
     //  - Spaces are represented as $00.
     write_screen_chars:

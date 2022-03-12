@@ -38,7 +38,7 @@ txt__intro_authors:
     .byte STRING_CMD_END
 
 // A907
-// Emptry string under authors - presumably here to allow text to be added for test versions etc
+// Emptry string under authors - is a copyright message in some versions
 txt__intro_empty:
     .byte $0f, $01 // Start on row $0f column $01
     .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
