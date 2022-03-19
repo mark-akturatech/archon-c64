@@ -23,8 +23,8 @@
 .const EMPTY_SPRITE_BLOCK = 15
 
 // Text screen constants.
-.const NUM_SCREEN_COLUMNS = 40;
-.const NUM_SCREEN_ROWS = 25;
+.const NUM_SCREEN_COLUMNS = 40; // $28
+.const NUM_SCREEN_ROWS = 25; // $19
 
 // Flag constants.
 .const FLAG_DISABLE = $00; // Off

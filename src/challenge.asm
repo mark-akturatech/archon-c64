@@ -53,7 +53,7 @@ entry:
     ldy board.data__curr_board_col
     sty board.data__curr_icon_col
     lda (CURLIN),y
-    sta private.data__curr_square_color_code // Color of the sqauare - TODO: is this used for one of the hazard colors?
+    sta private.data__curr_square_color_code // Color of the sqauare - Not used
     // Get the battle square color (a) and a number between 0 and 7 (y). 0 is strongest on black, 7 is strongest on
     // white.
     beq !dark_square+
@@ -117,7 +117,7 @@ entry:
     // Configure player.
     ldy common.param__icon_offset_list,x
     lda private.data__icon_attack_speed_list,y
-    sta private.data__player_attack_speed_list,x
+    sta private.data__player_sprite_speed_list,x
     lda private.data__icon_attack_damage_list,y
     sta private.data__player_attack_damage_list,x
     // Configure icon projectile.
@@ -187,7 +187,7 @@ entry:
     // Reset variables.
     lda #$00
     sta game.cnt__stalemate_moves // Reset stalemate counter
-    // 7C12  9D 03 BD   sta WBD03,x // TODO
+    sta private.data__player_projectile_sprite_speed_list,x // Clear player projectile speeds (0 means not active)
     sta game.data__icon_speed,x
     // 7C18  9D 21 BD   sta WBD21,x // TODO
     // Set icons speed.
@@ -369,12 +369,178 @@ entry:
     lda #$0A
     sta game.data__phase_cycle+2
     jsr private.initialize_barriers
+    //
+    // Count the number of pieces remaining on both sides. Used by AI algorithm.
+	lda #$00
+	sta private.data__piece_count_list
+	sta private.data__piece_count_list+1
+	ldx #$01 // dark player
+	ldy #(BOARD_TOTAL_NUM_PIECES-1) // 0 offset
+!loop:
+	lda game.data__piece_strength_list,y
+	beq !skip+
+	inc private.data__piece_count_list,x
+!skip:
+	dey
+	bmi !next+
+	cpy #(BOARD_NUM_PLAYER_PIECES-1) // Check if now up to light player pieces (0 offset)
+	bne !loop-
+	dex // light player
+	beq !loop-
+!next:
+    //
+	// Determine if challenging for a magic sqaure. Sets an offset (presumably aggresiveness) to 0 for non-magic and
+	// 3 for magic square. Used by AI Algorithm.
+	lda board.data__curr_board_row
+	sta magic.cnt__board_row
+	lda board.data__curr_board_col
+	sta magic.cnt__board_col
+	jsr magic.test_magic_square_selected
+	lda #$00
+	bit game.flag__is_destination_valid
+	bmi !skip+
+	lda #$03
+!skip:
+	sta private.data__magic_square_aggression
+	//
+	ldx #$00
+	lda game.data__ai_player_ctl
+	beq !skip+
+	// Configure challenge for AI player.
+	// This code is inline in the original source. We move it out here so that all AI can be split in to a single
+	// file.
+	// 7D8E - 7DF5
+	jsr ai.configure_challenge
+!skip:
+    //
+    lda #$00
+	// Initialize sprite variables.
+	.const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 projectiles
+	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
+!loop:
+	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why
+	// 7DFD 9D 32 BF sta temp_data__dark_piece_count,x // TODO: ?? why
+	sta board.cnt__sprite_frame_list,x
+	dex
+	bpl !loop-
+	// Initialize player variables.
+	ldx #(NUM_PLAYERS-1) // 0 offset
+!loop:
+	// 7E08 9D F6 BC sta WBCF6,x // TODO: ?? why
+	// 7E0B 9D 6C BD sta WBD6C,x // TODO: ?? why
+	dex
+	bpl !loop-
+	// Initialize timers.
+	sta TIME+2
+	sta TIME+1
+	sta private.date__curr_time
+	// Initialize collision registers.
+	// The registers are cleared when they are read.
+	lda SPSPCL
+	lda SPBGCL
+	//
+	// Wait for interrupt driven state change
+	jsr game.wait_for_state_change
 
     jmp * // TODO remove
 
 
 // 938D
 interrupt_handler:
+	lda common.flag__cancel_interrupt_state
+	bmi !return+
+	lda game.data__ai_player_ctl
+	beq !next+
+	lda common.flag__is_complete
+	bpl !next+
+	jsr common.stop_sound
+!return:
+	jmp common.complete_interrupt
+!next:
+	//
+	// Update sprite locations.
+	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
+!sprite_loop:
+	cpx #(NUMBER_CHALLENGE_SPRITES/2) // Player sprite (first two sprites are player icons, last two are projectiles)
+	bcc !update_player_location+
+	lda private.data__player_sprite_speed_list,x
+	beq !next+
+!update_player_location:
+	jsr board.set_icon_sprite_location
+!next:
+	dex
+	bpl !sprite_loop-
+	// Store sprite collision status.
+	lda SPSPCL
+	sta private.flag__sprite_to_sprite_collision
+	lda SPBGCL
+	sta private.flag__sprite_to_char_collision
+    //
+    // Draw strength bars for both players. The strength bar is a bar int he left border for light player and
+	// right border for the dark player. The bar's height is dynamically calculated based on the amount of remaining
+	// strength of each player.
+	ldy #(NUM_SCREEN_COLUMNS-1) // Dark player column offset for strength bar
+	ldx #(NUM_PLAYERS-1) // 0 offset
+	.const STRENGTH_BAR_CHARACTER = $06 // Character code for character used by the strength bar for dark player
+	lda #STRENGTH_BAR_CHARACTER
+	sta private.cnt__strength_bar_character // Strength bar character is $06 for dark and $07 for light player
+!player_loop:
+	txa
+	pha
+	lda #(NUM_SCREEN_ROWS-1)
+	sec
+	sbc private.data__player_attack_strength_list,x
+	sta private.data__curr_inverted_strength // inverted strength 0 for $18 strength, $18 for 0 strength.
+	// Detect if one of the icons are dead. If so, we allow the game to continue for a few seconds to allow for
+	// existing projectiles from the current player to complete (may hit the other player and end in a draw).
+	cmp #(NUM_SCREEN_ROWS-1) // Icon dead?
+	bne !next+
+	// Delay end of game by allowing the game to continue with one icon until they delay has expired.
+	lda private.cnt__end_game_delay
+	bpl !continue+
+    // Don't exit until the projectiles have finished moving.
+	lda private.data__player_projectile_sprite_speed_list
+	ora private.data__player_projectile_sprite_speed_list+1
+	bne !next+
+	lda #FLAG_ENABLE
+	sta common.flag__cancel_interrupt_state
+!continue:
+	dec private.cnt__end_game_delay
+!next:
+	// Draw strength bars. Start at the bottom of the screen and draw up.
+	lda private.cnt__strength_bar_character
+	sta private.data__temp_storage
+	ldx #(NUM_SCREEN_ROWS-2)
+	lda #<(SCNMEM+NUM_SCREEN_COLUMNS*(NUM_SCREEN_ROWS-2))
+	sta FREEZP+2
+	lda #>(SCNMEM+NUM_SCREEN_COLUMNS*(NUM_SCREEN_ROWS-2))
+	sta FREEZP+3
+!bar_loop:
+	cpx private.data__curr_inverted_strength
+	bcs !show_bar_char+
+	lda #BORDER_CHARACTER
+	bne !skip+
+!show_bar_char:
+	lda private.data__temp_storage
+!skip:
+	sta (FREEZP+2),y
+	lda FREEZP+2
+	sec
+	sbc #NUM_SCREEN_COLUMNS
+	sta FREEZP+2
+	bcs !next+
+	dec FREEZP+3
+!next:
+	dex
+	bpl !bar_loop-
+	// Light player
+	ldy #$00 // Set strength bar column location to first column
+	inc private.cnt__strength_bar_character // Set character code to $07
+	pla
+	tax
+	dex
+	bpl !player_loop-    
+
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -862,6 +1028,15 @@ interrupt_handler:
     // Current color of square in which a battle is being faught.
     data__battle_square_color: .byte $00
 
+    // BCF2
+    // Current delay counter used to delay end of game after a character dies.
+    cnt__end_game_delay: .byte $00
+
+    // BCF3
+    // Current medium jiffy time (~4s). Used to detect if the jiffy has changed and implement background tasks
+    // such as updating the barrier colors.
+    date__curr_time: .byte $00
+
     // BCFE
     // Holds the number of moves remaining to shift the player pieces in to the starting location.
     cnt__moves_remaining: .byte $00
@@ -872,8 +1047,12 @@ interrupt_handler:
     flag__was_barrier_drawn: .byte $00
 
     // BD01
-    // Attack speed for each challenge icon (light, dark).
-    data__player_attack_speed_list: .byte $00, $00
+    // Sprite speed for each challenge icon (light icon, dark icon, light projectile, dark projectile).
+    data__player_sprite_speed_list: 
+    data__player_icon_sprite_speed_list:
+        .byte $00, $00
+    data__player_projectile_sprite_speed_list:
+        .byte $00, $00
 
     // BD05
     // Starting strength for each challenge icon (light, dark).
@@ -913,16 +1092,32 @@ interrupt_handler:
     // High byte pointer to attack sound pattern for current icon (one byte for each player).
     ptr__player_attack_pattern_hi_list: .byte $00, $00
 
+    // BF16
+    // AI aggression adjustment used when challenging for a magic square.
+    data__magic_square_aggression: .byte $00
+
     // BF1A
     // Screen row counter. Used to keep track of the current screen row.
     cnt__screen_row: .byte $00
+
+    // BF1C
+    // Current character code index for the strength bar character.
+    cnt__strength_bar_character: .byte $00
+
+    // BF20
+    // Current player strength inverted so that $18=$00 strength and $00=$18 strength.
+    data__curr_inverted_strength: .byte $00
+
+    // BF21
+    // Temporary storage used store a value and then retrieve it later unmodified.
+    data__temp_storage: .byte $00
 
     // BF23
     // Barrier cycle counter. Used to count the current cycle (3 cycles used for setting the barrier phases).
     cnt__barrier_cycle: .byte $00
 
     // BF24
-    // Current character dot data index for barrier character.
+    // Current character code index for the barrier character.
     cnt__barrier_character: .byte $00
 
     // BF30
@@ -938,8 +1133,21 @@ interrupt_handler:
     // TODO: Is this used?
     data__strength_adj_plus1: .byte $00
 
+    // BF36
+    // Piece count of each side. Used by AI algorithm.
+    data__piece_count_list: .byte $00, $00
+
     // BF41
     // Calculated strength adjustment based on color of the challenge square times 2.
     // TODO: Is this used?
     data__strength_adj_x2: .byte $00
+
+    // BF45
+	// Sprite to sprite collision flag. Contians a list of bits for each sprite that has collided with another sprite.
+	flag__sprite_to_sprite_collision: .byte $00
+
+	// BF46
+	// Sprite to foreground collision flag. Contians a list of bits for each sprite that has collided with a foreground
+	// character.
+	flag__sprite_to_char_collision: .byte $00
 }

@@ -78,6 +78,8 @@
 .const IRQMASK  = $D01A // IRQ Mask Register
 .const SPMC     = $D01C // Sprite multi-colour select
 .const XXPAND   = $D01D // Sprite X horizontal expand
+.const SPSPCL   = $D01E // Sprite to Sprite Collision Register
+.const SPBGCL   = $D01F // Sprite to Foreground Collision Register
 .const EXTCOL   = $D020 // Border Color Register
 .const BGCOL0   = $D021 // Background Color 0
 .const BGCOL1   = $D022 // Background Color 1

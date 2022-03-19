@@ -4,6 +4,39 @@
 //---------------------------------------------------------------------------------------------------------------------
 .segment Game
 
+// 62FF
+// Detects if the selected square is a magic square.
+// Requires:
+// - `cnt__board_row`: row of the square to test.
+// - `cnt__board_col`: column of the square to test.
+// Sets:
+// - `flag__is_destination_valid`: is $80 if selected square is a magic square.
+// Preserves:
+// - X, Y
+test_magic_square_selected:
+    tya
+    pha
+    lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
+    sta game.flag__is_destination_valid
+    ldy #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
+!loop:
+    lda board.data__magic_square_col_list,y
+    cmp cnt__board_row
+    bne !next+
+    lda board.data__magic_square_row_list,y
+    cmp cnt__board_col
+    beq !selected+
+!next:
+    dey
+    bpl !loop-
+    bmi !not_selected+
+!selected:
+    asl game.flag__is_destination_valid
+!not_selected:
+    pla
+    tay
+    rts
+
 // 67B4
 select_spell:
     // Store current piece location to restore location if the spell is aborted.
@@ -132,10 +165,10 @@ spell_select:
     //       to 15 squares).
 !check_valid:
     lda board.data__curr_board_row
-    sta private.cnt__board_row
+    sta cnt__board_row
     lda board.data__curr_board_col
-    sta private.cnt__board_col
-    jsr private.test_magic_square_selected
+    sta cnt__board_col
+    jsr test_magic_square_selected
     lda game.flag__is_destination_valid
     bmi !abort+
 !next:
@@ -149,39 +182,6 @@ spell_select:
 //---------------------------------------------------------------------------------------------------------------------
 // Private functions.
 .namespace private {
-    // 62FF
-    // Detects if the selected square is a magic square.
-    // Requires:
-    // - `cnt__board_row`: row of the square to test.
-    // - `cnt__board_col`: column of the square to test.
-    // Sets:
-    // - `flag__is_destination_valid`: is $80 if selected square is a magic square.
-    // Preserves:
-    // - X, Y
-    test_magic_square_selected:
-        tya
-        pha
-        lda #(FLAG_ENABLE/2) // Default to no action - used $40 here so can do quick asl to turn in to $80 (flag_enable)
-        sta game.flag__is_destination_valid
-        ldy #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
-    !loop:
-        lda board.data__magic_square_col_list,y
-        cmp cnt__board_row
-        bne !next+
-        lda board.data__magic_square_row_list,y
-        cmp cnt__board_col
-        beq !selected+
-    !next:
-        dey
-        bpl !loop-
-        bmi !not_selected+
-    !selected:
-        asl game.flag__is_destination_valid
-    !not_selected:
-        pla
-        tay
-        rts
-
     // 6833
     // Configures a pointer to the start of the used spell array for the current player.
     // Requires:
@@ -1121,6 +1121,14 @@ data__dark_used_spell_list: .byte $00, $00, $00, $00, $00, $00, $00
 // Count of number of used spells for a specific player.
 data__used_spell_count: .byte $00
 
+// BF30
+// Current board row.
+cnt__board_row: .byte $00
+
+// BF31
+// Current board column.
+cnt__board_col: .byte $00
+
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.
 .namespace private {
@@ -1175,14 +1183,6 @@ data__used_spell_count: .byte $00
     // BF2E
     // First selected icon to exchange.
     data__exchange_source_icon: .byte $00
-
-    // BF30
-    // Current board row.
-    cnt__board_row: .byte $00
-
-    // BF31
-    // Current board column.
-    cnt__board_col: .byte $00
 
     // BF32
     // Counter used to delay selection of next/previous spell. Must be held for a count of #$0F before selection is

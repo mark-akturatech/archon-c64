@@ -223,7 +223,7 @@ set_icon_sprite_location:
     adc common.param__icon_sprite_source_frame_list,x
     adc common.ptr__sprite_offset_list,x
     sta SPTMEM,x
-
+    //
 // 8D80
 // Places a sprite at a given location and enables the sprite.
 // Requires:

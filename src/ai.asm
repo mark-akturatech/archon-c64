@@ -12,6 +12,10 @@ board_calculate_move: // TODO
 magic_select_spell: // TODO
     rts
 
+// 7D8E - 7DF5
+configure_challenge: // TODO
+    rts
+
 // 82E5
 // This logic is inline in the original source. We split it out here so that the logic can be included in the AI
 // file.
