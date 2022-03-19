@@ -415,7 +415,6 @@ entry:
     //
     lda #$00
 	// Initialize sprite variables.
-	.const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 projectiles
 	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
 !loop:
 	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why
@@ -458,7 +457,9 @@ interrupt_handler:
 	jmp common.complete_interrupt
 !next:
 	//
-	// Update sprite locations.
+	// Update sprite locations. The sprite location is only updated if `data__player_sprite_speed_list` has a speed
+    // set for the current sprite. For example, the projectiles will have a 0 speed when the projectile is not being
+    // fired.
 	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
 !sprite_loop:
 	cpx #(NUMBER_CHALLENGE_SPRITES/2) // Player sprite (first two sprites are player icons, last two are projectiles)
@@ -540,6 +541,95 @@ interrupt_handler:
 	tax
 	dex
 	bpl !player_loop-    
+    //
+	// Detect if the sprite has collided with a barrier. If so, convert the sprite location to a screen location and
+	// read the underlying character from the screen location to determine the barrier type and phase. For example, if
+	// an icon hits a hard barrier, it will bounce off. If a projectile hits a translucent barrier, it will penetrate
+	// though.
+	// The formula used to determine the screen character location based off the sprite location is:
+	// - column = 2*round((sprite_x_pos-4)/8)
+	// - row = if sprite_y_pos < 16 then 0 else: round((sprite_y_pos-16)/16)
+	// NOTE rounding will round up if the result of the division is has a remainder > 0.5
+	// Once the column and row are determined, we can the read the character from screen memory. The character is then
+	// converted to a phase using the follwing:
+	// - phase = char_code/8 - 1
+	// Remember that the barrier character codes of each phase are 8 apart and the first barrier starts at character
+	// code 8.
+	// A value of 0 is stored for the current sprite if no collision with a character has occurred.
+	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
+!sprite_loop:
+	lda private.flag__sprite_to_char_collision
+	and common.data__math_pow2_list,x
+	beq !skip_collsion+ // No .collision
+	// Calculate screen column.
+	lda board.data__sprite_curr_x_pos_list,x
+	sec
+	sbc #$04
+	lsr
+	lsr
+	lsr
+	tay
+	lsr
+	bcc !skip+
+	iny  // Round up
+!skip:
+	tya
+	asl
+	pha
+	// Calculate screen row.
+	lda board.data__sprite_curr_y_pos_list,x
+	cmp #$10
+	bcs !next+
+	ldy #$00
+	beq !skip+
+!next:
+	sec
+	sbc #$10
+	lsr
+	lsr
+	lsr
+	lsr
+	tay
+	lsr
+	bcc !skip+
+	iny // Round up
+!skip:
+	// Read character from screen memory.
+	lda private.ptr__screen_barrier_row_offset_lo,y
+	sta FREEZP
+	lda private.ptr__screen_barrier_row_offset_hi,y
+	sta FREEZP+1
+	pla
+	tay
+	lda (FREEZP),y
+	// Convert character to phase (0-2)
+	lsr
+	lsr
+	lsr
+	tay
+	dey
+	// Store phase.
+	lda private.flag__phase_state_list,y
+!skip_collsion:
+	sta private.data__sprite_barrier_phase_collision_list,x
+	dex
+	bpl !sprite_loop-
+	//
+	// Update barrier phase states ~ every 4 seconds. The barriers will phase through various colors. The third phase
+	// will cycle between impermeable and permeable.
+	lda TIME+1
+	cmp private.date__curr_time
+	beq !next+
+	sta private.date__curr_time
+	ldy #(NUM_BARRIER_TYPES-1) // 0 offset
+!loop:
+	jsr game.cycle_phase_counters
+	dey
+	bpl !loop-
+	jsr private.update_barrier_state
+!next:
+
+
 
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -613,7 +703,6 @@ interrupt_handler:
     // One phase will allow the character to pass over the barrier however the character will walk slower while doing
     // so.
     initialize_barriers:
-        .const NUM_BARRIER_TYPES = 3
         lda #NUM_BARRIER_TYPES
         sta cnt__barrier_cycle
         .const INITIAL_BARRIER_CHARACTER = 8 // Starting barrier character index for first barrier type
@@ -1036,6 +1125,9 @@ interrupt_handler:
     // Current medium jiffy time (~4s). Used to detect if the jiffy has changed and implement background tasks
     // such as updating the barrier colors.
     date__curr_time: .byte $00
+
+    // BCF8
+    data__sprite_barrier_phase_collision_list: .byte $00, $00, $00, $00
 
     // BCFE
     // Holds the number of moves remaining to shift the player pieces in to the starting location.

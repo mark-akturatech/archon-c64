@@ -6,83 +6,15 @@ $1
 //
 // interrupt
 
-9422 A2 03 ldx #$03
-W9424:
-9424 AD 46 BF lda flag__sprite_to_char_collision
-9427 3D C3 8D and main_math_pow2,x
-942A F0 3E beq W946A
-942C BD 3E BD lda board.data__sprite_curr_x_pos_list,x
-942F 38 sec
-9430 E9 04 sbc #$04
-9432 4A lsr
-9433 4A lsr
-9434 4A lsr
-9435 A8 tay
-9436 4A lsr
-9437 90 01 bcc W943A
-9439 C8 iny
-W943A:
-943A 98 tya
-943B 0A asl
-943C 48 pha
-943D BD 46 BD lda board.data__sprite_curr_y_pos_list,x
-9440 C9 10 cmp #$10
-9442 B0 04 bcs W9448
-9444 A0 00 ldy #$00
-9446 F0 0C beq W9454
-W9448:
-9448 38 sec
-9449 E9 10 sbc #$10
-944B 4A lsr
-944C 4A lsr
-944D 4A lsr
-944E 4A lsr
-944F A8 tay
-9450 4A lsr
-9451 90 01 bcc W9454
-9453 C8 iny
-W9454:
-9454 B9 E4 BE lda ptr__screen_barrier_row_offset_lo,y
-9457 85 FB sta FREEZP
-9459 B9 EF BE lda ptr__screen_barrier_row_offset_hi,y
-945C 85 FC sta FREEZP+1
-945E 68 pla
-945F A8 tay
-9460 B1 FB lda (FREEZP),y
-9462 4A lsr
-9463 4A lsr
-9464 4A lsr
-9465 A8 tay
-9466 88 dey
-9467 B9 19 BD lda flag__phase_state_list,y
-W946A:
-946A 9D F8 BC sta WBCF8,x
-946D CA dex
-946E 10 B4 bpl W9424
 
 
-9470 A5 A1 lda TIME+1
-9472 CD F3 BC cmp private.date__curr_time
-9475 F0 0E beq W9485
-9477 8D F3 BC sta private.date__curr_time
-947A A0 02 ldy #$02
-W947C:
-947C 20 78 65 jsr game_cycle_phase_counters
-947F 88 dey
-9480 10 FA bpl W947C
-9482 20 6C 66 jsr update_barrier_state
-
-
-
-
-W9485:
 9485 20 B1 A0 jsr board_play_icon_sound
 9488 A2 01 ldx #$01
 W948A:
 948A A9 00 lda #$00
 948C 8D 0D BD sta temp_data__sprite_x_direction_offset_1
 948F 8D 10 BD sta WBD10
-9492 20 2A 99 jsr W992A
+9492 20 2A 99 jsr W992A // moves sprite
 9495 BD 01 BD lda data__player_attack_speed_list,x
 9498 29 60 and #$60
 949A F0 0F beq W94AB
@@ -99,7 +31,7 @@ W94AB:
 94B0 4C 9B 95 jmp W959B
 
 W94B3:
-94B3 BD F8 BC lda WBCF8,x
+94B3 BD F8 BC lda private.data__sprite_barrier_phase_collision_list,x
 94B6 F0 17 beq W94CF
 94B8 10 10 bpl W94CA
 94BA 20 A2 9A jsr W9AA2
@@ -222,8 +154,12 @@ W958E:
 9594 29 03 and #$03
 9596 D0 03 bne W959B
 9598 FE E7 BC inc board.cnt__sprite_frame_list,x
+
+
+
+
 W959B:
-959B 20 A2 97 jsr W97A2
+959B 20 A2 97 jsr W97A2 // fire projectile?
 959E BD 21 BD lda WBD21,x
 95A1 F0 23 beq W95C6
 95A3 DE 21 BD dec WBD21,x

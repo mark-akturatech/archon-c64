@@ -212,3 +212,9 @@
 .const ACTION_SELECT_OPPOSING_ICON = $85
 .const ACTION_SELECT_FREE_PLAYER_ICON = $86
 .const ACTION_SELECT_REVIVE_ICON = $87
+
+//---------------------------------------------------------------------------------------------------------------------
+// Challenge constants.
+
+.const NUM_BARRIER_TYPES = 3
+.const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 projectiles

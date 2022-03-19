@@ -170,7 +170,7 @@ entry:
     dec cnt__stalemate_moves
 !new_phase:
     ldy #$03 // Board phase state
-    jsr private.cycle_phase_counters
+    jsr cycle_phase_counters
     jsr board.draw_board
     lda data__phase_cycle_board
     bne !check_light+
@@ -771,6 +771,93 @@ get_square_occupancy:
     lda (FREEZP),y
     rts
 
+// 6578
+// Cycles counters at the end of each turn. The counters are used to set game phases such as the board color.
+// - Y register is set with the counter offset as follows:
+//   - 0: TBA
+//   - 1: TBA
+//   - 2: TBA
+//   - 3: Board color phase
+// The logic below cycles forwards or backwards between a fixed set of numbers. The direction is dependent on the
+// counter state. If positive, it cycles forwards, negative backwards.
+// The cycle is a bid odd, but it makes sense when the resulting number is shifted right.
+// Backward cycle:
+//   8 => 6 0110 lsr => 011 (3)
+//   6 => 2 0010        001 (1)
+//   2 => 0 0000        000 (0)
+//   0 => E 1110        111 (7)
+//   E => C 1100        110 (6)
+//   C => 8 1000        100 (4)
+// For Y=3, the right shifted cycle is used as an index in to the board color array. This results (using backwards)
+// example in colors:
+// - PURPLE, BLUE, BLACK, WHITE, CYAN, GREEN (repeat)
+// Note that the colors don't actually do this. The direction is swapped when we reach black or white.
+cycle_phase_counters:
+    lda flag__phase_direction_list,y
+    bmi !reverse+
+    lda data__phase_cycle,y
+    cmp #PHASE_CYCLE_LENGTH
+    bne !step_count+
+    lda #$00 // Reset cycle
+    beq !next+
+!step_count:
+    clc
+    adc #$02
+    cpy #$03
+    bcc !next+
+    cmp #$04
+    beq !skip+
+    cmp #$0A
+    bne !next+
+!skip:
+    // Skip 04 and 0A cycle. I suspect the original game had extra board colors as the logic allows red and yellow
+    // colors to be used for these cycles.
+    clc
+    adc #$02
+!next:
+    sta data__phase_cycle,y
+    cmp #PHASE_CYCLE_LENGTH
+    bcc !set_phase+
+    lda #FLAG_ENABLE_FF // Reverse phase
+    sta flag__phase_direction_list,y
+!set_phase:
+    cpy #$03
+    bcc !return+
+    // Set board color.
+    lda data__phase_cycle_board
+    lsr
+    tay
+    lda data__phase_color_list,y
+    sta data__phase_color
+!return:
+    rts
+!reverse:
+    lda data__phase_cycle,y
+    bne !step_count+
+    lda #PHASE_CYCLE_LENGTH
+    bpl !next+
+!step_count:
+    sec
+    sbc #$02
+    cpy #$03
+    bcc !next+
+    cmp #$04
+    beq !skip+
+    cmp #$0A
+    bne !next+
+!skip:
+    // Skip 04 and 0A cycle. I suspect the original game had extra board colors as the logic allows red and yellow
+    // colors to be used for these cycles.
+    sec
+    sbc #$02
+!next:
+    sta data__phase_cycle,y
+    cmp #$00
+    bne !set_phase-
+    sta flag__phase_direction_list,y // Reverse phase.
+    jmp !set_phase-
+
+
 // 8953
 // Displays an error message on piece selection. The message has $80 added to it and is stored in
 // `flag__is_new_square_selected`. This method specifically preserves the X register.
@@ -812,92 +899,6 @@ display_message:
         cpx cnt__curr_icon
         bne !loop-
         rts
-
-    // 6578
-    // Cycles counters at the end of each turn. The counters are used to set game phases such as the board color.
-    // - Y register is set with the counter offset as follows:
-    //   - 0: TBA
-    //   - 1: TBA
-    //   - 2: TBA
-    //   - 3: Board color phase
-    // The logic below cycles forwards or backwards between a fixed set of numbers. The direction is dependent on the
-    // counter state. If positive, it cycles forwards, negative backwards.
-    // The cycle is a bid odd, but it makes sense when the resulting number is shifted right.
-    // Backward cycle:
-    //   8 => 6 0110 lsr => 011 (3)
-    //   6 => 2 0010        001 (1)
-    //   2 => 0 0000        000 (0)
-    //   0 => E 1110        111 (7)
-    //   E => C 1100        110 (6)
-    //   C => 8 1000        100 (4)
-    // For Y=3, the right shifted cycle is used as an index in to the board color array. This results (using backwards)
-    // example in colors:
-    // - PURPLE, BLUE, BLACK, WHITE, CYAN, GREEN (repeat)
-    // Note that the colors don't actually do this. The direction is swapped when we reach black or white.
-    cycle_phase_counters:
-        lda flag__phase_direction_list,y
-        bmi !reverse+
-        lda data__phase_cycle,y
-        cmp #PHASE_CYCLE_LENGTH
-        bne !step_count+
-        lda #$00 // Reset cycle
-        beq !next+
-    !step_count:
-        clc
-        adc #$02
-        cpy #$03
-        bcc !next+
-        cmp #$04
-        beq !skip+
-        cmp #$0A
-        bne !next+
-    !skip:
-        // Skip 04 and 0A cycle. I suspect the original game had extra board colors as the logic allows red and yellow
-        // colors to be used for these cycles.
-        clc
-        adc #$02
-    !next:
-        sta data__phase_cycle,y
-        cmp #PHASE_CYCLE_LENGTH
-        bcc !set_phase+
-        lda #FLAG_ENABLE_FF // Reverse phase
-        sta flag__phase_direction_list,y
-    !set_phase:
-        cpy #$03
-        bcc !return+
-        // Set board color.
-        lda data__phase_cycle_board
-        lsr
-        tay
-        lda data__phase_color_list,y
-        sta data__phase_color
-    !return:
-        rts
-    !reverse:
-        lda data__phase_cycle,y
-        bne !step_count+
-        lda #PHASE_CYCLE_LENGTH
-        bpl !next+
-    !step_count:
-        sec
-        sbc #$02
-        cpy #$03
-        bcc !next+
-        cmp #$04
-        beq !skip+
-        cmp #$0A
-        bne !next+
-    !skip:
-        // Skip 04 and 0A cycle. I suspect the original game had extra board colors as the logic allows red and yellow
-        // colors to be used for these cycles.
-        sec
-        sbc #$02
-    !next:
-        sta data__phase_cycle,y
-        cmp #$00
-        bne !set_phase-
-        sta flag__phase_direction_list,y // Reverse phase.
-        jmp !set_phase-
 
     // 66E9
     // Display game over message if last icon is imprisoned.
