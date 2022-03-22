@@ -53,7 +53,7 @@ entry:
     ldy board.data__curr_board_col
     sty board.data__curr_icon_col
     lda (CURLIN),y
-    sta private.data__curr_square_color_code // Color of the sqauare - Not used
+    sta private.data__curr_square_color_code // Color of the square - Not used
     // Get the battle square color (a) and a number between 0 and 7 (y). 0 is strongest on black, 7 is strongest on
     // white.
     beq !dark_square+
@@ -71,7 +71,7 @@ entry:
     tay
     lda game.data__phase_color // Phase color
 !next:
-    sta private.data__battle_square_color // Square color used to set battle arena border
+    sta private.param__arena_color // Square color used to set battle arena border
     tya
     asl
     sta private.data__strength_adj_x2 // ??? Not used?
@@ -389,7 +389,7 @@ entry:
 	beq !loop-
 !next:
     //
-	// Determine if challenging for a magic sqaure. Sets an offset (presumably aggresiveness) to 0 for non-magic and
+	// Determine if challenging for a magic square. Sets an offset (presumably aggresiveness) to 0 for non-magic and
 	// 3 for magic square. Used by AI Algorithm.
 	lda board.data__curr_board_row
 	sta magic.cnt__board_row
@@ -440,9 +440,135 @@ entry:
 	//
 	// Wait for interrupt driven state change
 	jsr game.wait_for_state_change
-
-    jmp * // TODO remove
-
+    //
+    lda #FLAG_ENABLE // No winner
+	sta private.data__winning_icon_type
+	// Remove projectile sprites.
+	lda #EMPTY_SPRITE_BLOCK
+	sta SPTMEM+2
+	sta SPTMEM+3
+	lda #$00
+	sta YXPAND
+	//
+	// Update strength data of winning and losing pieces.
+	ldx #(NUM_PLAYERS-1) // 0 offset
+!player_loop:
+	ldy common.param__icon_type_list,x
+	cpy #AIR_ELEMENTAL
+	bcc !skip+
+	// Remove elemental sprite and don't bother updating the strength data.
+	lda #EMPTY_SPRITE_BLOCK
+	sta SPTMEM,x
+	lda #SPRITE_Y_OFFSCREEN
+	sta board.data__sprite_curr_y_pos_list,x
+	jmp !next+
+!skip:
+	// Update piece strength.
+	lda private.data__player_attack_strength_list,x
+	bne !alive+
+	// Player was defeated.
+	tya
+	cmp game.data__imprisoned_icon_list,x
+	bne !skip+
+	lda #FLAG_ENABLE_FF
+	sta game.data__imprisoned_icon_list,x // Remove defeated piece from prison (in case the piece is later revived)
+!skip:
+	lda #SPRITE_Y_OFFSCREEN
+	sta board.data__sprite_curr_y_pos_list,x
+	lda #$00 // Set player strength data to 0 - dead
+	beq !update_strength+
+!alive:
+	// Player is victor.
+	sty private.data__winning_icon_type
+	cmp game.data__piece_strength_list,y
+	bcs !next+ // Victor won without taking any damage - no need to update strength
+	pha
+	// If victor is a Shapeshifter, then reset the shapeshifter strength back to initial strength. This is interesting,
+	// Shapeshifter always restores full strength after each battle.
+	lda board.data__piece_icon_offset_list,y
+	cmp #SHAPESHIFTER_OFFSET
+	bne !skip+
+	pla
+	lda game.data__icon_strength_list,y
+	bpl !update_strength+
+!skip:
+	pla
+!update_strength:
+	sta game.data__piece_strength_list,y
+!next:
+	dex
+	bpl !player_loop-
+    // Set location of winning square on the board. 
+	lda private.data__winning_icon_type
+	sta common.param__icon_type_list
+	ldy board.data__curr_icon_row
+	sty board.data__curr_board_row
+	lda board.data__curr_icon_col
+	sta board.data__curr_board_col
+	ldx #$04
+	jsr board.convert_coord_sprite_pos
+	// Add the piece back on to the board (both pieces were removed when the battle started).
+	pha // X position of square
+	tya
+	pha // Y position of square
+	jsr board.add_icon_to_matrix
+	jsr private.remove_barriers
+	//
+	ldx #JIFFIES_PER_SECOND
+	jsr common.wait_for_jiffy
+	ldx #$00
+	lda common.param__icon_type_list
+	bpl !animate_sprite+
+	// Draw - just return to the game.
+	pla
+	pla
+	jmp !return+
+	//
+!animate_sprite:
+	// Animate the victor sprite to the winning square location.
+	ldy #$00
+	cmp #MANTICORE
+	bcc !skip+
+	ldy #$11 // Left facing icon
+	inx
+!skip:
+	lda #$00
+	sta board.cnt__sprite_frame_list,x
+	tya
+	sta common.param__icon_sprite_source_frame_list,x
+	// Store the final position of teh victor.
+	pla // Y position of square
+	sta private.data__sprite_initial_y_pos_list,x
+	pla // X position of square
+	sta private.data__sprite_initial_x_pos_list,x
+	// Store the final position of the loser (off screen)
+	txa
+	eor #$01
+	tax
+	lda #SPRITE_Y_OFFSCREEN
+	sta private.data__sprite_initial_y_pos_list,x
+	jsr private.set_player_sprite_location
+	//
+!return:
+	lda #%0001_0010
+	sta VMCSB // +$0000-$07FF char memory, +$0400-$07FF screen memory (game board character set)
+	// Clear the screen. We do this by first clearing the screen with the victor icon still shown for 1 second and then
+	// removing the victor icon for 0.5 seconds (showing a blank screen).
+	lda EXTCOL
+	and #$0F
+	sta private.param__arena_color
+	jsr common.clear_screen
+	jsr private.set_arena_colors
+	ldx #(1*JIFFIES_PER_SECOND)
+	jsr common.wait_for_jiffy
+	jsr board.draw_board
+	lda #EMPTY_SPRITE_BLOCK
+	sta SPTMEM
+	sta SPTMEM+1
+	ldx #(0.5*JIFFIES_PER_SECOND)
+	jsr common.wait_for_jiffy
+	// Go back to strategy game play.
+	jmp game.entry
 
 // 938D
 interrupt_handler:
@@ -630,7 +756,7 @@ interrupt_handler:
 !next:
 
 
-
+    // 9485
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -638,10 +764,11 @@ interrupt_handler:
 .namespace private {
     // 649D
     // Move player sprites in to the starting battle location.
-    // `data__sprite_curr_y_pos_list` and `data__sprite_curr_x_pos_list` will be already set to the current location
-    // of the sprites - on top of each other on the battle sqaure.
     // When moving the icons, the may need to move up or down or left or right depending upon the battle square and
     // the starting battle position.
+    // Requires: 
+    // - `data__sprite_curr_y_pos_list` and `data__sprite_curr_x_pos_list` will be already set to the current location
+    //   of the sprites - on top of each other on the battle square.
     set_player_sprite_location:
         // OK here we set the 4th bit in a register. When a player sprite reaches the corrext X or Y position, the
         // register is shifted right. When the register reaches 0 we know both pieces are now at the corrext X and
@@ -929,8 +1056,10 @@ interrupt_handler:
 
     // 7F63
     // Configures colors for battle arena.
+    // Requires:
+    // - param__arena_color: Color code of secondary multicolor for battle arena area.
     set_arena_colors:
-        lda data__battle_square_color
+        lda param__arena_color
         bne !skip+
         lda #DARK_GRAY // Use grey instead of black if fighting on a black square
     !skip:
@@ -968,6 +1097,34 @@ interrupt_handler:
         bcc !next+
         inc FREEZP+3
         inc VARPNT+1
+    !next:
+        dex
+        bne !row_loop-
+        rts
+
+    // 7FCA
+    // Remove all barriers from the screen.
+    // This function does not clear the borders.
+    remove_barriers:
+        ldx #(NUM_SCREEN_ROWS-3) // The top and bottom 2 rows will not include barriers (0 Offset)
+        lda ptr__screen_barrier_row_offset_lo
+        sta FREEZP+2
+        lda ptr__screen_barrier_row_offset_hi
+        sta FREEZP+3
+    !row_loop:
+        lda #$00
+        ldy #(NUM_SCREEN_COLUMNS-4) // Barriers do not appear in the final 4 columns
+    !column_loop:
+        sta (FREEZP+2),y
+        dey
+        bpl !column_loop-
+        // Next row.
+        lda FREEZP+2
+        clc
+        adc #NUM_SCREEN_COLUMNS
+        sta FREEZP+2
+        bcc !next+
+        inc FREEZP+3
     !next:
         dex
         bne !row_loop-
@@ -1115,7 +1272,7 @@ interrupt_handler:
 .namespace private {
     // BCF2
     // Current color of square in which a battle is being faught.
-    data__battle_square_color: .byte $00
+    param__arena_color: .byte $00
 
     // BCF2
     // Current delay counter used to delay end of game after a character dies.
@@ -1143,6 +1300,7 @@ interrupt_handler:
     data__player_sprite_speed_list: 
     data__player_icon_sprite_speed_list:
         .byte $00, $00
+    // BD03
     data__player_projectile_sprite_speed_list:
         .byte $00, $00
 
@@ -1191,6 +1349,11 @@ interrupt_handler:
     // BF1A
     // Screen row counter. Used to keep track of the current screen row.
     cnt__screen_row: .byte $00
+
+    // BF1A
+    // Type of icon taht was the victor after the challenge. Is $80 if both pieces were killed or the victor was an
+    // elemental.
+    data__winning_icon_type: .byte $00
 
     // BF1C
     // Current character code index for the strength bar character.

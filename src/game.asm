@@ -497,7 +497,7 @@ interrupt_handler:
     // Select icon.
     lda #FLAG_ENABLE
     sta private.flag__is_icon_selected
-    lda #$10 // Wait 10 interrupts before allowing icon destination square selection
+    lda #(0.25*JIFFIES_PER_SECOND) // Wait before allowing icon destination square selection
     sta private.cnt__joystick_debounce
     jsr select_or_move_icon
     lda flag__is_destination_valid

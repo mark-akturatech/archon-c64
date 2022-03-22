@@ -218,3 +218,4 @@
 
 .const NUM_BARRIER_TYPES = 3
 .const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 projectiles
+.const SPRITE_Y_OFFSCREEN = $CE
