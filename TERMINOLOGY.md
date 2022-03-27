@@ -14,6 +14,6 @@ The following terminology is used throughout the source code comments and memory
 - `Game`: Actual game play on the game 'board'.
 - `Challenge`: When two icons occupy the same square, they will initiate a challenge. The challenge will result in both icons being placed within the battle arena.
 - `Arena`: Battle game played off-board to battle for a square.
-- `Attack`: An action made by an icon in the 'Arena' to attempt to kill the other icon. Eg firing a projectile or swinging a weaopn.
-- `Projectile`: Refers to the animation or sprite used to inflict damage on the opponent during an attack. The word projectile isnt completely accurate though as knights and goblins don't throw the projectile. Banshees and Phoenix also surround themselves with their weapon. However for simplicity, as most icons do throw a projectile, we will use this term in all cases.
+- `Attack`: An action made by an icon in the 'Arena' to attempt to kill the other icon. Eg firing a projectile or swinging a weapon.
+- `Weapon/Projectile`: Refers to the animation or sprite used to inflict damage on the opponent during an attack. Different icons have different weapons/projectiles. For example, Goblins use a club as a weapon, Unicorns fire bullets and Banshees and Phoenix transform themselves into a weapon by surround themselves with a scream/fire.
 - `Strength`: The number of hit points an icon has. Hit points are reduced by each successful attack. The icon is killed when strength is 0 or less.

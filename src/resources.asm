@@ -113,8 +113,8 @@ relocate:
 //   - $4400-$47ff: Resources requiring relocation (intro logo sprites, magic square sprite and intro/outro music).
 //     We need to relocate these resources as this area of memory is used for screen character display.
 //   - $4800-$4fff: In-place character map 2 (game character map).
-//   - $5000-$5fff: Resources requiring relocation (projectile sprites, elemental icon sprites and sound effects).
-//     We need to relocate these resources as this area of memory will be used to store sprites shape data.
+//   - $5000-$5fff: Resources requiring relocation (weapon and projectile sprites, elemental icon sprites and sound
+//     effects). We need to relocate these resources as this area of memory will be used to store sprites shape data.
 //   - $6000>: Additional in-place resources if required (none required at this point).
 //
 // This results in a few wasted bytes, but all-in-all we do end up with a fairly well packed file:
@@ -210,10 +210,10 @@ prt__sprites_icon: .import binary "/assets/sprites-icons.bin"
     prt__sprites_elemental: .import binary "/assets/sprites-elementals.bin"
 
     // BACB
-    // Sprites used by icons as projectiles within the battle arena.
-    // The projectiles are only small and consume 32 bytes each. There is not a projectile sprite per icon as may
-    // icons reuse the same projectile.
-    ptr__sprites_projectile: .import binary "/assets/sprites-projectiles.bin"
+    // Sprites used as projectiles and weapons within the battle arena.
+    // The projectiles and weapons are only small and consume 32 bytes each. There is not a sprite per icon as many
+    // icons reuse the same sprite.
+    ptr__sprites_weapon: .import binary "/assets/sprites-weapons.bin"
 }
 .namespace private {
     prt__graphic_block_end:

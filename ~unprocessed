@@ -1,28 +1,165 @@
 (^.*[a-z0-9])\s{2,9}
 $1
 
+
+
+// 992A
+// Update the player weapon. This may include firing a projectile, continue moving a projectile across the
+// screen, surrounding the player with a weapon (eg scream or fire) or thrusting a weapon (eg club or sword).
+update_weapon:
+	lda data__player_weapon_sprite_speed_list,x // Speed will be set if weapon is activated
+	bne !next+
+	rts
+!next:
+	lda data__player_icon_sprite_speed_list,x
+	and #ICON_CAN_TRANSFORM
+	beq !next+
+	// 9937 4C 36 98 jmp W9836 // TODO transform???
+!next:
+	lda data__player_icon_sprite_speed_list,x
+	cmp #ICON_CAN_THRUST
+	beq !next+
+	jsr check_hit
+	lda flag__weapon_hit_detected
+	bmi !return+
+!next:
+	// Check if projectile hits a barrier.
+	// If the projectile hits a imperiable barrier the projectile will stop moving. If the barrier is
+	// non-imperiable, the projectile will move at half speed until it has passed the barrier at which point
+	// it will speed up again (ignoring the laws of physics).
+	lda data__weapon_barrier_phase_collision_list,x
+994C F0 0A beq W9958
+994E 10 03 bpl W9953
+9950 4C DA 99 jmp remove_weapon
+W9953:
+9953 BD 1F BD lda cnt__projectile_delay_list,x // Halves projectile speed when firing over swamp. very hard to tell though.
+9956 49 FF eor #$FF
+W9958:
+9958 9D 1F BD sta cnt__projectile_delay_list,x
+995B F0 01 beq W995E
+995D 60 rts
+W995E:
+995E BD 01 BD lda data__player_icon_sprite_speed_list,x
+9961 C9 20 cmp #ICON_CAN_THRUST
+9963 D0 03 bne W9968
+9965 4C 07 99 jmp W9907 // thrust
+// move projectile
+// x: sprite number (0-3)
+// data__player_weapon_sprite_y_list: x-direction
+// data__player_weapon_sprite_x_list: y-direction
+W9968:
+9968 8A txa
+9969 0A asl
+996A A8 tay
+996B B9 AB A0 lda common.ptr__voice_ctl_addr_list,y
+996E 85 FD sta FREEZP+2
+9970 B9 AC A0 lda common.ptr__voice_ctl_addr_list+1,y
+9973 85 FE sta FREEZP+3 Free 0 page for user program
+9975 BD 68 BD lda temp_data_temp_note_store,x
+9978 38 sec
+9979 E9 80 sbc #$80
+997B 9D 68 BD sta temp_data_temp_note_store,x
+997E A0 00 ldy #$00
+9980 91 FD sta (FREEZP+2),y
+9982 C8 iny
+9983 BD 6A BD lda WBD6A,x
+9986 E9 00 sbc #$00
+9988 9D 6A BD sta WBD6A,x
+998B 91 FD sta (FREEZP+2),y
+998D BD 34 BF lda data__player_weapon_sprite_y_list,x // y direction for each of the 4 sprites? -1, 0 +1
+9990 18 clc
+9991 7D 48 BD adc board.data__sprite_curr_y_pos_list+2,x
+9994 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
+9997 C9 0A cmp #$0A // offscreen top
+9999 90 3F bcc remove_weapon
+999B C9 BE cmp #$BE // offscreen bottom
+999D B0 3B bcs remove_weapon
+999F BD 38 BF lda data__player_weapon_sprite_x_list,x // x direction for each of the 4 sprites? -1, 0 +1
+99A2 18 clc
+99A3 7D 40 BD adc main_sprite_curr_x_pos+2,x
+99A6 9D 40 BD sta main_sprite_curr_x_pos+2,x
+99A9 C9 02 cmp #$02 // offscreen left
+99AB 90 2D bcc remove_weapon
+99AD C9 9B cmp #$9B // offscreen right
+99AF B0 29 bcs remove_weapon
+99B1 20 C2 99 jsr W99C2
+99B4 FE F0 BC inc WBCF0,x
+99B7 BD F0 BC lda WBCF0,x
+99BA 29 03 and #$03
+99BC F0 03 beq !return+
+99BE FE E9 BC inc intro_sprite_y_move_counter,x // NFI: maybe AI? every 3rd firing position
+!return:
+	rts
+W99C2:
+99C2 A0 07 ldy #$07
+W99C4:
+99C4 B9 D2 99 lda W99D2,y
+99C7 DD 29 BF cmp common.param__icon_offset_list,x
+99CA F0 05 beq W99D1
+99CC 88 dey
+99CD 10 F5 bpl W99C4
+99CF 68 pla
+99D0 68 pla
+W99D1:
+99D1 60 rts
+
+
+
+// keeps thrust weapon going for a max count of #0f
+
+W9907:
+9907 BD F6 BC lda flag__did_player_weapon_hit_list,x
+990A 30 0B bmi W9917
+990C 20 27 9A jsr check_hit
+990F AD FE BC lda flag__weapon_hit_detected
+9912 10 03 bpl W9917
+9914 9D F6 BC sta flag__did_player_weapon_hit_list,x
+W9917:
+9917 BD 03 BD lda data__player_weapon_sprite_speed_list,x
+991A 29 0F and #$0F
+991C D0 03 bne W9921
+991E 4C DA 99 jmp remove_weapon
+
+W9921:
+9921 BD F6 BC lda flag__did_player_weapon_hit_list,x
+9924 30 00 bmi W9926 // WTF!
+W9926:
+9926 DE 03 BD dec data__player_weapon_sprite_speed_list,x
+9929 60 rts
+
+
+
+
+
 // ----------------------------------------------------------------------------------------------------------
 // interrupt
 
 
 // 9485
+
+	// Play icon sound. The routine uses `common.flag__is_player_sound_enabled` to determine if a sound is enabled
+	// for each player. OLDTXT and OLDTXT+2 will be set to the sound pattern made by the specific player while
+	// moving or firing. Note that when a player is firing, the player movement sound is replaced with the weopon
+	// sound until the weapon has finished firing (eg hits a target, flies off the screen or finishes
+	// thrusting etc). Therefore, only two voices (one for each player) are only ever used during a challenge.
 	jsr board.play_icon_sound
 	//
 	ldx #(NUM_PLAYERS-1) // 0 offset
 !player_loop:
-	lda #$00
-948C 8D 0D BD sta temp_data__sprite_x_direction_offset_1
-948F 8D 10 BD sta WBD10
-9492 20 2A 99 jsr private.move_sprite // moves sprite
-9495 BD 01 BD lda data__player_icon_sprite_speed_list,x
-9498 29 60 and #$60
+	lda #FLAG_DISABLE
+ 	sta private.flag__was_icon_moved
+	sta private.flag__is_weapon_active
+	jsr private.update_weapon // Continue firing (or thrusting) weapon
+
+9495 BD 01 BD lda private.data__player_icon_sprite_speed_list,x
+9498 29 60 and #(ICON_CAN_TRANSFORM + ICON_CAN_THRUST)
 949A F0 0F beq W94AB
-949C BD 03 BD lda data__player_projectile_sprite_speed_list,x
+949C BD 03 BD lda private.data__player_weapon_sprite_speed_list,x
 949F F0 0A beq W94AB
-94A1 BD 29 BF lda board_icon_offset,x
+94A1 BD 29 BF lda common.param__icon_offset_list,x
 94A4 C9 0E cmp #$0E
 94A6 F0 03 beq W94AB
-94A8 4C 28 95 jmp W9528
+94A8 4C 28 95 jmp W9528 // skip moving for players currently thrusting or transforming (except banshee)
 
 W94AB:
 94AB BD 05 BD lda data__player_attack_strength_list,x
@@ -42,10 +179,10 @@ W94C7:
 94C7 4C 9B 95 jmp W959B
 
 W94CA:
-94CA BD 1D BD lda WBD1D,x
+94CA BD 1D BD lda cnt__icon_delay_list,x // Halves player speed when running over swamp
 94CD 49 FF eor #$FF
 W94CF:
-94CF 9D 1D BD sta WBD1D,x
+94CF 9D 1D BD sta cnt__icon_delay_list,x
 94D2 F0 03 beq W94D7
 94D4 4C 9B 95 jmp W959B
 
@@ -98,22 +235,22 @@ W9521:
 9523 B0 03 bcs W9528
 9525 20 F8 96 jsr W96F8
 W9528:
-9528 AD 0D BD lda temp_data__sprite_x_direction_offset_1
+9528 AD 0D BD lda private.flag__was_icon_moved
 952B D0 41 bne W956E
 952D 9D E7 BC sta board.cnt__sprite_frame_list,x
-9530 BD 08 BF lda common_sound_flag__enable_voice,x
+9530 BD 08 BF lda common.flag__is_player_sound_enabled,x
 9533 F0 1F beq W9554
 9535 C9 80 cmp #$80
 9537 D0 1B bne W9554
 9539 A9 00 lda #$00
-953B 9D 08 BF sta common_sound_flag__enable_voice,x
-953E 9D 0B BF sta common_sound_new_note_delay,x
+953B 9D 08 BF sta common.flag__is_player_sound_enabled,x
+953E 9D 0B BF sta common.data__voice_note_delay,x
 9541 8A txa
 9542 0A asl
 9543 A8 tay
-9544 B9 AB A0 lda common_sound_voice_addr,y
+9544 B9 AB A0 lda common.ptr__voice_ctl_addr_list,y
 9547 85 FD sta FREEZP+2
-9549 B9 AC A0 lda common_sound_voice_addr+1,y
+9549 B9 AC A0 lda common.ptr__voice_ctl_addr_list+1,y
 954C 85 FE sta FREEZP+3
 954E A9 00 lda #$00
 9550 A0 04 ldy #$04
@@ -125,21 +262,21 @@ W9554:
 9558 B9 00 DC lda CIAPRA,y
 955B 29 10 and #$10
 955D D0 3C bne W959B
-955F BD 29 BF lda board_icon_offset,x
+955F BD 29 BF lda common.param__icon_offset_list,x
 9562 29 07 and #$07
 9564 C9 06 cmp #$06
-9566 D0 33 bne W959B
+9566 D0 33 bne W959B // Not banshee or phoenix
 9568 20 22 97 jsr W9722
 956B 4C 9B 95 jmp W959B
 
 W956E:
 956E A9 80 lda #$80
-9570 DD 08 BF cmp common_sound_flag__enable_voice,x
+9570 DD 08 BF cmp common.flag__is_player_sound_enabled,x
 9573 F0 19 beq W958E
 9575 90 17 bcc W958E
-9577 9D 08 BF sta common_sound_flag__enable_voice,x
+9577 9D 08 BF sta common.flag__is_player_sound_enabled,x
 957A A9 00 lda #$00
-957C 9D 0B BF sta common_sound_new_note_delay,x
+957C 9D 0B BF sta common.data__voice_note_delay,x
 957F 8A txa
 9580 0A asl
 9581 A8 tay
@@ -155,26 +292,24 @@ W958E:
 9598 FE E7 BC inc board.cnt__sprite_frame_list,x
 
 
-
-
 W959B:
 959B 20 A2 97 jsr W97A2 // fire projectile?
-959E BD 21 BD lda WBD21,x
+959E BD 21 BD lda cnt__player_cooldown_delay_list,x
 95A1 F0 23 beq W95C6
-95A3 DE 21 BD dec WBD21,x
+95A3 DE 21 BD dec cnt__player_cooldown_delay_list,x
 95A6 D0 1E bne W95C6
-95A8 A9 81 lda #$81
-95AA DD 08 BF cmp common_sound_flag__enable_voice,x
+95A8 A9 81 lda #PLAYER_SOUND_RECHARGE
+95AA DD 08 BF cmp common.flag__is_player_sound_enabled,x
 95AD 90 17 bcc W95C6
-95AF 9D 08 BF sta common_sound_flag__enable_voice,x
+95AF 9D 08 BF sta common.flag__is_player_sound_enabled,x
 95B2 A9 00 lda #$00
-95B4 9D 0B BF sta common_sound_new_note_delay,x
+95B4 9D 0B BF sta common.data__voice_note_delay,x
 95B7 8A txa
 95B8 0A asl
 95B9 A8 tay
-95BA B9 F8 95 lda W95F8,y
+95BA B9 F8 95 lda game.ptr__sound_game_effect_list,y
 95BD 99 3D 00 sta OLDTXT,y
-95C0 B9 F9 95 lda W95F9,y
+95C0 B9 F9 95 lda game.ptr__sound_game_effect_list+1,y
 95C3 99 3E 00 sta OLDTXT+1,y
 W95C6:
 95C6 AD CB BC lda board_countdown_timer
@@ -190,19 +325,19 @@ W95D1:
 
 //
 W95D7:
-95D7 AD 2A BF lda board_icon_offset+1
+95D7 AD 2A BF lda common.param__icon_offset_list+1
 95DA C9 0E cmp #$0E
 95DC D0 13 bne W95F1
-95DE AD 04 BD lda data__player_projectile_sprite_speed_list+1
+95DE AD 04 BD lda data__player_weapon_sprite_speed_list+1
 95E1 F0 0E beq W95F1
-95E3 AD E4 BC lda common_sprite_init_animation_frame+1
+95E3 AD E4 BC lda common.param__icon_sprite_source_frame_list+1
 95E6 4A lsr
 95E7 4A lsr
 95E8 C9 03 cmp #$03
 95EA 90 02 bcc W95EE
 95EC A9 03 lda #$03
 W95EE:
-95EE 8D E6 BC sta common_sprite_init_animation_frame+3
+95EE 8D E6 BC sta common.param__icon_sprite_source_frame_list+3
 W95F1:
 95F1 4C 8E 63 jmp common_complete_interrupt
 
@@ -221,164 +356,9 @@ W7F04:
 
 
 
-///
-
-move_sprite:
-	lda data__player_projectile_sprite_speed_list,x
-	bne !next+
-	rts
-!next:
-	lda data__player_icon_sprite_speed_list,x
-9933 29 40 and #$40
-9935 F0 03 beq W993A
-9937 4C 36 98 jmp W9836
-
-W993A:
-993A BD 01 BD lda data__player_icon_sprite_speed_list,x
-993D C9 20 cmp #$20
-993F F0 08 beq W9949
-9941 20 27 9A jsr W9A27
-9944 AD FE BC lda temp_data__curr_count
-9947 30 78 bmi W99C1
-W9949:
-9949 BD FA BC lda WBCFA,x
-994C F0 0A beq W9958
-994E 10 03 bpl W9953
-9950 4C DA 99 jmp W99DA
-
-W9953:
-9953 BD 1F BD lda WBD1F,x
-9956 49 FF eor #$FF
-W9958:
-9958 9D 1F BD sta WBD1F,x
-995B F0 01 beq W995E
-995D 60 rts
-
-W995E:
-995E BD 01 BD lda data__player_icon_sprite_speed_list,x
-9961 C9 20 cmp #$20
-9963 D0 03 bne W9968
-9965 4C 07 99 jmp W9907
-
-W9968:
-9968 8A txa
-9969 0A asl
-996A A8 tay
-996B B9 AB A0 lda common_sound_voice_addr,y
-996E 85 FD sta FREEZP+2
-9970 B9 AC A0 lda common_sound_voice_addr+1,y
-9973 85 FE sta FREEZP+3 Free 0 page for user program
-9975 BD 68 BD lda temp_data_temp_note_store,x
-9978 38 sec
-9979 E9 80 sbc #$80
-997B 9D 68 BD sta temp_data_temp_note_store,x
-997E A0 00 ldy #$00
-9980 91 FD sta (FREEZP+2),y
-9982 C8 iny
-9983 BD 6A BD lda WBD6A,x
-9986 E9 00 sbc #$00
-9988 9D 6A BD sta WBD6A,x
-998B 91 FD sta (FREEZP+2),y
-998D BD 34 BF lda WBF34,x
-9990 18 clc
-9991 7D 48 BD adc board.data__sprite_curr_y_pos_list+2,x
-9994 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
-9997 C9 0A cmp #$0A
-9999 90 3F bcc W99DA
-999B C9 BE cmp #$BE
-999D B0 3B bcs W99DA
-999F BD 38 BF lda WBF38,x
-99A2 18 clc
-99A3 7D 40 BD adc main_sprite_curr_x_pos+2,x
-99A6 9D 40 BD sta main_sprite_curr_x_pos+2,x
-99A9 C9 02 cmp #$02
-99AB 90 2D bcc W99DA
-99AD C9 9B cmp #$9B
-99AF B0 29 bcs W99DA
-99B1 20 C2 99 jsr W99C2
-99B4 FE F0 BC inc WBCF0,x
-99B7 BD F0 BC lda WBCF0,x
-99BA 29 03 and #$03
-99BC F0 03 beq W99C1
-99BE FE E9 BC inc intro_sprite_y_move_counter,x
-W99C1:
-99C1 60 rts
-
-W99C2:
-99C2 A0 07 ldy #$07
-W99C4:
-99C4 B9 D2 99 lda W99D2,y
-99C7 DD 29 BF cmp board_icon_offset,x
-99CA F0 05 beq W99D1
-99CC 88 dey
-99CD 10 F5 bpl W99C4
-99CF 68 pla
-99D0 68 pla
-W99D1:
-99D1 60 rts
+/// ---------------------------------------------------------------------------------------------------------
 
 
-W9A27:
-9A27 A9 00 lda #$00
-9A29 8D FE BC sta temp_data__curr_count
-9A2C 8A txa
-9A2D 49 01 eor #$01
-9A2F A8 tay
-9A30 BD B1 98 lda data__sprite_offset_bit_list,x
-9A33 2D 45 BF and flag__sprite_to_sprite_collision
-9A36 F0 69 beq W9AA1
-9A38 B9 C3 8D lda main_math_pow2,y
-9A3B 2D 45 BF and flag__sprite_to_sprite_collision
-9A3E F0 61 beq W9AA1
-9A40 B9 29 BF lda board_icon_offset,y
-9A43 C9 06 cmp #$06
-9A45 D0 05 bne W9A4C
-9A47 B9 03 BD lda data__plyr_projctle_sprite_speed_list,y
-9A4A D0 44 bne W9A90
-W9A4C:
-9A4C B9 05 BD lda data__player_attack_strength_list,y
-9A4F 38 sec
-9A50 FD 07 BD sbc data__player_attack_damage_list,x
-9A53 10 02 bpl W9A57
-9A55 A9 00 lda #$00
-W9A57:
-9A57 99 05 BD sta data__player_attack_strength_list,y
-9A5A D0 1B bne W9A77
-9A5C B9 29 BF lda board_icon_offset,y
-9A5F C9 0E cmp #$0E
-9A61 D0 0A bne W9A6D
-9A63 A9 0F lda #$0F
-9A65 99 FA 47 sta SPTMEM+2,y
-9A68 A9 00 lda #$00
-9A6A 99 03 BD sta data__plyr_projctle_sprite_speed_list,y
-W9A6D:
-9A6D A9 CE lda #SPRITE_Y_OFFSCREEN
-9A6F 99 46 BD sta board.data__sprite_curr_y_pos_list,y
-9A72 A9 40 lda #(1*JIFFIES_PER_SECOND)
-9A74 8D F2 BC sta private.cnt__end_game_delay
-W9A77:
-9A77 A9 83 lda #$83
-9A79 9D 08 BF sta common_sound_flag__enable_voice,x
-9A7C A9 00 lda #$00
-9A7E 9D 0B BF sta common_sound_new_note_delay,x
-9A81 8A txa
-9A82 0A asl
-9A83 A8 tay
-9A84 B9 F4 95 lda W95F4,y
-9A87 99 3D 00 sta OLDTXT,y Pointer: BASIC instruction for CONT
-9A8A B9 F5 95 lda W95F5,y
-9A8D 99 3E 00 sta OLDTXT+1,y Pointer: BASIC instruction for CONT
-W9A90:
-9A90 A9 80 lda #$80
-9A92 8D FE BC sta temp_data__curr_count
-9A95 BD 29 BF lda board_icon_offset,x
-9A98 29 07 and #$07
-9A9A C9 06 cmp #$06
-9A9C F0 03 beq W9AA1
-9A9E 4C DA 99 jmp W99DA
-
-W9AA1:
-9AA1 60 rts
 
 
 
@@ -386,30 +366,30 @@ W9AA1:
 
 
 W9836:
-9836 BD 29 BF lda board_icon_offset,x
+9836 BD 29 BF lda common.param__icon_offset_list,x
 9839 C9 0E cmp #$0E
 983B F0 76 beq W98B3
-983D FE 38 BF inc WBF38,x
-9840 BD 38 BF lda WBF38,x
+983D FE 38 BF inc data__player_weapon_sprite_x_list,x
+9840 BD 38 BF lda data__player_weapon_sprite_x_list,x
 9843 C9 05 cmp #$05
 9845 D0 03 bne W984A
-9847 4C 27 9A jmp W9A27
+9847 4C 27 9A jmp check_hit
 
 W984A:
 984A C9 0A cmp #$0A
 984C D0 62 bne W98B0
 984E A9 00 lda #$00
-9850 9D 38 BF sta WBF38,x
-9853 BD 34 BF lda WBF34,x
+9850 9D 38 BF sta data__player_weapon_sprite_x_list,x
+9853 BD 34 BF lda data__player_weapon_sprite_y_list,x
 9856 18 clc
 9857 69 05 adc #$05
-9859 9D 34 BF sta WBF34,x
+9859 9D 34 BF sta data__player_weapon_sprite_y_list,x
 985C C9 19 cmp #$19
 985E 90 03 bcc W9863
 9860 4C DF 98 jmp W98DF
 
 W9863:
-9863 BC 34 BF ldy WBF34,x
+9863 BC 34 BF ldy data__player_weapon_sprite_y_list,x
 9866 BD B1 98 lda data__sprite_offset_bit_list,x
 9869 48 pha
 986A B9 EE 98 lda W98EE,y
@@ -439,7 +419,7 @@ W988D:
 W9893:
 9893 8D 17 D0 sta YXPAND (2X) vertical expansion (Y) sprite 0..7
 9896 B9 F0 98 lda W98F0,y
-9899 9D E5 BC sta common_sprite_init_animation_frame+2,x
+9899 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 989C BD 3E BD lda main_sprite_curr_x_pos,x
 989F 18 clc
 98A0 79 F1 98 adc W98F1,y
@@ -452,17 +432,17 @@ W98B0:
 98B0 60 rts
 
 W98B3:
-98B3 DE 38 BF dec WBF38,x
+98B3 DE 38 BF dec data__player_weapon_sprite_x_list,x
 98B6 30 33 bmi W98EB
-98B8 BD 34 BF lda WBF34,x
+98B8 BD 34 BF lda data__player_weapon_sprite_y_list,x
 98BB 18 clc
 98BC 69 01 adc #$01
 98BE C9 05 cmp #$05
 98C0 90 05 bcc W98C7
-98C2 20 27 9A jsr W9A27
+98C2 20 27 9A jsr check_hit
 98C5 A9 00 lda #$00
 W98C7:
-98C7 9D 34 BF sta WBF34,x
+98C7 9D 34 BF sta data__player_weapon_sprite_y_list,x
 98CA A9 03 lda #$03
 W98CC:
 98CC BD 3E BD lda main_sprite_curr_x_pos,x
@@ -477,75 +457,15 @@ W98CC:
 
 W98DF:
 98DF BD DC BC lda WBCDC,x
-98E2 9D E3 BC sta common_sprite_init_animation_frame,x
+98E2 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 98E5 BD 47 BF lda WBF47,x
 98E8 9D 46 BD sta board.data__sprite_curr_y_pos_list,x
 W98EB:
-98EB 4C DA 99 jmp W99DA
+98EB 4C DA 99 jmp remove_weapon
 
 
 
-W99DA:
-99DA 8A txa
-99DB 0A asl
-99DC A8 tay
-99DD B9 AB A0 lda common_sound_voice_addr,y
-99E0 85 FD sta FREEZP+2
-99E2 B9 AC A0 lda common_sound_voice_addr+1,y
-99E5 85 FE sta FREEZP+3 Free 0 page for user program
-99E7 A9 0F lda #$0F
-W99E9:
-99E9 9D FA 47 sta SPTMEM+2,x
-99EC A9 00 lda #$00
-99EE 9D 03 BD sta data__plyr_projctle_sprite_speed_list,x
-99F1 9D 38 BF sta WBF38,x
-99F4 9D 34 BF sta WBF34,x
-99F7 9D F6 BC sta WBCF6,x
-99FA BD 08 BF lda common_sound_flag__enable_voice,x
-99FD C9 82 cmp #$82
-99FF D0 09 bne W9A0A
-9A01 A9 00 lda #$00
-9A03 9D 08 BF sta common_sound_flag__enable_voice,x
-9A06 A0 04 ldy #$04
-9A08 91 FD sta (FREEZP+2),y
-W9A0A:
-9A0A BD E3 BC lda common_sprite_init_animation_frame,x
-9A0D 38 sec
-9A0E E9 0C sbc #$0C
-9A10 30 0B bmi W9A1D
-9A12 C9 05 cmp #$05
-9A14 B0 08 bcs W9A1E
-9A16 A8 tay
-9A17 B9 22 9A lda W9A22,y
-W9A1A:
-9A1A 9D E3 BC sta common_sprite_init_animation_frame,x
-W9A1D:
-9A1D 60 rts
 
-W9A1E:
-9A1E A9 11 lda #$11
-9A20 D0 F8 bne W9A1A
-
-
-W9907:
-9907 BD F6 BC lda WBCF6,x
-990A 30 0B bmi W9917
-990C 20 27 9A jsr W9A27
-990F AD FE BC lda temp_data__curr_count
-9912 10 03 bpl W9917
-9914 9D F6 BC sta WBCF6,x
-W9917:
-9917 BD 03 BD lda data__plyr_projctle_sprite_speed_list,x
-991A 29 0F and #$0F
-991C D0 03 bne W9921
-991E 4C DA 99 jmp W99DA
-
-W9921:
-9921 BD F6 BC lda WBCF6,x
-9924 30 00 bmi W9926
-W9926:
-9926 DE 03 BD dec data__plyr_projctle_sprite_speed_list,x
-9929 60 rts
 
 
 
@@ -579,10 +499,10 @@ W9AC6:
 9AC9 A9 00 lda #$00
 9ACB 9D 36 BF sta temp_data__light_piece_count,x
 9ACE 9D 32 BF sta temp_data__dark_piece_count,x
-9AD1 BD 29 BF lda board_icon_offset,x
+9AD1 BD 29 BF lda common.param__icon_offset_list,x
 9AD4 C9 0E cmp #$0E
 9AD6 D0 0A bne W9AE2
-9AD8 BD 03 BD lda data__plyr_projctle_sprite_speed_list,x
+9AD8 BD 03 BD lda data__player_weapon_sprite_speed_list,x
 9ADB F0 05 beq W9AE2
 9ADD A2 01 ldx #$01
 9ADF 4C CC 98 jmp W98CC
@@ -602,9 +522,9 @@ W9603:
 9606 29 81 and #$81
 9608 09 40 ora #$40
 960A 9D 62 BD sta WBD62,x
-960D EE 0D BD inc temp_data__sprite_x_direction_offset_1
+960D EE 0D BD inc private.flag__was_icon_moved
 9610 A9 00 lda #$00
-9612 9D E3 BC sta common_sprite_init_animation_frame,x
+9612 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 9615 BD 3E BD lda main_sprite_curr_x_pos,x
 9618 CD 02 7F cmp data__light_player_initial_x_pos+1
 961B B0 03 bcs W9620
@@ -613,23 +533,23 @@ W9620:
 9620 60 rts
 
 W9621:
-9621 BD 21 BD lda WBD21,x
+9621 BD 21 BD lda cnt__player_cooldown_delay_list,x
 9624 D0 FA bne W9620
 W9626:
-9626 EE 10 BD inc WBD10
+9626 EE 10 BD inc private.flag__is_weapon_active
 9629 BD 01 BD lda data__player_attack_speed_list,x
 962C 29 40 and #$40
 962E D0 F0 bne W9620
 9630 A9 0E lda #$0E
-9632 9D E3 BC sta common_sprite_init_animation_frame,x
+9632 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 9635 BD 3E BD lda main_sprite_curr_x_pos,x
 9638 18 clc
 9639 69 09 adc #$09
 963B 9D 40 BD sta main_sprite_curr_x_pos+2,x
 963E BD 01 BD lda data__player_attack_speed_list,x
-9641 9D 38 BF sta WBF38,x
+9641 9D 38 BF sta data__player_weapon_sprite_x_list,x
 9644 A9 00 lda #$00
-9646 9D E5 BC sta common_sprite_init_animation_frame+2,x
+9646 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9649 10 50 bpl W969B
 W964B:
 964B B9 00 DC lda CIAPRA,y Data port A #1: keyboard, joystick, paddle, optical pencil
@@ -640,9 +560,9 @@ W9652:
 9655 29 81 and #$81
 9657 09 42 ora #$42
 9659 9D 62 BD sta WBD62,x
-965C EE 0D BD inc temp_data__sprite_x_direction_offset_1
-965F A9 11 lda #$11
-9661 9D E3 BC sta common_sprite_init_animation_frame,x
+965C EE 0D BD inc private.flag__was_icon_moved
+965F A9 11 lda #LEFT_FACING_ICON_FRAME
+9661 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 9664 BD 3E BD lda main_sprite_curr_x_pos,x
 9667 CD 01 7F cmp data__light_player_initial_x_pos
 966A 90 03 bcc W966F
@@ -652,25 +572,25 @@ W966F:
 
 
 W9670:
-9670 BD 21 BD lda WBD21,x
+9670 BD 21 BD lda cnt__player_cooldown_delay_list,x
 9673 D0 FA bne W966F
 W9675:
-9675 EE 10 BD inc WBD10
+9675 EE 10 BD inc private.flag__is_weapon_active
 9678 BD 01 BD lda data__player_attack_speed_list,x
 967B 29 40 and #$40
 967D D0 F0 bne W966F
 967F A9 00 lda #$00
 9681 38 sec
 9682 FD 01 BD sbc data__player_attack_speed_list,x
-9685 9D 38 BF sta WBF38,x
+9685 9D 38 BF sta data__player_weapon_sprite_x_list,x
 9688 A9 16 lda #$16
-968A 9D E3 BC sta common_sprite_init_animation_frame,x
+968A 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 968D BD 3E BD lda main_sprite_curr_x_pos,x
 9690 38 sec
 9691 E9 07 sbc #$07
 9693 9D 40 BD sta main_sprite_curr_x_pos+2,x
 9696 A9 04 lda #$04
-9698 9D E5 BC sta common_sprite_init_animation_frame+2,x
+9698 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 W969B:
 969B BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 969E 18 clc
@@ -690,11 +610,11 @@ W96FF:
 9702 29 42 and #$42
 9704 09 80 ora #$80
 9706 9D 62 BD sta WBD62,x
-9709 AD 0D BD lda temp_data__sprite_x_direction_offset_1
+9709 AD 0D BD lda private.flag__was_icon_moved
 970C D0 08 bne W9716
-970E EE 0D BD inc temp_data__sprite_x_direction_offset_1
+970E EE 0D BD inc private.flag__was_icon_moved
 9711 A9 04 lda #$04
-9713 9D E3 BC sta common_sprite_init_animation_frame,x
+9713 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 W9716:
 9716 BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 9719 CD 04 7F cmp W7F04
@@ -706,26 +626,26 @@ W9721:
 
 
 W9722:
-9722 BD 21 BD lda WBD21,x
+9722 BD 21 BD lda cnt__player_cooldown_delay_list,x
 9725 D0 FA bne W9721
 W9727:
-9727 EE 10 BD inc WBD10
+9727 EE 10 BD inc private.flag__is_weapon_active
 972A BD 01 BD lda data__player_attack_speed_list,x
 972D 29 40 and #$40
 972F D0 F0 bne W9721
 9731 A9 10 lda #$10
-9733 9D E3 BC sta common_sprite_init_animation_frame,x
+9733 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 9736 BD 01 BD lda data__player_attack_speed_list,x
-9739 9D 34 BF sta WBF34,x
+9739 9D 34 BF sta data__player_weapon_sprite_y_list,x
 973C BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 973F 18 clc
 9740 69 10 adc #$10
 9742 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
 W9745:
-9745 BD 38 BF lda WBF38,x
+9745 BD 38 BF lda data__player_weapon_sprite_x_list,x
 9748 D0 1A bne W9764
 974A A0 00 ldy #$00
-974C BD 34 BF lda WBF34,x
+974C BD 34 BF lda data__player_weapon_sprite_y_list,x
 974F 30 01 bmi W9752
 9751 C8 iny
 W9752:
@@ -734,38 +654,38 @@ W9752:
 9756 79 62 97 adc W9762,y
 9759 9D 40 BD sta main_sprite_curr_x_pos+2,x
 975C A9 01 lda #$01
-975E 9D E5 BC sta common_sprite_init_animation_frame+2,x
+975E 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9761 60 rts
 
 
 W9764:
 9764 A0 02 ldy #$02
-9766 BD 34 BF lda WBF34,x
+9766 BD 34 BF lda data__player_weapon_sprite_y_list,x
 9769 30 01 bmi W976C
 976B C8 iny
 W976C:
 976C 98 tya
-976D BC 38 BF ldy WBF38,x
+976D BC 38 BF ldy data__player_weapon_sprite_x_list,x
 9770 10 03 bpl W9775
 9772 18 clc
 9773 69 03 adc #$03
 W9775:
-9775 9D E5 BC sta common_sprite_init_animation_frame+2,x
+9775 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9778 A0 0D ldy #$0D
-977A BD 34 BF lda WBF34,x
+977A BD 34 BF lda data__player_weapon_sprite_y_list,x
 977D 30 02 bmi W9781
 977F C8 iny
 9780 C8 iny
 W9781:
 9781 98 tya
-9782 BC 38 BF ldy WBF38,x
+9782 BC 38 BF ldy data__player_weapon_sprite_x_list,x
 9785 10 03 bpl W978A
 9787 18 clc
 9788 69 08 adc #$08
 W978A:
-978A 9D E3 BC sta common_sprite_init_animation_frame,x
+978A 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 978D A0 00 ldy #$00
-978F BD 34 BF lda WBF34,x
+978F BD 34 BF lda data__player_weapon_sprite_y_list,x
 9792 30 01 bmi W9795
 9794 C8 iny
 W9795:
@@ -778,14 +698,14 @@ W979F:
 
 
 W97A2:
-97A2 AD 10 BD lda WBD10
+97A2 AD 10 BD lda private.flag__is_weapon_active
 97A5 F0 F8 beq W979F
-97A7 A9 82 lda #$82
-97A9 DD 08 BF cmp common_sound_flag__enable_voice,x
+97A7 A9 82 lda #PLAYER_SOUND_FIRE
+97A9 DD 08 BF cmp common.flag__is_player_sound_enabled,x
 97AC 90 23 bcc W97D1
-97AE 9D 08 BF sta common_sound_flag__enable_voice,x
+97AE 9D 08 BF sta common.flag__is_player_sound_enabled,x
 97B1 A9 00 lda #$00
-97B3 9D 0B BF sta common_sound_new_note_delay,x
+97B3 9D 0B BF sta common.data__voice_note_delay,x
 97B6 8A txa
 97B7 0A asl
 97B8 A8 tay
@@ -798,23 +718,23 @@ W97A2:
 97CB AD FB A1 lda board_sound_phrase_shoot_01+5
 97CE 9D 6A BD sta WBD6A,x
 W97D1:
-97D1 BC 29 BF ldy board_icon_offset,x
+97D1 BC 29 BF ldy common.param__icon_offset_list,x
 97D4 B9 D7 8A lda data__icon_attack_recovery_list,y
-97D7 9D 21 BD sta WBD21,x
+97D7 9D 21 BD sta cnt__player_cooldown_delay_list,x
 97DA BD 01 BD lda data__player_attack_speed_list,x
 97DD 29 60 and #$60
 97DF F0 47 beq W9828
 97E1 C9 20 cmp #$20
 97E3 F0 41 beq W9826
-97E5 9D 03 BD sta data__plyr_projctle_sprite_speed_list,x
+97E5 9D 03 BD sta data__player_weapon_sprite_speed_list,x
 97E8 A9 00 lda #$00
 97EA 9D E9 BC sta intro_sprite_y_move_counter,x
-97ED 9D 38 BF sta WBF38,x
-97F0 9D 34 BF sta WBF34,x
-97F3 BD 29 BF lda board_icon_offset,x
+97ED 9D 38 BF sta data__player_weapon_sprite_x_list,x
+97F0 9D 34 BF sta data__player_weapon_sprite_y_list,x
+97F3 BD 29 BF lda common.param__icon_offset_list,x
 97F6 C9 0E cmp #$0E
 97F8 F0 14 beq W980E
-97FA BD E3 BC lda common_sprite_init_animation_frame,x
+97FA BD E3 BC lda common.param__icon_sprite_source_frame_list,x
 97FD 9D DC BC sta WBCDC,x
 9800 BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 9803 9D 47 BF sta WBF47,x
@@ -824,7 +744,7 @@ W97D1:
 
 W980E:
 980E A9 29 lda #$29
-9810 9D 38 BF sta WBF38,x
+9810 9D 38 BF sta data__player_weapon_sprite_x_list,x
 9813 A9 08 lda #$08
 9815 0D 1D D0 ora XXPAND (2X) horizontal expansion (X) sprite 0..7
 9818 8D 1D D0 sta XXPAND (2X) horizontal expansion (X) sprite 0..7
@@ -837,10 +757,13 @@ W9826:
 9826 A9 0F lda #$0F
 W9828:
 9828 09 80 ora #$80
-982A 9D 03 BD sta data__plyr_projctle_sprite_speed_list,x
+982A 9D 03 BD sta data__player_weapon_sprite_speed_list,x
 982D 20 C2 99 jsr W99C2
 9830 A9 00 lda #$00
-9832 9D E5 BC sta common_sprite_init_animation_frame+2,x
+9832 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9835 60 rts
 
 
+
+
+// BD10

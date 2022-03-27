@@ -18,9 +18,10 @@
 // Sprite constants.
 .const BYTES_PER_SPRITE = 64; // Bytes consumed by each sprite
 .const BYTERS_PER_ICON_SPRITE = 54; // Stored icon sprites are not full height and therefore consume less memory.
-.const BYTERS_PER_PROJECTILE_SPRITE = 8; // Projectile sprites are tiny and monochromatic.
+.const BYTERS_PER_WEAPON_SPRITE = 8; // Weapon and projectile sprites are tiny and monochromatic.
 // Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
 .const EMPTY_SPRITE_BLOCK = 15
+.const LEFT_FACING_ICON_FRAME = $11 // Frame offset used to mirron the sprite to create a left facing sprite.
 
 // Text screen constants.
 .const NUM_SCREEN_COLUMNS = 40; // $28
@@ -217,5 +218,9 @@
 // Challenge constants.
 
 .const NUM_BARRIER_TYPES = 3
-.const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 projectiles
+.const NUMBER_CHALLENGE_SPRITES = 4; // 2 player icos + 2 weapons/projectiles
 .const SPRITE_Y_OFFSCREEN = $CE
+.const PLAYER_SOUND_MOVE = (FLAG_ENABLE + 0) // Player icon movememnt sound
+.const PLAYER_SOUND_RECHARGE = (FLAG_ENABLE + 1) // Player recharge expired sound - can activate weapon again
+.const PLAYER_SOUND_WEAPON = (FLAG_ENABLE + 2) // Player weapon sound
+.const PLAYER_SOUND_HIT = (FLAG_ENABLE + 3) // Player hit sound

@@ -426,9 +426,9 @@ interrupt_handler:
     txa
     asl
     tay
-    lda private.ptr__sound_game_effect_list+4,y
+    lda ptr__sound_game_effect_list,y
     sta OLDTXT
-    lda private.ptr__sound_game_effect_list+5,y
+    lda ptr__sound_game_effect_list,y
     sta OLDTXT+1
 !set_sound:
     jsr board.play_icon_sound
@@ -1023,7 +1023,7 @@ display_message:
         sty cnt__board_col
         lda board.data__curr_board_row
         sta cnt__board_row
-        lda #$11 // Left facing icon
+        lda #LEFT_FACING_ICON_FRAME
         sta private.idx__start_icon_frame
         jsr verify_valid_move
         lda #$8C // Move 12 pixels to the left
@@ -1516,6 +1516,12 @@ data__magic_square_offset_list: .byte $04, $24, $28, $2C, $4C
 // Colors used for each board game phase.
 data__phase_color_list: .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHITE
 
+// 95F8
+// Provised pointers to the sounds that may be made during game play.
+ptr__sound_game_effect_list:
+    .word resources.snd__effect_player_light_turn  // 04
+    .word resources.snd__effect_player_dark_turn   // 06
+
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
@@ -1531,14 +1537,6 @@ data__phase_color_list: .byte BLACK, BLUE, RED, PURPLE, GREEN, YELLOW, CYAN, WHI
     // 9274
     // Logo string that is converted to a sprite using character set dot data as sprite source data.
     txt__game_name: .text "ARCHON"
-
-    // 95f4
-    // Provised pointers to the sounds that may be made during game play.
-    ptr__sound_game_effect_list:
-        .word resources.snd__effect_hit_player_light   // 00
-        .word resources.snd__effect_hit_player_dark    // 02
-        .word resources.snd__effect_player_light_turn  // 04
-        .word resources.snd__effect_player_dark_turn   // 06
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1693,7 +1691,7 @@ data__phase_cycle_board:
     flag__remaining_player_pieces: .byte $00
 
     // BD0D
-    // Is non-zero if the board sprite was moved (in X or Y direction ) since last interrupt
+    // Is non-zero if the board sprite was moved (in X or Y direction) since last interrupt
     flag__was_sprite_moved: .byte $00
 
     // BD2D

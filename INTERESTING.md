@@ -67,7 +67,7 @@ The addresses use the icon offset. You can change these without any consequence.
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
   07, 05, 04, 03, 03, 04, 40, 20, 07, 06, 03, 03, 00, 04, 40, 20, 04, 05, 03, 03
   ```
-  $20 is a non projectile directional weapon; $40 is a non projectile non-directional weapon; $01-$07 is the speed of a projectile
+  $20 is a non directional weapon; $40 is a transformative weapon (eg scream); $01-$07 is the speed of a projectile
   $00 is for shapeshifter as it inherits opponent speed.
   The addresses can be modified however high projectile speeds may skip too many pixels during each frame and the projectile could jump over the opponent.
   This is a fun table to play with. You can modify a knight for example by changing to $0F and now the knight can throw it's sword really fast.

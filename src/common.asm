@@ -97,7 +97,7 @@ check_option_keypress:
 // Requires:
 // - X: Sprite number (0 - 3). This function can be used to initialize up to 4 sprites:
 //   - A single sprite is only needed when moving pieces on the board.
-//   - 2 sprites a needed within the battle arena. TODO: check this - maybe projectiles as well, so maybe 4??
+//   - 4 sprites a needed within the battle arena (icon and weapon/projectile for each player).
 //   - 4 sprites are used during the introduction chase animation.
 // - `param__icon_offset_list,x`: contains the sprite group pointer offset (see `ptr__icon_sprite_mem_offset_list` for
 //    details) for the selected sprite number.
@@ -144,7 +144,7 @@ initialize_sprite:
     lda param__icon_offset_list,x
     and #%0000_1000
     beq !next+
-    lda #$11 // Left facing icon
+    lda #LEFT_FACING_ICON_FRAME
 !next:
     sta param__icon_sprite_source_frame_list,x
     rts
@@ -227,14 +227,14 @@ stop_sound:
 
 // 8BDE
 // Adds a set of sprites for an icon to the graphics memory. A sprite set may contain all the sprites for animations
-// in different directions and the projectiles thrown by the sprite. The set may also include the sprite firing
-// animations.
+// in different directions and the weapons or projectiles thrown by the sprite. The set may also include the icon
+// firing animations.
 // Requires:
 // - X Register:
 //   - 0: to copy light player icon frames
 //   - 1: to copy dark player icon frames
-//   - 2: to copy light player projectile frames
-//   - 3: to copy dark player projectile frames
+//   - 2: to copy light player weapon/projectile frames
+//   - 3: to copy dark player weapon/projectile frames
 // Notes:
 // - Icon frames add 24 sprites as follows:
 //   - 4 x East facing icons (4 animation frames)
@@ -243,21 +243,23 @@ stop_sound:
 //   - 5 x Attack frames (north, north east, east, south east, south facing)
 //   - 4 x West facing icon frames (mirrored representation of east facing icons)
 //   - 3 x West facing attack frames (mirrored east facing icons - north west, west, south west)
-// - Projectile frames are frames used to animate the players projectile (or scream/thrust). There are 7 sprites as
-//   follows:
-//   - 1 x East direction projectile
-//   - 1 x North/south direction projectile (same sprite is used for both directions)
-//   - 1 x North east direction projectile
-//   - 1 x South east direction projectile
-//   - 1 x West direction projectile (mirrored copy of east)
-//   - 1 x North west direction projectile (mirrored copy of north east)
-//   - 1 x South west direction projectile (mirrored copy of south east)
-//   - Special player pieces Phoneix and Banshee only copy 4 projectile sprites (east, south, north, west).
+// - Weapon/Projectile frames are frames used to animate the players weapon or projectile (eg bolt, club or scream).
+//   There are 7 sprites as follows:
+//   - 1 x East direction weapon/projectile
+//   - 1 x North/south direction weapon/projectile (same sprite is used for both directions)
+//   - 1 x North east direction weapon/projectile
+//   - 1 x South east direction weapon/projectile
+//   - 1 x West direction weapon/projectile (mirrored copy of east)
+//   - 1 x North west direction weapon/projectile (mirrored copy of north east)
+//   - 1 x South west direction weapon/projectile (mirrored copy of south east)
+//   - Special player pieces Phoneix and Banshee only copy 4 'transformation' sprites (east, south, north, west). A
+//     transformation sprite is a full width/height sprite projected over the top of the icon (eg a fireball for the
+//     Phoenix or a surrounding scream field for the Banshee).
 // - Mirrored sprite sources are not represented in memory. Instead the sprite uses the original version and logic is
 //   used to create a mirrored copy.
 add_sprite_set_to_graphics:
-    // Set starting sprite location. Is 0, 24, 48 or 56 depending on value of x. This allows icon and projectile sets
-    // to be individually loaded for each player without overwriting previously loaded sprites.
+    // Set starting sprite location. Is 0, 24, 48 or 56 depending on value of x. This allows icon and weapon/projectile
+    // sets to be individually loaded for each player without overwriting previously loaded sprites.
     txa
     asl
     tay
@@ -270,8 +272,8 @@ add_sprite_set_to_graphics:
     cpx #$02
     bcc !add_icons+
     //
-    // Projectile frames.
-    // Detect if projectiles are being added for Banshee or Phoenix. These are special pieces which use a full
+    // Weapon/projectile frames.
+    // Detect if transormation are being added for Banshee or Phoenix. These are special pieces which use a full
     // height 'projectile' that is displayed over the top of the icon itself. ie the Banshee scream or Phoenix fire.
     txa
     and #$01
@@ -279,13 +281,13 @@ add_sprite_set_to_graphics:
     lda param__icon_offset_list,y
     and #%0000_0111
     cmp #%0000_0110 // The Banshee and Phoenix icon offsets are the only icons with bits 2 and 3 set and bit 0 unset
-    bne !add_projectiles+
-    // Add special full height projectile frames for Banshee and Phoneix icons.
+    bne !add_weapon+
+    // Add special full height transformation frames for Banshee and Phoneix icons.
     lda #$00
     sta param__icon_sprite_curr_frame
     jmp add_sprite_to_graphics
-!add_projectiles:
-    // Copies projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame).
+!add_weapon:
+    // Copies weapon/projectile frames: $11, $12, $13, $14, $11+$80, $13+$80, $14+$80 (80 inverts frame).
     lda #$11
     sta param__icon_sprite_curr_frame
     bne !frame_loop+
@@ -298,8 +300,8 @@ add_sprite_set_to_graphics:
     sta param__icon_sprite_curr_frame
     //
     // The following loop has special logic and conditions to create sprites for specific frames. The frames will
-    // be incremented or skipped depending upon whether the sprite set is for projectiles or icons. See the comments
-    // above for details of which icons are copied.
+    // be incremented or skipped depending upon whether the sprite set is for weapon/projectiles or icons. See the
+    // comments above for details of which icons are copied.
     // Note that frames for mirrored directions will use the source frame + $80 to indicate the frame should be
     // horizontally mirrored when created.
 !frame_loop:
@@ -309,7 +311,7 @@ add_sprite_set_to_graphics:
     // depending on movement direction and animation state.
     inc param__icon_sprite_curr_frame
     cpx #$02
-    bcs !check_projectile+
+    bcs !check_weapon+
     lda param__icon_sprite_curr_frame
     bmi !check_inverted_icon+
     cmp #$11
@@ -324,15 +326,15 @@ add_sprite_set_to_graphics:
     cmp #$90
     bcc !next_block+
     rts // End after copying frame 8F
-!check_projectile:
+!check_weapon:
     lda param__icon_sprite_curr_frame
-    bmi !check_inverted_projectile+
+    bmi !check_inverted_weapon+
     cmp #$15
     bcc !next_block+
     lda #$91 // Jump from frame 14 to 91 (skip 15 to 90)
     sta param__icon_sprite_curr_frame
     bmi !next_block+
-!check_inverted_projectile:
+!check_inverted_weapon:
     cmp #$95
     bcc !next+
     rts // End after copying frame 94
@@ -374,10 +376,10 @@ add_sprite_set_to_graphics:
 //   the X register (see below).
 // - X Register (only used if `param__is_copy_icon_sprites` is not set):
 //   - 0 or 1: to copy an icon sprite
-//   - 2: to copy all light player projectile frames (7 frames)
-//   - 3: to copy all dark player projectile frames (7 frames)
+//   - 2: to copy all light player weapon/projectile frames (7 frames)
+//   - 3: to copy all dark player weapon/projectile frames (7 frames)
 // - `param__sprite_source_len`: Number of bytes to copy for each sprite/sprite group. Will be overwritten if copying
-//   projectile frames for Banshee or Phoenix as this are special cases (see comments below).
+//   weapon/projectile frames for Banshee or Phoenix as this are special cases (see comments below).
 // Notes:
 // - The logic includes functionality to add a mirrored sprite to graphics memory.
 add_sprite_to_graphics:
@@ -398,10 +400,10 @@ add_sprite_to_graphics:
     //
     lda param__is_copy_icon_sprites
     bmi !copy_icon+
-    cpx #$02 // 0 for light icon frames, 1 for dark icon frames, 2 for light projectiles, 3 for dark projectiles
+    cpx #$02 // 0=light icon frames, 1=dark icon frames, 2=light weapon/projectiles, 3=dark weapon/projectiles
     bcc !copy_icon+
     //
-    // Copy sprites used for projectiles (eg bullets, clubs, sords, screams, fire etc).
+    // Copy sprites used for weapon/projectiles (eg bullets, clubs, sords, screams, fire etc).
     txa
     and #$01
     tay // Convert X=02 to Y=00 or X=03 to Y=01
@@ -409,17 +411,17 @@ add_sprite_to_graphics:
     lda param__icon_offset_list,y
     and #%0000_0111
     cmp #%0000_0110 // The Banshee and Phoenix icon offsets are the only icons with bits 2 and 3 set and bit 0 unset
-    bne !copy_projectile+
-    // Banshee and Phoenix only have 4 projectile frames (e,s,n,w), the frames are full width and height sprites (ie 64
+    bne !copy_weapon+
+    // Banshee and Phoenix only have 4 weapon frames (e,s,n,w), the frames are full width and height sprites (ie 64
     // bytes in size instead of 54 bytes for smaller sprites) so is 64*4 = 256 bytes to copy
     lda #(BYTES_PER_SPRITE*4-1) // 0 offset
     sta param__sprite_source_len
     jmp !copy_icon+
-!copy_projectile:
+!copy_weapon:
     ldy #$00
 !loop:
     lda param__icon_sprite_curr_frame
-    bpl !not_mirrored+ // +$80 to invert projectile frame
+    bpl !not_mirrored+ // +$80 to invert weapon/projectile frame
     // Mirror 8 bits. eg 10001110 becomes 01110001. 01111000 becomes 00011110 etc.
     // This is achieved by rolling the original value 8 times. Each time we first roll right which shifts the first
     // bit in to the carry flag and shifts the ramining bits to the right by one position. We then roll the accumulator
@@ -1068,7 +1070,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
     // 8D44
     // Memory offset of each sprite frame within the sprite set.
     // The following terminology is used in descriptions below:
-    // - m-=movement frame, a-=attack frame, p-=projectile (bullet, sword etc) frame
+    // - m-=movement frame, a-=attack frame, w-=weapon/projectile (bullet, sword etc) frame
     // - n,s,e,w,ne etc are compass directions, so a-ne means attack to the right and up
     // - numbers represent the animation frame. eg movement frames have 4 animations each
     data__icon_sprite_frame_mem_offset_list:
@@ -1076,7 +1078,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
         .word $0000, $0036, $006C, $00A2, $00D8, $010E, $00D8, $0144
             //   m-n1   m-n2   m-n3   m-n4   a-n    a-ne   a-e    a-sw
         .word $017A, $01B0, $017A, $01E6, $021C, $0252, $0288, $02BE
-        //    a-s    p-e    p-n    p-ne   p-se
+        //    a-s    w-e    w-n    w-ne   w-se
         .word $02F4, $0008, $0000, $0010, $0018
 
     // AD6A
@@ -1170,7 +1172,8 @@ param__icon_offset_list: .byte $00, $00, $00, $00
 param__icon_type_list: .byte $00, $00, $00, $00
 
 // BF49
-// Set TRUE to copy icon sprite shape data or FALSE to copy icon or projectile sprite data based on value in X register.
+// Set TRUE to copy icon sprite shape data or FALSE to copy icon or weapon/projectile sprite data based on value in X
+// register.
 param__is_copy_icon_sprites: .byte $00
 
 // BF50

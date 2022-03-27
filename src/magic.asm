@@ -411,7 +411,7 @@ spell_select:
         jsr common.add_sprite_set_to_graphics
         lda game.data__player_offset
         beq !next+
-        lda #$11 // Left facing icon
+        lda #LEFT_FACING_ICON_FRAME
     !next:
         sta common.param__icon_sprite_source_frame_list
         jsr board.set_icon_sprite_location

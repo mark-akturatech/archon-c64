@@ -29,10 +29,10 @@ entry:
     jsr common.clear_mem_sprite_24
     jsr common.clear_mem_sprite_48
     jsr common.clear_mem_sprite_56_57
-    lda #%0000_0011 // Icons multicolor, projectiles single color
+    lda #%0000_0011 // Icons multicolor, weapons/projectiles single color
     sta SPMC
     lda XXPAND
-    and #%1111_1100 // Icons standard height, projectiles expanded in X direction
+    and #%1111_1100 // Icons standard height, weapons/projectiles expanded in X direction
     sta XXPAND
     lda #%0000_0000 // No icons expanded in Y direction
     sta YXPAND
@@ -120,13 +120,13 @@ entry:
     sta private.data__player_sprite_speed_list,x
     lda private.data__icon_attack_damage_list,y
     sta private.data__player_attack_damage_list,x
-    // Configure icon projectile.
+    // Configure icon weapon/projectile.
     tya
     asl
     tay
-    lda private.ptr__projectile_sprite_mem_offset_list,y
+    lda private.ptr__weapon_sprite_mem_offset_list,y
     sta common.ptr__sprite_source_lo_list+2,x
-    lda private.ptr__projectile_sprite_mem_offset_list+1,y
+    lda private.ptr__weapon_sprite_mem_offset_list+1,y
     sta common.ptr__sprite_source_hi_list+2,x
     //
     // Configure piece strength. The strength is adjusted by the square color they are fighting on. Shapeshifters
@@ -181,15 +181,15 @@ entry:
     lda common.data__player_icon_color_list,x
     bpl !skip+
 !set_color:
-    lda private.data__icon_projectile_color_list,y
+    lda private.data__icon_weapon_color_list,y
 !skip:
     sta SP2COL,x
     // Reset variables.
-    lda #$00
+    lda #FLAG_DISABLE
     sta game.cnt__stalemate_moves // Reset stalemate counter
-    sta private.data__player_projectile_sprite_speed_list,x // Clear player projectile speeds (0 means not active)
+    sta private.data__player_weapon_sprite_speed_list,x
     sta game.data__icon_speed,x
-    // 7C18  9D 21 BD   sta WBD21,x // TODO
+    sta private.cnt__player_cooldown_delay_list,x
     // Set icons speed.
     lda common.param__icon_offset_list,x
     cmp #EARTH_ELEMENTAL_OFFSET
@@ -219,26 +219,26 @@ entry:
 !next:
     //
     // 7C4C
-    lda #$11
+    lda #LEFT_FACING_ICON_FRAME
     sta common.param__icon_sprite_source_frame_list+1 // Default dark player to left facing
-    lda #$00
+    lda #FLAG_DISABLE
     sta common.flag__is_complete // Flag will be set to exit arena when battle is complete
-    // Create projectile sprites
+    // Create weapon/projectile sprites
     ldx #$02
 !loop:
-    // Each projectile comprises 8 bytes. There are 4 sprite frames that are rotated to create sprites for each
+    // Each weapon/projectile comprises 8 bytes. There are 4 sprite frames that are rotated to create sprites for each
     // direction. Up and down direction use the same sprite.
-    lda #BYTERS_PER_PROJECTILE_SPRITE
+    lda #BYTERS_PER_WEAPON_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     inx
     cpx #$04
     bcc !loop-
-    // Disable projectile sprites by default (they'll be enabled when one is shot)
+    // Disable weapon/projectile sprites by default (they'll be enabled when one is shot)
     lda #%0000_1111
     ora SPENA
     sta SPENA
-    lda private.data__icon_projectile_color_list+PHOENIX_OFFSET // Set color of Phoenix fire
+    lda private.data__icon_weapon_color_list+PHOENIX_OFFSET // Set color of Phoenix fire
     sta SPMC1
     jsr private.set_multicolor_screen
     jsr common.clear_screen
@@ -396,7 +396,7 @@ entry:
 	lda board.data__curr_board_col
 	sta magic.cnt__board_col
 	jsr magic.test_magic_square_selected
-	lda #$00
+	lda #FLAG_DISABLE
 	bit game.flag__is_destination_valid
 	bmi !skip+
 	lda #$03
@@ -417,16 +417,16 @@ entry:
 	// Initialize sprite variables.
 	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
 !loop:
-	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why
-	// 7DFD 9D 32 BF sta temp_data__dark_piece_count,x // TODO: ?? why
+	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why - Used by AI?
+	// 7DFD 9D 32 BF sta temp_data__dark_piece_count,x // TODO: ?? why - Used by AI?
 	sta board.cnt__sprite_frame_list,x
 	dex
 	bpl !loop-
 	// Initialize player variables.
 	ldx #(NUM_PLAYERS-1) // 0 offset
 !loop:
-	// 7E08 9D F6 BC sta WBCF6,x // TODO: ?? why
-	// 7E0B 9D 6C BD sta WBD6C,x // TODO: ?? why
+	sta private.flag__did_player_weapon_hit_list,x
+	// 7E0B 9D 6C BD sta WBD6C,x // TODO: ?? why AI
 	dex
 	bpl !loop-
 	// Initialize timers.
@@ -438,12 +438,15 @@ entry:
 	lda SPSPCL
 	lda SPBGCL
 	//
-	// Wait for interrupt driven state change
 	jsr game.wait_for_state_change
+    // ---------------------------------------------------
+    // Challenge complete
+    // ---------------------------------------------------
     //
-    lda #FLAG_ENABLE // No winner
+    // Default to no winner. The winner is set to the winning icon type a little lower down.
+    lda #FLAG_ENABLE 
 	sta private.data__winning_icon_type
-	// Remove projectile sprites.
+	// Remove weapon/projectile sprites.
 	lda #EMPTY_SPRITE_BLOCK
 	sta SPTMEM+2
 	sta SPTMEM+3
@@ -529,7 +532,7 @@ entry:
 	ldy #$00
 	cmp #MANTICORE
 	bcc !skip+
-	ldy #$11 // Left facing icon
+	ldy #LEFT_FACING_ICON_FRAME
 	inx
 !skip:
 	lda #$00
@@ -626,8 +629,8 @@ interrupt_handler:
 	lda private.cnt__end_game_delay
 	bpl !continue+
     // Don't exit until the projectiles have finished moving.
-	lda private.data__player_projectile_sprite_speed_list
-	ora private.data__player_projectile_sprite_speed_list+1
+	lda private.data__player_weapon_sprite_speed_list
+	ora private.data__player_weapon_sprite_speed_list+1
 	bne !next+
 	lda #FLAG_ENABLE
 	sta common.flag__cancel_interrupt_state
@@ -1158,6 +1161,149 @@ interrupt_handler:
         cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
         bcc !loop-
         rts
+
+	// 99DA
+	// Removes the active weapon or projectile. This function is called after a projectile hits a target or flies
+	// off-screen or a thrust or transform weapon has timed out.
+	// Requires:
+	// - X: current player (0 for light, 1 for dark).
+	remove_weapon:
+		// Configure starting sound control register for player voice (so that the voice control register can be
+		// cleared).
+		txa
+		asl
+		tay
+		lda common.ptr__voice_ctl_addr_list,y
+		sta FREEZP+2
+		lda common.ptr__voice_ctl_addr_list+1,y
+		sta FREEZP+3
+		// Remove weapon/projectile sprite.
+		lda #EMPTY_SPRITE_BLOCK
+		sta SPTMEM+2,x
+		// Clear weapon/projectile variables (position, speed, collission).
+		lda #$00
+		sta data__player_weapon_sprite_speed_list,x
+		sta data__player_weapon_sprite_x_list,x
+		sta data__player_weapon_sprite_y_list,x
+		sta flag__did_player_weapon_hit_list,x
+		// Stop weapon firing sound.
+		lda common.flag__is_player_sound_enabled,x
+		cmp #PLAYER_SOUND_WEAPON
+		bne !skip+
+		lda #$00
+		sta common.flag__is_player_sound_enabled,x
+		ldy #$04
+		sta (FREEZP+2),y // Voice control register
+	!skip:
+		// Detect if player icon is still in firing stance and if so, return the player back to the correct stance
+		// facing in the correct position.
+		// Note frames below $0C are non-firing stances. This could happen if the player was moved before the
+		// projectile finished firing. Once $0c is subtracted, the following values will result:
+		// - $00=north, $01=north east, $02=east, $03=south east, $04=south, $05+=west
+		// Therefore the calculation below will set the correct frame based on the current attack frame to set the icon
+		// facing in the correct position.
+		lda common.param__icon_sprite_source_frame_list,x
+		sec
+		sbc #$0C
+		bmi !return+ // Not in attack pose
+		cmp #$05
+		bcs !pose_left+ // West facing
+		tay
+		lda idx__icon_frame_offset_list,y
+	!set_pose:
+		sta common.param__icon_sprite_source_frame_list,x
+	!return:
+		rts
+	!pose_left:
+		lda #LEFT_FACING_ICON_FRAME
+		bne !set_pose-
+
+    // 9A27
+    // Detect if a player's weapon or projectile has hit the opposing player. Subtract damage from the player if a hit
+    // was detected.
+    // Requires:
+    // - X: Player's projectile to check (0 for light, 1 for dark)
+    // Returns:
+    // - `flag__weapon_hit_detected`: Set TRUE if a hit was detected.
+    check_hit:
+        lda #FLAG_DISABLE
+        sta flag__weapon_hit_detected
+        txa
+        eor #$01 // Check opposite player (eg changes 0 to 1 and 1 to 0)
+        tay
+        lda data__sprite_offset_bit_list,x
+        and flag__sprite_to_sprite_collision
+        beq !return+
+        lda common.data__math_pow2_list,y // Ensure we don't register a hit if weapon/projectiles hit each other
+        and flag__sprite_to_sprite_collision
+        beq !return+
+        //
+        // Hit detected!
+        // BUG: Pretty sure this will register a hit if both players fire within the same interrupt as the collission
+        // register will detect collissions on both players at the same time. Will only happen for icons with long
+        // projectiles such as Unicorn vs Dragon.
+        lda common.param__icon_offset_list,y
+        // If the Phoenix was hit while active, the Phonex will suffer no damage and the projectile will 'burn up' and
+        // be removed.
+        cmp #PHOENIX_OFFSET
+        bne !next+
+        lda data__player_weapon_sprite_speed_list,y // Phoenix weapon active?
+        bne !skip_damage+
+    !next:
+        // Reduce strength of opposing player.
+        lda data__player_attack_strength_list,y
+        sec
+        sbc data__player_attack_damage_list,x
+        bpl !skip+
+        lda #$00 // Ensure strength doesn't go negative
+    !skip:
+        sta data__player_attack_strength_list,y
+        bne !register_hit+
+        //
+        // Player was killed. RIP :(
+        lda common.param__icon_offset_list,y
+        cmp #BANSHEE_OFFSET
+        bne !skip+
+        // If victor was the Banshee, remove the Banshee scream while we parade the winner.
+        lda #EMPTY_SPRITE_BLOCK
+        sta SPTMEM+2,y
+        lda #$00
+        sta data__player_weapon_sprite_speed_list,y
+    !skip:
+        // Remove the loser icon (by moving it off the screen) and configure the game to wait 1 second before ending
+        // challenge gameplay. 
+        lda #SPRITE_Y_OFFSCREEN
+        sta board.data__sprite_curr_y_pos_list,y
+        lda #(1*JIFFIES_PER_SECOND)
+        sta private.cnt__end_game_delay
+        //
+    !register_hit:
+        // The game play logic uses `flag__is_player_sound_enabled` to determine whic action caused the last sound
+        // effect. $83 must be the hit action.
+        lda #PLAYER_SOUND_HIT
+        sta common.flag__is_player_sound_enabled,x
+        lda #$00
+        sta common.data__voice_note_delay,x
+        txa
+        asl
+        tay
+        lda ptr__sound_hit_effect_list,y
+        sta OLDTXT,y
+        lda ptr__sound_hit_effect_list+1,y
+        sta OLDTXT+1,y
+        //
+    !skip_damage:
+        lda #FLAG_ENABLE
+        sta flag__weapon_hit_detected
+        // Check if icon is Phoenox or Banshee (type $06 or $0E) and if so, don't remove the weapon if a hit was
+        // detected.
+        lda common.param__icon_offset_list,x
+        and #$07
+        cmp #$06
+        beq !return+
+        jmp remove_weapon
+    !return:
+        rts
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1184,9 +1330,9 @@ interrupt_handler:
 
     // 8A8B
     // Icon attack Speed.
-    // - 0-7 = speed
-    // - 20 = non projectile directional weapon
-    // - 40 = non projectile, surround weapon
+    // - 0-7 = projectile speed
+    // - 20 = directional thrust weapon
+    // - 40 = transofrmation weapon (eg scream)
     // - 00 = shapeshifter - it gets speed of opponent
     data__icon_attack_speed_list:
         //    UC, WZ, AR, GM, VK, DJ, PH,                 KN
@@ -1197,8 +1343,8 @@ interrupt_handler:
         .byte 04, 05, 03, 03
 
     // 8AEB
-    // Color of the icon projectile.
-    data__icon_projectile_color_list:
+    // Color of the icon's weapon.
+    data__icon_weapon_color_list:
         //    UC,     WZ,     AR,    GM     VK     DJ          PH      KN
         .byte YELLOW, ORANGE, BROWN, BROWN, BROWN, LIGHT_GRAY, ORANGE, WHITE
         //    BK,          SR,    MC,         TL,   SS,         DG,  BS,         GB
@@ -1221,29 +1367,35 @@ interrupt_handler:
         .byte $3C, $50, $50, $64, $50, $5A, $64, $28, $3C, $50, $50, $64, $00, $78, $64, $28, $46, $3C, $64, $64
 
     // 8B4F
-    // Projectile animation sprite offsets. Note that some icons use the same projectiles.
+    // Weapon/projectile animation sprite offsets. Note that some icons use the same weapons/projectiles.
     // Phoenix and Banshee use full height shape data stored with the icon shape data.
-    ptr__projectile_sprite_mem_offset_list:
-        .word resources.ptr__sprites_projectile+00*BYTERS_PER_PROJECTILE_SPRITE*4 // UC
-        .word resources.ptr__sprites_projectile+01*BYTERS_PER_PROJECTILE_SPRITE*4 // WZ
-        .word resources.ptr__sprites_projectile+02*BYTERS_PER_PROJECTILE_SPRITE*4 // AR
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // GM
-        .word resources.ptr__sprites_projectile+04*BYTERS_PER_PROJECTILE_SPRITE*4 // VK
-        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE*4 // DJ
+    ptr__weapon_sprite_mem_offset_list:
+        .word resources.ptr__sprites_weapon+00*BYTERS_PER_WEAPON_SPRITE*4 // UC
+        .word resources.ptr__sprites_weapon+01*BYTERS_PER_WEAPON_SPRITE*4 // WZ
+        .word resources.ptr__sprites_weapon+02*BYTERS_PER_WEAPON_SPRITE*4 // AR
+        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // GM
+        .word resources.ptr__sprites_weapon+04*BYTERS_PER_WEAPON_SPRITE*4 // VK
+        .word resources.ptr__sprites_weapon+05*BYTERS_PER_WEAPON_SPRITE*4 // DJ
         .word resources.prt__sprites_icon+PHOENIX_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // PH                                                         // PH
-        .word resources.ptr__sprites_projectile+07*BYTERS_PER_PROJECTILE_SPRITE*4 // KN
-        .word resources.ptr__sprites_projectile+08*BYTERS_PER_PROJECTILE_SPRITE*4 // BK
-        .word resources.ptr__sprites_projectile+09*BYTERS_PER_PROJECTILE_SPRITE*4 // SR
-        .word resources.ptr__sprites_projectile+10*BYTERS_PER_PROJECTILE_SPRITE*4 // MC
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // TL
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // SS (not used)
-        .word resources.ptr__sprites_projectile+13*BYTERS_PER_PROJECTILE_SPRITE*4 // DG
+        .word resources.ptr__sprites_weapon+07*BYTERS_PER_WEAPON_SPRITE*4 // KN
+        .word resources.ptr__sprites_weapon+08*BYTERS_PER_WEAPON_SPRITE*4 // BK
+        .word resources.ptr__sprites_weapon+09*BYTERS_PER_WEAPON_SPRITE*4 // SR
+        .word resources.ptr__sprites_weapon+10*BYTERS_PER_WEAPON_SPRITE*4 // MC
+        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // TL
+        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // SS (not used)
+        .word resources.ptr__sprites_weapon+13*BYTERS_PER_WEAPON_SPRITE*4 // DG
         .word resources.prt__sprites_icon+BANSHEE_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // BS
-        .word resources.ptr__sprites_projectile+15*BYTERS_PER_PROJECTILE_SPRITE*4 // GB
-        .word resources.ptr__sprites_projectile+05*BYTERS_PER_PROJECTILE_SPRITE*4 // AE
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // FE
-        .word resources.ptr__sprites_projectile+03*BYTERS_PER_PROJECTILE_SPRITE*4 // EE
-        .word resources.ptr__sprites_projectile+12*BYTERS_PER_PROJECTILE_SPRITE*4 // WE
+        .word resources.ptr__sprites_weapon+15*BYTERS_PER_WEAPON_SPRITE*4 // GB
+        .word resources.ptr__sprites_weapon+05*BYTERS_PER_WEAPON_SPRITE*4 // AE
+        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // FE
+        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // EE
+        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // WE
+
+    // 95F4
+    // Pointers to hit sound effect.
+    ptr__sound_hit_effect_list:
+        .word resources.snd__effect_hit_player_light   // 00
+        .word resources.snd__effect_hit_player_dark    // 02
 
     // 98B1
     // Bits used to enable sprite 2 and 3 (and set color mode etc).
@@ -1251,6 +1403,19 @@ interrupt_handler:
     data__sprite_offset_bit_list:
         .byte %0000_0100 // Sprite 2 bit
         .byte %0000_1000 // Sprite 3 bit
+
+    // 9A22
+    // Frame index offset for east facing positions. $08=north, $00=east, $04=south
+    //                                 n    n-e  s-e  e    s
+    idx__icon_frame_offset_list: .byte $08, $00, $00, $00, $04
+
+    // BD0D
+    // Is non-zero if the player icon was moved (in X or Y direction) during the interrupt.
+    flag__was_icon_moved: .byte $00
+
+    // BD10
+    // Is non-zero if the player projectile was fired (in X or Y direction) during the interrupt.
+    flag__is_weapon_active: .byte $00
 
     // BEE4
     // Low byte screen memory offset of start of each board row for a barrier.
@@ -1283,12 +1448,26 @@ interrupt_handler:
     // such as updating the barrier colors.
     date__curr_time: .byte $00
 
+    // BCF6
+    // Is TRUE if the player's projectile hit the other player.
+    flag__did_player_weapon_hit_list: .byte $00, $00
+
     // BCF8
-    data__sprite_barrier_phase_collision_list: .byte $00, $00, $00, $00
+    // Is set to the current barrier phrase if a sprite collission was detected hitting the barrier.
+    data__sprite_barrier_phase_collision_list:
+    data__icon_barrier_phase_collision_list:
+        .byte $00, $00
+    // BFCA
+    data__weapon_barrier_phase_collision_list:
+        .byte $00, $00
 
     // BCFE
     // Holds the number of moves remaining to shift the player pieces in to the starting location.
     cnt__moves_remaining: .byte $00
+
+    // BCFE
+    // Is TRUE if the player weapon/projectile has hit the opposing player.
+    flag__weapon_hit_detected: .byte $00
 
     // BCFE
     // Is $40 if the barrier was not drawn because it would overlap an existing barrier. Is $80 if the barrier was
@@ -1301,7 +1480,7 @@ interrupt_handler:
     data__player_icon_sprite_speed_list:
         .byte $00, $00
     // BD03
-    data__player_projectile_sprite_speed_list:
+    data__player_weapon_sprite_speed_list:
         .byte $00, $00
 
     // BD05
@@ -1328,6 +1507,19 @@ interrupt_handler:
     // Tristate flag used to represent the current state of each cycle based on the current phase. The flag is
     // used to set barrier colors and impermeability.
     flag__phase_state_list: .byte $00, $00, $00
+
+    // BD1D
+    // Toggle used to delay a player icon while travelling over a non-imperiable barrier.
+    cnt__icon_delay_list: .byte $00, $00
+
+    // BD1F
+    // Toggle used to delay a player projectile while travelling over a non-imperiable barrier.
+    cnt__projectile_delay_list: .byte $00, $00
+
+    // BD21
+    // Cooldown delay countdown timer used to delay a player from activating the weapon again until the timer has
+    // expired.
+    cnt__player_cooldown_delay_list: .byte $00, $00
 
     // BD23
     // Color of square where challenge was initiated. Used for determining icon strength.
@@ -1383,6 +1575,10 @@ interrupt_handler:
     // Current board column.
     cnt__board_col: .byte $00
 
+    // BF34
+    // Current y position of the player weapon sprite.
+    data__player_weapon_sprite_y_list: .byte $00, $00
+
     // BF36
     // Calculated strength adjustment based on color of the challenge square plus 1.
     // TODO: Is this used?
@@ -1391,6 +1587,10 @@ interrupt_handler:
     // BF36
     // Piece count of each side. Used by AI algorithm.
     data__piece_count_list: .byte $00, $00
+
+    // BF38
+    // Current x position of the player weapon sprite.
+    data__player_weapon_sprite_x_list: .byte $00, $00
 
     // BF41
     // Calculated strength adjustment based on color of the challenge square times 2.
