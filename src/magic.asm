@@ -143,7 +143,7 @@ spell_select:
     pha
     txa
     and #$0F // Remove $80 flag
-    // Set spell action dynamic function.
+    // Set spell action dynamic routine.
     asl
     tax
     lda private.ptr__spell_action_fn_list,x
@@ -177,10 +177,10 @@ spell_select:
     pla
     lsr game.flag__is_destination_valid // Invalid selection
     lda #(FLAG_ENABLE+STRING_CHARMED_PROOF)
-    jmp private.spell_end_turn // Source has BMI but we need JMP here as function is relocated too far away
+    jmp private.spell_end_turn // Source has BMI but we need JMP here as routine is relocated too far away
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 6833
     // Configures a pointer to the start of the used spell array for the current player.
@@ -1070,13 +1070,13 @@ spell_select:
         .word data__light_used_spells_list, data__dark_used_spell_list
 
     // 67A4
-    // Spell cast function pointers.
+    // Spell cast routine pointers.
     ptr__spell_cast_fn_list:
         .word spell_select_teleport, spell_select_heal, spell_select_shift_time, spell_select_exchange
         .word spell_select_elemental, spell_select_revive, spell_select_imprison, spell_select_cease
 
     // 87AC
-    // Spell action function pointers. Actions are used to allow the player to select board squares or icons.
+    // Spell action routine pointers. Actions are used to allow the player to select board squares or icons.
     ptr__spell_action_fn_list:
         .word spell_select_icon, spell_select_square, spell_select_player_icon, spell_select_challenge_icon
         .word spell_select_charmed_square, spell_select_opposing_icon, spell_select_free_player_icon
@@ -1145,7 +1145,7 @@ cnt__board_col: .byte $00
     data__curr_board_col: .byte $00
 
     // BD66
-    // Pointer to function to execute selected spell logic.
+    // Pointer to routine to execute selected spell logic.
     prt__spell_fn: .word $0000
 
     // BD71

@@ -6,7 +6,7 @@ This project the result of reverse engineering the iconic Commodore 64 game **Ar
 
 The reproduction code is intended to be a true replication of the source logic with the exception of original memory locations.
 
-The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or function for reference.
+The code is fully relocatable and pays no heed to original memory locations. Original memory locations are provided as comments above each variable, constant or routine for reference.
 
 Extensive comments have been provided to help understand the source code.
 
@@ -51,7 +51,7 @@ Variable labels will be prefixed with the following:
 
 Labels may also contain the following:
 - `_list` : The label is followed by two or more related items. For example, a list of colors or positions.
-- `_fn` : may be used with the ptr__ prefix to denote a pointer to a function/code.
+- `_fn` : may be used with the ptr__ prefix to denote a pointer to a routine (function)/code.
 - `_ctl` : may be used with a flag__ prefix to denote that the flag could contain multiple values and will be used to control how the code will run (eg flag may contain an enum constant to increment a row, or a column or both).
 - `_curr` : typically used with a data__ prefix to denote a variable that holds the current value of a calculation, loop or repeated logic (eg current color when rendering a string)
 

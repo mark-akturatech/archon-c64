@@ -874,7 +874,7 @@ display_message:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 64EB
     // Regenerate hitpoints for all icons of the current player.
@@ -1670,7 +1670,7 @@ data__phase_cycle_board:
     flag__can_icon_cast: .byte $00
 
     // BD30
-    // Points to the music playing function for playing the outro music during an interrupt.
+    // Points to the music playing routine for playing the outro music during an interrupt.
     ptr__play_music_fn: .word $0000
 
     // BCEE

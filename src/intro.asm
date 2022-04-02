@@ -44,20 +44,20 @@ entry:
     lda private.data__logo_sprite_color_list
     sta SPMC0
     sta SPMC1
-    // Configure the starting intro state function.
+    // Configure the starting intro state routine.
     lda #<private.state__scroll_logos
     sta ptr__substate_fn
     lda #>private.state__scroll_logos
     sta ptr__substate_fn+1
     // Busy wait for break key. Interrupts will play the music and animations and progress through each into state
     // while we wait.
-    // This function will also jump directly to the game state on F7 and to the options selection state on F3, F5
+    // This routine will also jump directly to the game state on F7 and to the options selection state on F3, F5
     // or Q key.
     jsr common.wait_for_key_or_task_completion
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // AA42
     // Handle raster interrupt.
@@ -590,7 +590,7 @@ entry:
 .segment Assets
 
 // AD73
-// Pointers to intro state animation functions that are executed (one after the other) on an $FD command while playing
+// Pointers to intro state animation routines that are executed (one after the other) on an $FD command while playing
 // music.
 ptr__substate_fn_list:
     .word private.state__draw_freefall_logo, private.state__show_authors
@@ -663,7 +663,7 @@ ptr__substate_fn_list:
 .segment Data
 
 // BCC7
-// Index for current introduction sub-state function pointer.
+// Index for current introduction sub-state routine pointer.
 idx__substate_fn_ptr: .byte $00
 
 // BCD1

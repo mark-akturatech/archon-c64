@@ -417,8 +417,8 @@ entry:
 	// Initialize sprite variables.
 	ldx #(NUMBER_CHALLENGE_SPRITES-1) // 0 offset
 !loop:
-	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why - Used by AI?
-	// 7DFD 9D 32 BF sta temp_data__dark_piece_count,x // TODO: ?? why - Used by AI?
+	// 7DFA 9D 36 BF sta private.data__piece_count_list,x // TODO: ?? why - Used by AI? DEF need last 2 cleared tho
+	// 7DFD 9D 32 BF sta temp_data__dark_piece_count,x // TODO: ?? why - Used by AI? DEF need last 2 cleared tho
 	sta board.cnt__sprite_frame_list,x
 	dex
 	bpl !loop-
@@ -426,7 +426,7 @@ entry:
 	ldx #(NUM_PLAYERS-1) // 0 offset
 !loop:
 	sta private.flag__did_player_weapon_hit_list,x
-	// 7E0B 9D 6C BD sta WBD6C,x // TODO: ?? why AI
+	// 7E0B 9D 6C BD sta WBD6C,x // TODO: ?? Used for AI somehow
 	dex
 	bpl !loop-
 	// Initialize timers.
@@ -757,13 +757,25 @@ interrupt_handler:
 	bpl !loop-
 	jsr private.update_barrier_state
 !next:
+	// Play icon sound. The routine uses `common.flag__is_player_sound_enabled` to determine if a sound is enabled
+	// for each player. OLDTXT and OLDTXT+2 will be set to the sound pattern made by the specific player while
+	// moving or firing. Note that when a player is firing, the player movement sound is replaced with the weopon
+	// sound until the weapon has finished firing (eg hits a target, flies off the screen or finishes
+	// thrusting etc). Therefore, only two voices (one for each player) are only ever used during a challenge.
+	jsr board.play_icon_sound
+	//
+	ldx #(NUM_PLAYERS-1) // 0 offset
+!player_loop:
+	lda #FLAG_DISABLE
+ 	sta private.flag__was_icon_moved
+	sta private.flag__is_weapon_active
+	jsr private.update_activated_weapon // Continue firing (or thrusting) weapon
 
-
-    // 9485
+    // 9495
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 649D
     // Move player sprites in to the starting battle location.
@@ -861,7 +873,7 @@ interrupt_handler:
         bcs !loop-
         sta cnt__board_row
         // Draw the barrier on the screen.
-        // A barrier comprises 4 characters (2 wide and 2 high). The draw function updates the barrier character
+        // A barrier comprises 4 characters (2 wide and 2 high). The draw routine updates the barrier character
         // counter as the barrier is drawn, so below we push the counter on to the stack and restore it again after
         // barrier has been drawn.
         lda cnt__barrier_character
@@ -1107,7 +1119,6 @@ interrupt_handler:
 
     // 7FCA
     // Remove all barriers from the screen.
-    // This function does not clear the borders.
     remove_barriers:
         ldx #(NUM_SCREEN_ROWS-3) // The top and bottom 2 rows will not include barriers (0 Offset)
         lda ptr__screen_barrier_row_offset_lo
@@ -1162,8 +1173,287 @@ interrupt_handler:
         bcc !loop-
         rts
 
+	// 9836
+	// Handle attack from transforming icons. The transforming icons are:
+	// - Phoenix: Transforms in to fire. The fire radius increases as the attack progresses. The phoenix cannot be
+	//   hurt while transformed however the Phoenix cannot move while transformed. 
+	// - Banshee: Attacks with a scream that surrounds the icon. The Banshee can be hurt while attacking however the
+	//   Banshee can move while screaming.
+	transform_attack:
+		lda common.param__icon_offset_list,x
+		cmp #BANSHEE_OFFSET
+		beq banshee_attack
+		//
+		// Phoenix attack
+		// The X and Y weapon positions are used as delay counters instead of positions.
+		//
+		// The X direction is used to delay detecting a hit on the challenger. Hits are only registered once in every
+		// 10 frames (on the 5th, 15th, 25th etc). 
+		inc data__player_weapon_sprite_x_dir_list,x
+		lda data__player_weapon_sprite_x_dir_list,x
+		cmp #$05
+		bne !next+
+		jmp check_hit
+	!next:
+		cmp #$0A
+		bne !return+
+		//
+		// Every 10 frames we update the flame animation. The flame animation has 5 parameters and that define the
+		// flame state. There are 5 flame animations after which the flame attack completes.
+		// The Y direction is used to keep track of the flame animation. It is incremented 5 each timne the state
+		// changes so that it always points to the first parameter. The parameters define the sprite expansion
+		// parameters, x and y offset (so animation is centered around the icon) and sprite frame offset.
+		lda #$00
+		sta data__player_weapon_sprite_x_dir_list,x // Reset X counter
+		lda data__player_weapon_sprite_y_dir_list,x
+		clc
+		.const PARAMS_PER_ANIMATION = 5
+		.const NUM_ANIMATION_STATES = 5
+		adc #PARAMS_PER_ANIMATION
+		sta data__player_weapon_sprite_y_dir_list,x
+		cmp #(PARAMS_PER_ANIMATION * NUM_ANIMATION_STATES)
+		bcc !next+
+		jmp !restore_icon+
+	!next:
+		//
+		// Apply animation parameters.
+		ldy data__player_weapon_sprite_y_dir_list,x
+		lda data__sprite_offset_bit_list,x // Used to determine which sprite to expand (needed for shapeshifter)
+		pha
+		// Expand sprite in X direction.
+		lda data__phoenix_flame_animation_list,y
+		beq !toggle_x_expand+
+		// Force X expand.
+		pla
+		pha
+		ora XXPAND
+		jmp !skip+
+		// Toggle X expand.
+	!toggle_x_expand:
+		pla
+		pha
+		eor #$FF
+		and XXPAND
+	!skip:
+		sta XXPAND
+		// Expand sprite in Y direction.
+		lda data__phoenix_flame_animation_list+1,y
+		beq !toggle_y_expand+
+		pla
+		ora YXPAND
+		jmp !skip+
+	!toggle_y_expand:
+		pla
+		eor #$FF
+		and YXPAND
+	!skip:
+		sta YXPAND
+		// Set flame sprite animation frame.
+		lda data__phoenix_flame_animation_list+2,y
+		sta common.param__icon_sprite_source_frame_list+2,x
+		// Set flame x position offset.
+		lda board.data__sprite_curr_x_pos_list,x
+		clc
+		adc data__phoenix_flame_animation_list+3,y
+		sta board.data__sprite_curr_x_pos_list+2,x
+		// Set flame y position offset.
+		lda data__icon_sprite_y_pos_before_attack_list,x
+		clc
+		adc data__phoenix_flame_animation_list+4,y
+		sta board.data__sprite_curr_y_pos_list+2,x
+	!return:
+		rts
+	//
+	// 98B3
+	// Banshee attack.
+	// The X and Y weapon positions are used as delay counters instead of positions.
+	banshee_attack:
+		// The X position is set to $29 when the attack is intiated. This is the total number of frames that the
+		// attack will last.
+		dec data__player_weapon_sprite_x_dir_list,x
+		bmi !complete_attack+
+		// The Y position is used to check for a hit on every 5th frame.
+		lda data__player_weapon_sprite_y_dir_list,x
+		clc
+		adc #$01
+		cmp #$05
+	bcc !next+
+		jsr check_hit
+		lda #$00
+	!next:
+		sta data__player_weapon_sprite_y_dir_list,x
+		//
+		lda #$03 // NFI: left over code maybe?
+	//
+	// 98CC
+	// Set Banshee scream position.
+	// The scream position is hard coded to appeare 6 pixels to the left and 12 pixels above the icon sprite position.
+	set_banshee_attack_pos:
+		lda board.data__sprite_curr_x_pos_list,x
+		sec
+		sbc #$06
+		sta board.data__sprite_curr_x_pos_list+2,x
+		lda board.data__sprite_curr_y_pos_list,x
+		sec
+		sbc #$0C
+		sta board.data__sprite_curr_y_pos_list+2,x
+		rts
+	//
+	// Restore the icon position and frame prior to commencement of the attack. Used for Phoenix attack only.
+	!restore_icon:
+		lda data__icon_sprite_frame_before_attack_list,x
+		sta common.param__icon_sprite_source_frame_list,x
+		lda data__icon_sprite_y_pos_before_attack_list,x
+		sta board.data__sprite_curr_y_pos_list,x
+	!complete_attack:
+		jmp remove_weapon
+
+    // 992A
+	// Update the player weapon. This may include firing a projectile, continue moving a projectile across the
+	// screen, surrounding the player with a weapon (eg scream or fire) or thrusting a weapon (eg club or sword).
+	update_activated_weapon:
+		lda data__player_weapon_sprite_speed_list,x // Speed will be set if weapon is activated
+		bne !next+
+		rts
+	!next:
+		lda data__player_icon_sprite_speed_list,x
+		and #ICON_CAN_TRANSFORM
+		beq !next+
+		jmp transform_attack
+	!next:
+		lda data__player_icon_sprite_speed_list,x
+		cmp #ICON_CAN_THRUST
+		beq !next+
+		jsr check_hit
+		lda flag__weapon_hit_detected
+		bmi !return+
+	!next:
+		// Check if projectile has hit a barrier.
+		// If the projectile hits a impermiable barrier the projectile will stop moving. If the barrier is
+		// permiable, the projectile will move at half speed until it has passed the barrier at which point
+		// it will speed up again (ignoring the laws of physics).
+		lda data__weapon_barrier_phase_collision_list,x
+		beq !skip+ // No barrier
+		bpl !permiable+
+		jmp remove_weapon // No more projectile :(
+	!permiable:
+	 	// Halves projectile speed when firing over a permiable barrier. Very hard to tell though.
+		lda cnt__projectile_delay_list,x
+		eor #$FF
+	!skip:
+		sta cnt__projectile_delay_list,x
+		// Here we return if the barrier is permiable and the "every second time" toggle is 0 (we toggle between
+		// 0 and FF). The Accumulator will be non-zero in every other case.
+		beq !next+
+		rts
+	!next:
+		lda data__player_icon_sprite_speed_list,x
+		cmp #ICON_CAN_THRUST
+		bne !projectile+
+		jmp thrust_weapon
+	!projectile:
+		// Reduce the frequency of the projectile as it remains active. Each player uses a single voice for the
+		// attack sound effects. The code below takes the existing note being played and reduces the frequency
+		// each time the projectile is moved. This effect makes it sound like the projectile is moving away
+		// from you.
+		txa
+		asl
+		tay
+		lda common.ptr__voice_ctl_addr_list,y
+		sta FREEZP+2
+		lda common.ptr__voice_ctl_addr_list+1,y
+		sta FREEZP+3
+		lda ptr__player_attack_sound_fq_lo_list,x
+		sec
+		sbc #$80
+		sta ptr__player_attack_sound_fq_lo_list,x
+		ldy #$00
+		sta (FREEZP+2),y
+		iny
+		lda ptr__player_attack_sound_fq_hi_list,x
+		sbc #$00
+		sta ptr__player_attack_sound_fq_hi_list,x
+		sta (FREEZP+2),y
+		// Continue moving the projectile until it disappears off the screen.
+		lda data__player_weapon_sprite_y_dir_list,x
+		clc
+		adc board.data__sprite_curr_y_pos_list+2,x
+		sta board.data__sprite_curr_y_pos_list+2,x
+		cmp #$0A // Offscreen top
+		bcc remove_weapon
+		cmp #$BE // Offscreen bottom
+		bcs remove_weapon
+		lda data__player_weapon_sprite_x_dir_list,x
+		clc
+		adc board.data__sprite_curr_x_pos_list+2,x
+		sta board.data__sprite_curr_x_pos_list+2,x
+		cmp #$02 // Offscreen left
+		bcc remove_weapon
+		cmp #$9B // Offscreen right
+		bcs remove_weapon
+		// Rotate the projectile if the icon has a rotating projectile type.
+		// Note the routine below will immeditaly return from this routine if the icon does not have a rotating
+		// projectile.
+		jsr check_rotatating_projectile
+		inc cnt__projectile_rotate_delay_list,x
+		lda cnt__projectile_rotate_delay_list,x
+		and #$03 // Rotate every 3rd frame
+		beq !return+
+		inc board.cnt__sprite_frame_list+2,x
+	!return:
+		rts
+
+	// 9907
+	// Keep thrust weapon going for a max count of 15 frames. Detect a hit while weapon is active.
+	thrust_weapon:
+		lda flag__did_player_weapon_hit_list,x
+		bmi !skip_hit+ // Only register one hit per thrust attack
+		jsr check_hit
+		lda flag__weapon_hit_detected
+		bpl !skip_hit+ // No hit
+		sta flag__did_player_weapon_hit_list,x // Store hit so we don't process any more hits until next attack
+	!skip_hit:
+		// Keep the weapon active for a maximum of 15 frames
+		lda data__player_weapon_sprite_speed_list,x
+		.const NUM_THRUST_WEAPON_FAMES = 15
+		and #NUM_THRUST_WEAPON_FAMES
+		bne !next+
+		jmp remove_weapon
+	!next:
+		lda flag__did_player_weapon_hit_list,x
+		bmi !next+ // NFI. This must be some left over code as it does nothing.
+	!next:
+		dec data__player_weapon_sprite_speed_list,x
+		rts
+
+	// 99C2
+	// Check for icon types with rotating projectiles. Icons such as the Dragon or Unicorn fire a projectile that
+	// shoots in a straight line. Elementatls or Trolls on the other hand fire rocks or file that roll as they
+	// travel.
+	// The following icon types fire rotating projectiles;
+	//    Wizard, Golem, Djinni, Troll, Air Elemental, Fire Elemental, Earth Elemental, Water Elemental
+	// NOTE This method pulls the last two registers from the stack if the icon does NOT throw rotating projectiles,
+	// effectively turning the JSR in to JMP. Let me explain - when a method is called via a JSR, the operation
+	// adds the memory location of the next command to the stack. When a RTS is executed the last two registers are
+	// pulled from the stack to determine which address to return to. When we pull two regisetrs from the stack,
+	// the RTS will return to the parent's parent.
+	// This is common however it is a bit of anti-pattern as it can be difficult to debug.
+	check_rotatating_projectile:
+		.const NUM_ICONS_WITH_ROTATING_PROJECTILES = 7
+		ldy #NUM_ICONS_WITH_ROTATING_PROJECTILES
+	!loop:
+		lda data__icon_with_rotating_projectile_list,y
+		cmp common.param__icon_offset_list,x
+		beq !return+
+		dey
+		bpl !loop-
+		pla
+		pla
+	!return:
+		rts
+
 	// 99DA
-	// Removes the active weapon or projectile. This function is called after a projectile hits a target or flies
+	// Removes the active weapon or projectile. This routine is called after a projectile hits a target or flies
 	// off-screen or a thrust or transform weapon has timed out.
 	// Requires:
 	// - X: current player (0 for light, 1 for dark).
@@ -1183,8 +1473,8 @@ interrupt_handler:
 		// Clear weapon/projectile variables (position, speed, collission).
 		lda #$00
 		sta data__player_weapon_sprite_speed_list,x
-		sta data__player_weapon_sprite_x_list,x
-		sta data__player_weapon_sprite_y_list,x
+		sta data__player_weapon_sprite_x_dir_list,x
+		sta data__player_weapon_sprite_y_dir_list,x
 		sta flag__did_player_weapon_hit_list,x
 		// Stop weapon firing sound.
 		lda common.flag__is_player_sound_enabled,x
@@ -1404,6 +1694,25 @@ interrupt_handler:
         .byte %0000_0100 // Sprite 2 bit
         .byte %0000_1000 // Sprite 3 bit
 
+	// 98EE
+	// Phoenix flame attack animation parameters.
+	// - Byte 1: toggle expand x (0=toggle, non-zero=expand)
+	// - Byte 2: toggle expand y (0=toggle, non-zero=expand)
+	// - Byte 3: sprite frame
+	// - Byte 4: offset x
+	// - Byte 5: offset y
+	data__phoenix_flame_animation_list:
+		.byte 00, 00, 00, 00, 00 // Not-expanded
+		.byte 00, 00, 01, -2, -2 // Expanded
+		.byte 01, 01, 01, -6, -6 // Expanded, large flame frame offset
+		.byte 00, 00, 01, -2, -2 // Expanded
+		.byte 00, 00, 00, 00, 00 // Not-expanded
+
+    // 99D2
+    // List of icon types with rotating projectiles.
+    //                                              WZ   GM   DJ   TL   AE   FE   EE   WE
+    data__icon_with_rotating_projectile_list: .byte $01, $03, $05, $0b, $10, $11, $12, $13        
+
     // 9A22
     // Frame index offset for east facing positions. $08=north, $00=east, $04=south
     //                                 n    n-e  s-e  e    s
@@ -1435,6 +1744,15 @@ interrupt_handler:
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.
 .namespace private {
+    // BCDC
+    // icon frame prior to attack
+    data__icon_sprite_frame_before_attack_list: .byte $00, $00	
+
+	// BCF0
+	// List of counters used to delay the rotation of a rotating projectile will the projectile is moving across the
+	// screen. One count for each player. 
+	cnt__projectile_rotate_delay_list: .byte $00, $00
+
     // BCF2
     // Current color of square in which a battle is being faught.
     param__arena_color: .byte $00
@@ -1457,7 +1775,7 @@ interrupt_handler:
     data__sprite_barrier_phase_collision_list:
     data__icon_barrier_phase_collision_list:
         .byte $00, $00
-    // BFCA
+    // BCFA
     data__weapon_barrier_phase_collision_list:
         .byte $00, $00
 
@@ -1509,11 +1827,11 @@ interrupt_handler:
     flag__phase_state_list: .byte $00, $00, $00
 
     // BD1D
-    // Toggle used to delay a player icon while travelling over a non-imperiable barrier.
+    // Toggle used to delay a player icon while travelling over a permiable barrier.
     cnt__icon_delay_list: .byte $00, $00
 
     // BD1F
-    // Toggle used to delay a player projectile while travelling over a non-imperiable barrier.
+    // Toggle used to delay a player projectile while travelling over a permiable barrier.
     cnt__projectile_delay_list: .byte $00, $00
 
     // BD21
@@ -1525,6 +1843,15 @@ interrupt_handler:
     // Color of square where challenge was initiated. Used for determining icon strength.
     // TODO: Is this used?
     data__curr_square_color_code: .byte $00
+
+    // BD68
+    // Low byte of player attack pattern frequency (one byte for each player). Used to vary the sound while the
+    // attack is in progress (eg while a projectile is still in the air).
+    ptr__player_attack_sound_fq_lo_list: .byte $00, $00
+
+    // BD6A
+    // High byte of player attack pattern frequency (one byte for each player).
+    ptr__player_attack_sound_fq_hi_list: .byte $00, $00
 
     // BF0E
     // Low byte pointer to attack sound pattern for current icon (one byte for each player).
@@ -1576,8 +1903,9 @@ interrupt_handler:
     cnt__board_col: .byte $00
 
     // BF34
-    // Current y position of the player weapon sprite.
-    data__player_weapon_sprite_y_list: .byte $00, $00
+    // Current y direction of the player weapon sprite.
+    // 0=no movement, -ve=up movement, +ve=down movement
+    data__player_weapon_sprite_y_dir_list: .byte $00, $00
 
     // BF36
     // Calculated strength adjustment based on color of the challenge square plus 1.
@@ -1589,8 +1917,9 @@ interrupt_handler:
     data__piece_count_list: .byte $00, $00
 
     // BF38
-    // Current x position of the player weapon sprite.
-    data__player_weapon_sprite_x_list: .byte $00, $00
+    // Current x direction of the player weapon sprite.
+    // 0=no movement, -ve=left movement, +ve=right movement
+    data__player_weapon_sprite_x_dir_list: .byte $00, $00
 
     // BF41
     // Calculated strength adjustment based on color of the challenge square times 2.
@@ -1605,4 +1934,10 @@ interrupt_handler:
 	// Sprite to foreground collision flag. Contians a list of bits for each sprite that has collided with a foreground
 	// character.
 	flag__sprite_to_char_collision: .byte $00
+
+    // BF47
+    // Holds the position of the icon sprite before commencement of the attack. This is required for the Phoenix icon
+    // as the icon sprite position is moved off the screen while the attack occurs so that the icon isn't displayed
+    // while it is transformed to a flame.
+    data__icon_sprite_y_pos_before_attack_list: .byte $00, $00
 }

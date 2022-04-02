@@ -78,7 +78,7 @@ entry:
     jmp !icon_loop-
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 8EB0
     // Adds an icon to the board and configures the interrupt handler to walk the icon to the correct location on the

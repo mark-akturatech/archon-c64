@@ -369,7 +369,7 @@ play_intro:
     jmp (private.ptr__game_state_fn_list+4)
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 632D
     init:
@@ -459,12 +459,12 @@ play_intro:
         rts
 
     // BC8B
-    // Since this routine is at the end of the application in the original source, I am guessing this function allows
+    // Since this routine is at the end of the application in the original source, I am guessing this routine allows
     // additional debugging code to be added in runtime without overwriting used memory/code.
     // Requires
-    // - A: Low byte of interrupt interceptor function memory address
+    // - A: Low byte of interrupt interceptor routine memory address
     // Sets:
-    // - A: High byte of interrupt interceptor function memory address
+    // - A: High byte of interrupt interceptor routine memory address
     set_partial_interrupt:
         sta CINV
         sta CBINV
@@ -502,7 +502,7 @@ play_intro:
 // Private assets.
 .namespace private {
     // 4760
-    // Pointer to each main game function.
+    // Pointer to each main game routine.
     ptr__source_game_state_fn_list:
         .word game.interrupt_handler
         .word challenge.interrupt_handler
@@ -518,7 +518,7 @@ play_intro:
 .segment Data
 
 // BCCC
-// Raster interrupt handler function pointer. This pointer is updated during game play to handle state specific
+// Raster interrupt handler routine pointer. This pointer is updated during game play to handle state specific
 // background functions such as animations, detection of joystick inputs, delays and so on.
 ptr__raster_interrupt_fn: .word $0000
 
@@ -530,8 +530,8 @@ ptr__system_interrupt_fn: .word $0000
 // Private data.
 .namespace private {
     // 0334
-    // Pointer to each main game function copied from the function list source. I assume they do this so that they can
-    // repoint the function pointers after the game has loaded for testing and debugging purposes.
+    // Pointer to each main game routine copied from the function list source. I assume they do this so that they can
+    // repoint the routine pointers after the game has loaded for testing and debugging purposes.
     ptr__game_state_fn_list: .word $0000, $0000, $000
 
     // BCC4

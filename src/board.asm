@@ -561,7 +561,7 @@ play_icon_sound:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 9139
     // Draws 2 characters of the current row.

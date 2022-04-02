@@ -1,156 +1,10 @@
 (^.*[a-z0-9])\s{2,9}
 $1
 
-
-
-// 992A
-// Update the player weapon. This may include firing a projectile, continue moving a projectile across the
-// screen, surrounding the player with a weapon (eg scream or fire) or thrusting a weapon (eg club or sword).
-update_weapon:
-	lda data__player_weapon_sprite_speed_list,x // Speed will be set if weapon is activated
-	bne !next+
-	rts
-!next:
-	lda data__player_icon_sprite_speed_list,x
-	and #ICON_CAN_TRANSFORM
-	beq !next+
-	// 9937 4C 36 98 jmp W9836 // TODO transform???
-!next:
-	lda data__player_icon_sprite_speed_list,x
-	cmp #ICON_CAN_THRUST
-	beq !next+
-	jsr check_hit
-	lda flag__weapon_hit_detected
-	bmi !return+
-!next:
-	// Check if projectile hits a barrier.
-	// If the projectile hits a imperiable barrier the projectile will stop moving. If the barrier is
-	// non-imperiable, the projectile will move at half speed until it has passed the barrier at which point
-	// it will speed up again (ignoring the laws of physics).
-	lda data__weapon_barrier_phase_collision_list,x
-994C F0 0A beq W9958
-994E 10 03 bpl W9953
-9950 4C DA 99 jmp remove_weapon
-W9953:
-9953 BD 1F BD lda cnt__projectile_delay_list,x // Halves projectile speed when firing over swamp. very hard to tell though.
-9956 49 FF eor #$FF
-W9958:
-9958 9D 1F BD sta cnt__projectile_delay_list,x
-995B F0 01 beq W995E
-995D 60 rts
-W995E:
-995E BD 01 BD lda data__player_icon_sprite_speed_list,x
-9961 C9 20 cmp #ICON_CAN_THRUST
-9963 D0 03 bne W9968
-9965 4C 07 99 jmp W9907 // thrust
-// move projectile
-// x: sprite number (0-3)
-// data__player_weapon_sprite_y_list: x-direction
-// data__player_weapon_sprite_x_list: y-direction
-W9968:
-9968 8A txa
-9969 0A asl
-996A A8 tay
-996B B9 AB A0 lda common.ptr__voice_ctl_addr_list,y
-996E 85 FD sta FREEZP+2
-9970 B9 AC A0 lda common.ptr__voice_ctl_addr_list+1,y
-9973 85 FE sta FREEZP+3 Free 0 page for user program
-9975 BD 68 BD lda temp_data_temp_note_store,x
-9978 38 sec
-9979 E9 80 sbc #$80
-997B 9D 68 BD sta temp_data_temp_note_store,x
-997E A0 00 ldy #$00
-9980 91 FD sta (FREEZP+2),y
-9982 C8 iny
-9983 BD 6A BD lda WBD6A,x
-9986 E9 00 sbc #$00
-9988 9D 6A BD sta WBD6A,x
-998B 91 FD sta (FREEZP+2),y
-998D BD 34 BF lda data__player_weapon_sprite_y_list,x // y direction for each of the 4 sprites? -1, 0 +1
-9990 18 clc
-9991 7D 48 BD adc board.data__sprite_curr_y_pos_list+2,x
-9994 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
-9997 C9 0A cmp #$0A // offscreen top
-9999 90 3F bcc remove_weapon
-999B C9 BE cmp #$BE // offscreen bottom
-999D B0 3B bcs remove_weapon
-999F BD 38 BF lda data__player_weapon_sprite_x_list,x // x direction for each of the 4 sprites? -1, 0 +1
-99A2 18 clc
-99A3 7D 40 BD adc main_sprite_curr_x_pos+2,x
-99A6 9D 40 BD sta main_sprite_curr_x_pos+2,x
-99A9 C9 02 cmp #$02 // offscreen left
-99AB 90 2D bcc remove_weapon
-99AD C9 9B cmp #$9B // offscreen right
-99AF B0 29 bcs remove_weapon
-99B1 20 C2 99 jsr W99C2
-99B4 FE F0 BC inc WBCF0,x
-99B7 BD F0 BC lda WBCF0,x
-99BA 29 03 and #$03
-99BC F0 03 beq !return+
-99BE FE E9 BC inc intro_sprite_y_move_counter,x // NFI: maybe AI? every 3rd firing position
-!return:
-	rts
-W99C2:
-99C2 A0 07 ldy #$07
-W99C4:
-99C4 B9 D2 99 lda W99D2,y
-99C7 DD 29 BF cmp common.param__icon_offset_list,x
-99CA F0 05 beq W99D1
-99CC 88 dey
-99CD 10 F5 bpl W99C4
-99CF 68 pla
-99D0 68 pla
-W99D1:
-99D1 60 rts
-
-
-
-// keeps thrust weapon going for a max count of #0f
-
-W9907:
-9907 BD F6 BC lda flag__did_player_weapon_hit_list,x
-990A 30 0B bmi W9917
-990C 20 27 9A jsr check_hit
-990F AD FE BC lda flag__weapon_hit_detected
-9912 10 03 bpl W9917
-9914 9D F6 BC sta flag__did_player_weapon_hit_list,x
-W9917:
-9917 BD 03 BD lda data__player_weapon_sprite_speed_list,x
-991A 29 0F and #$0F
-991C D0 03 bne W9921
-991E 4C DA 99 jmp remove_weapon
-
-W9921:
-9921 BD F6 BC lda flag__did_player_weapon_hit_list,x
-9924 30 00 bmi W9926 // WTF!
-W9926:
-9926 DE 03 BD dec data__player_weapon_sprite_speed_list,x
-9929 60 rts
-
-
-
-
-
 // ----------------------------------------------------------------------------------------------------------
 // interrupt
 
-
-// 9485
-
-	// Play icon sound. The routine uses `common.flag__is_player_sound_enabled` to determine if a sound is enabled
-	// for each player. OLDTXT and OLDTXT+2 will be set to the sound pattern made by the specific player while
-	// moving or firing. Note that when a player is firing, the player movement sound is replaced with the weopon
-	// sound until the weapon has finished firing (eg hits a target, flies off the screen or finishes
-	// thrusting etc). Therefore, only two voices (one for each player) are only ever used during a challenge.
-	jsr board.play_icon_sound
-	//
-	ldx #(NUM_PLAYERS-1) // 0 offset
-!player_loop:
-	lda #FLAG_DISABLE
- 	sta private.flag__was_icon_moved
-	sta private.flag__is_weapon_active
-	jsr private.update_weapon // Continue firing (or thrusting) weapon
-
+// 9495
 9495 BD 01 BD lda private.data__player_icon_sprite_speed_list,x
 9498 29 60 and #(ICON_CAN_TRANSFORM + ICON_CAN_THRUST)
 949A F0 0F beq W94AB
@@ -344,12 +198,6 @@ W95F1:
 
 
 
-W7F03:
-	.byte $12
-W7F04:
-	.byte $AE
-
-
 
 
 
@@ -365,105 +213,6 @@ W7F04:
 
 
 
-W9836:
-9836 BD 29 BF lda common.param__icon_offset_list,x
-9839 C9 0E cmp #$0E
-983B F0 76 beq W98B3
-983D FE 38 BF inc data__player_weapon_sprite_x_list,x
-9840 BD 38 BF lda data__player_weapon_sprite_x_list,x
-9843 C9 05 cmp #$05
-9845 D0 03 bne W984A
-9847 4C 27 9A jmp check_hit
-
-W984A:
-984A C9 0A cmp #$0A
-984C D0 62 bne W98B0
-984E A9 00 lda #$00
-9850 9D 38 BF sta data__player_weapon_sprite_x_list,x
-9853 BD 34 BF lda data__player_weapon_sprite_y_list,x
-9856 18 clc
-9857 69 05 adc #$05
-9859 9D 34 BF sta data__player_weapon_sprite_y_list,x
-985C C9 19 cmp #$19
-985E 90 03 bcc W9863
-9860 4C DF 98 jmp W98DF
-
-W9863:
-9863 BC 34 BF ldy data__player_weapon_sprite_y_list,x
-9866 BD B1 98 lda data__sprite_offset_bit_list,x
-9869 48 pha
-986A B9 EE 98 lda W98EE,y
-986D F0 08 beq W9877
-986F 68 pla
-9870 48 pha
-9871 0D 1D D0 ora XXPAND (2X) horizontal expansion (X) sprite 0..7
-9874 4C 7E 98 jmp W987E
-
-W9877:
-9877 68 pla
-9878 48 pha
-9879 49 FF eor #$FF
-987B 2D 1D D0 and XXPAND (2X) horizontal expansion (X) sprite 0..7
-W987E:
-987E 8D 1D D0 sta XXPAND (2X) horizontal expansion (X) sprite 0..7
-9881 B9 EF 98 lda W98EF,y
-9884 F0 07 beq W988D
-9886 68 pla
-9887 0D 17 D0 ora YXPAND (2X) vertical expansion (Y) sprite 0..7
-988A 4C 93 98 jmp W9893
-
-W988D:
-988D 68 pla
-988E 49 FF eor #$FF
-9890 2D 17 D0 and YXPAND (2X) vertical expansion (Y) sprite 0..7
-W9893:
-9893 8D 17 D0 sta YXPAND (2X) vertical expansion (Y) sprite 0..7
-9896 B9 F0 98 lda W98F0,y
-9899 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
-989C BD 3E BD lda main_sprite_curr_x_pos,x
-989F 18 clc
-98A0 79 F1 98 adc W98F1,y
-98A3 9D 40 BD sta main_sprite_curr_x_pos+2,x
-98A6 BD 47 BF lda WBF47,x
-98A9 18 clc
-98AA 79 F2 98 adc W98F2,y
-98AD 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
-W98B0:
-98B0 60 rts
-
-W98B3:
-98B3 DE 38 BF dec data__player_weapon_sprite_x_list,x
-98B6 30 33 bmi W98EB
-98B8 BD 34 BF lda data__player_weapon_sprite_y_list,x
-98BB 18 clc
-98BC 69 01 adc #$01
-98BE C9 05 cmp #$05
-98C0 90 05 bcc W98C7
-98C2 20 27 9A jsr check_hit
-98C5 A9 00 lda #$00
-W98C7:
-98C7 9D 34 BF sta data__player_weapon_sprite_y_list,x
-98CA A9 03 lda #$03
-W98CC:
-98CC BD 3E BD lda main_sprite_curr_x_pos,x
-98CF 38 sec
-98D0 E9 06 sbc #$06
-98D2 9D 40 BD sta main_sprite_curr_x_pos+2,x
-98D5 BD 46 BD lda board.data__sprite_curr_y_pos_list,x
-98D8 38 sec
-98D9 E9 0C sbc #$0C
-98DB 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
-98DE 60 rts
-
-W98DF:
-98DF BD DC BC lda WBCDC,x
-98E2 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
-98E5 BD 47 BF lda WBF47,x
-98E8 9D 46 BD sta board.data__sprite_curr_y_pos_list,x
-W98EB:
-98EB 4C DA 99 jmp remove_weapon
-
-
 
 
 
@@ -475,14 +224,14 @@ W98EB:
 
 
 W9AA2:
-9AA2 BD 3E BD lda main_sprite_curr_x_pos,x
+9AA2 BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9AA5 29 F0 and #$F0
 9AA7 09 0C ora #$0C
 9AA9 C9 91 cmp #$91
 9AAB 90 02 bcc W9AAF
 9AAD A9 91 lda #$91
 W9AAF:
-9AAF 9D 3E BD sta main_sprite_curr_x_pos,x
+9AAF 9D 3E BD sta board.data__sprite_curr_x_pos_list,x
 9AB2 BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 9AB5 18 clc
 9AB6 69 08 adc #$08
@@ -505,7 +254,7 @@ W9AC6:
 9AD8 BD 03 BD lda data__player_weapon_sprite_speed_list,x
 9ADB F0 05 beq W9AE2
 9ADD A2 01 ldx #$01
-9ADF 4C CC 98 jmp W98CC
+9ADF 4C CC 98 jmp set_banshee_attack_pos
 
 W9AE2:
 9AE2 60 rts
@@ -525,10 +274,10 @@ W9603:
 960D EE 0D BD inc private.flag__was_icon_moved
 9610 A9 00 lda #$00
 9612 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
-9615 BD 3E BD lda main_sprite_curr_x_pos,x
+9615 BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9618 CD 02 7F cmp data__light_player_initial_x_pos+1
 961B B0 03 bcs W9620
-961D FE 3E BD inc main_sprite_curr_x_pos,x
+961D FE 3E BD inc board.data__sprite_curr_x_pos_list,x
 W9620:
 9620 60 rts
 
@@ -542,12 +291,12 @@ W9626:
 962E D0 F0 bne W9620
 9630 A9 0E lda #$0E
 9632 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
-9635 BD 3E BD lda main_sprite_curr_x_pos,x
+9635 BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9638 18 clc
 9639 69 09 adc #$09
-963B 9D 40 BD sta main_sprite_curr_x_pos+2,x
+963B 9D 40 BD sta board.data__sprite_curr_x_pos_list+2,x
 963E BD 01 BD lda data__player_attack_speed_list,x
-9641 9D 38 BF sta data__player_weapon_sprite_x_list,x
+9641 9D 38 BF sta data__player_weapon_sprite_x_dir_list,x
 9644 A9 00 lda #$00
 9646 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9649 10 50 bpl W969B
@@ -563,10 +312,10 @@ W9652:
 965C EE 0D BD inc private.flag__was_icon_moved
 965F A9 11 lda #LEFT_FACING_ICON_FRAME
 9661 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
-9664 BD 3E BD lda main_sprite_curr_x_pos,x
+9664 BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9667 CD 01 7F cmp data__light_player_initial_x_pos
 966A 90 03 bcc W966F
-966C DE 3E BD dec main_sprite_curr_x_pos,x
+966C DE 3E BD dec board.data__sprite_curr_x_pos_list,x
 W966F:
 966F 60 rts
 
@@ -582,13 +331,13 @@ W9675:
 967F A9 00 lda #$00
 9681 38 sec
 9682 FD 01 BD sbc data__player_attack_speed_list,x
-9685 9D 38 BF sta data__player_weapon_sprite_x_list,x
+9685 9D 38 BF sta data__player_weapon_sprite_x_dir_list,x
 9688 A9 16 lda #$16
 968A 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
-968D BD 3E BD lda main_sprite_curr_x_pos,x
+968D BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9690 38 sec
 9691 E9 07 sbc #$07
-9693 9D 40 BD sta main_sprite_curr_x_pos+2,x
+9693 9D 40 BD sta board.data__sprite_curr_x_pos_list+2,x
 9696 A9 04 lda #$04
 9698 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 W969B:
@@ -636,23 +385,23 @@ W9727:
 9731 A9 10 lda #$10
 9733 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 9736 BD 01 BD lda data__player_attack_speed_list,x
-9739 9D 34 BF sta data__player_weapon_sprite_y_list,x
+9739 9D 34 BF sta data__player_weapon_sprite_y_dir_list,x
 973C BD 46 BD lda board.data__sprite_curr_y_pos_list,x
 973F 18 clc
 9740 69 10 adc #$10
 9742 9D 48 BD sta board.data__sprite_curr_y_pos_list+2,x
 W9745:
-9745 BD 38 BF lda data__player_weapon_sprite_x_list,x
+9745 BD 38 BF lda data__player_weapon_sprite_x_dir_list,x
 9748 D0 1A bne W9764
 974A A0 00 ldy #$00
-974C BD 34 BF lda data__player_weapon_sprite_y_list,x
+974C BD 34 BF lda data__player_weapon_sprite_y_dir_list,x
 974F 30 01 bmi W9752
 9751 C8 iny
 W9752:
-9752 BD 3E BD lda main_sprite_curr_x_pos,x
+9752 BD 3E BD lda board.data__sprite_curr_x_pos_list,x
 9755 18 clc
 9756 79 62 97 adc W9762,y
-9759 9D 40 BD sta main_sprite_curr_x_pos+2,x
+9759 9D 40 BD sta board.data__sprite_curr_x_pos_list+2,x
 975C A9 01 lda #$01
 975E 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9761 60 rts
@@ -660,32 +409,32 @@ W9752:
 
 W9764:
 9764 A0 02 ldy #$02
-9766 BD 34 BF lda data__player_weapon_sprite_y_list,x
+9766 BD 34 BF lda data__player_weapon_sprite_y_dir_list,x
 9769 30 01 bmi W976C
 976B C8 iny
 W976C:
 976C 98 tya
-976D BC 38 BF ldy data__player_weapon_sprite_x_list,x
+976D BC 38 BF ldy data__player_weapon_sprite_x_dir_list,x
 9770 10 03 bpl W9775
 9772 18 clc
 9773 69 03 adc #$03
 W9775:
 9775 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9778 A0 0D ldy #$0D
-977A BD 34 BF lda data__player_weapon_sprite_y_list,x
+977A BD 34 BF lda data__player_weapon_sprite_y_dir_list,x
 977D 30 02 bmi W9781
 977F C8 iny
 9780 C8 iny
 W9781:
 9781 98 tya
-9782 BC 38 BF ldy data__player_weapon_sprite_x_list,x
+9782 BC 38 BF ldy data__player_weapon_sprite_x_dir_list,x
 9785 10 03 bpl W978A
 9787 18 clc
 9788 69 08 adc #$08
 W978A:
 978A 9D E3 BC sta common.param__icon_sprite_source_frame_list,x
 978D A0 00 ldy #$00
-978F BD 34 BF lda data__player_weapon_sprite_y_list,x
+978F BD 34 BF lda data__player_weapon_sprite_y_dir_list,x
 9792 30 01 bmi W9795
 9794 C8 iny
 W9795:
@@ -714,9 +463,9 @@ W97A2:
 97BF BD 10 BF lda ptr__player_attack_pattern_hi_list,x
 97C2 99 3E 00 sta OLDTXT+1,y Pointer: BASIC instruction for CONT
 97C5 AD FA A1 lda board_sound_phrase_shoot_01+4
-97C8 9D 68 BD sta temp_data_temp_note_store,x
+97C8 9D 68 BD sta ptr__player_attack_sound_fq_lo_list,x
 97CB AD FB A1 lda board_sound_phrase_shoot_01+5
-97CE 9D 6A BD sta WBD6A,x
+97CE 9D 6A BD sta ptr__player_attack_sound_fq_hi_list,x
 W97D1:
 97D1 BC 29 BF ldy common.param__icon_offset_list,x
 97D4 B9 D7 8A lda data__icon_attack_recovery_list,y
@@ -728,42 +477,37 @@ W97D1:
 97E3 F0 41 beq W9826
 97E5 9D 03 BD sta data__player_weapon_sprite_speed_list,x
 97E8 A9 00 lda #$00
-97EA 9D E9 BC sta intro_sprite_y_move_counter,x
-97ED 9D 38 BF sta data__player_weapon_sprite_x_list,x
-97F0 9D 34 BF sta data__player_weapon_sprite_y_list,x
+97EA 9D E9 BC sta board.cnt__sprite_frame_list+2,x
+97ED 9D 38 BF sta data__player_weapon_sprite_x_dir_list,x
+97F0 9D 34 BF sta data__player_weapon_sprite_y_dir_list,x
 97F3 BD 29 BF lda common.param__icon_offset_list,x
-97F6 C9 0E cmp #$0E
+97F6 C9 0E cmp #BANSHEE_OFFSET
 97F8 F0 14 beq W980E
 97FA BD E3 BC lda common.param__icon_sprite_source_frame_list,x
-97FD 9D DC BC sta WBCDC,x
+97FD 9D DC BC sta data__icon_sprite_frame_before_attack_list,x
 9800 BD 46 BD lda board.data__sprite_curr_y_pos_list,x
-9803 9D 47 BF sta WBF47,x
+9803 9D 47 BF sta data__icon_sprite_y_pos_before_attack_list,x
 9806 A9 CE lda #SPRITE_Y_OFFSCREEN
 9808 9D 46 BD sta board.data__sprite_curr_y_pos_list,x
 980B 4C 63 98 jmp W9863
 
 W980E:
-980E A9 29 lda #$29
-9810 9D 38 BF sta data__player_weapon_sprite_x_list,x
+980E A9 29 lda #$29 // banshee attack length
+9810 9D 38 BF sta data__player_weapon_sprite_x_dir_list,x
 9813 A9 08 lda #$08
 9815 0D 1D D0 ora XXPAND (2X) horizontal expansion (X) sprite 0..7
 9818 8D 1D D0 sta XXPAND (2X) horizontal expansion (X) sprite 0..7
 981B A9 08 lda #$08
 981D 0D 17 D0 ora YXPAND (2X) vertical expansion (Y) sprite 0..7
 9820 8D 17 D0 sta YXPAND (2X) vertical expansion (Y) sprite 0..7
-9823 4C B3 98 jmp W98B3
+9823 4C B3 98 jmp banshee_attack
 
 W9826:
 9826 A9 0F lda #$0F
 W9828:
 9828 09 80 ora #$80
 982A 9D 03 BD sta data__player_weapon_sprite_speed_list,x
-982D 20 C2 99 jsr W99C2
+982D 20 C2 99 jsr check_rotatating_projectile
 9830 A9 00 lda #$00
 9832 9D E5 BC sta common.param__icon_sprite_source_frame_list+2,x
 9835 60 rts
-
-
-
-
-// BD10

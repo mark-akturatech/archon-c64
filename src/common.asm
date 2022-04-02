@@ -6,7 +6,7 @@
 
 // 638E
 // Restore registers pushed on to the stack at the start of an interrupt and complete the current interrupt.
-// This function is called at the completion of each raster interrupt.
+// This routine is called at the completion of each raster interrupt.
 // Requires:
 // - A, X and Y: pushed on to the stack (Y first, then X then A)
 // Sets:
@@ -20,7 +20,7 @@ complete_interrupt:
     rti
 
 // 6394
-// Sets game options if an option function ket is pressed.
+// Sets game options if an option function key is pressed.
 // Key are as follows:
 // - F3: Cycle AI state (none, AI is light, AI is dark)
 // - F5: Light first/Dark First
@@ -95,7 +95,7 @@ check_option_keypress:
 // Determine sprite shape data souorce address for a given icon, set the sprite color and direction and enable the
 // sprite.
 // Requires:
-// - X: Sprite number (0 - 3). This function can be used to initialize up to 4 sprites:
+// - X: Sprite number (0 - 3). This routine can be used to initialize up to 4 sprites:
 //   - A single sprite is only needed when moving pieces on the board.
 //   - 4 sprites a needed within the battle arena (icon and weapon/projectile for each player).
 //   - 4 sprites are used during the introduction chase animation.
@@ -640,7 +640,7 @@ clear_screen:
 //   - FE: End pattern - move to next pattern in the pattern list.
 //   - FF: End music.
 // - See `initialize_music` for further details of how music and patterns are stored.
-// - This function is called each time a raster interrupt occurs. It runs once and processes notes/command on each
+// - This routine is called each time a raster interrupt occurs. It runs once and processes notes/command on each
 //   voice, increments the pointer to the next command/note and then exits.
 play_music:
     ldx #(NUM_VOICES-1) // 0 offset
@@ -751,7 +751,7 @@ initialize_music:
     rts
 
 //---------------------------------------------------------------------------------------------------------------------
-// Private functions.
+// Private routines.
 .namespace private {
     // 63F3
     // Skip board walk and display game options.
@@ -986,7 +986,7 @@ ptr__sprite_56_mem: .word GRPMEM+56*BYTES_PER_SPRITE // Pointer to sprite 56 gra
 data__player_icon_color_list: .byte YELLOW, LIGHT_BLUE
 
 // A0A5
-// Pointer to function to read notes for each voice.
+// Pointer to routine to read notes for each voice.
 ptr__voice_play_fn_list: .word private.get_note_v1, private.get_note_v2, private.get_note_v3
 
 // A0AB
@@ -1002,7 +1002,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
 .namespace private {
     // 3D40
     // Music is played by playing notes within the pattern referenced by `init_pattern_list_ptr` for each voice.
-    // When the voice pattern finishes, the play function will look at the intro or outro pattern list pointers
+    // When the voice pattern finishes, the play routine will look at the intro or outro pattern list pointers
     // (`intro_pattern_ptr` or `outro_pattern_ptr`) depending on the track being played and will select the next
     // patten to play. This continues until a termination command is read.
     // Note that the same pattern may be played multiple times during the piece.
@@ -1094,7 +1094,7 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
     data__voice_attack_value_list: .byte $07, $07, $07
 
     // AD7D
-    // Pointer to function to read the next pattern for each voice.
+    // Pointer to routine to read the next pattern for each voice.
     ptr__voice_pattern_fn_list: .word get_pattern_v1, get_pattern_v2, get_pattern_v3
 }
 
@@ -1148,7 +1148,7 @@ param__sprite_source_len: .byte $00
 param__icon_sprite_source_frame_list: .byte $00, $00, $00, $00
 
 // BD66
-// Function pointer to retrieve a note for the current voice.
+// Routine pointer to retrieve a note for the current voice.
 prt__voice_note_fn: .word $0000
 
 // BF08
@@ -1184,7 +1184,7 @@ param__is_play_outro: .byte $00
 // Private variables.
 .namespace private {
     // BF08
-    // Pointer to function to read current pattern for current voice.
+    // Pointer to routine to read current pattern for current voice.
     prt__voice_pattern_data: .word $0000
 
     // BF1A
