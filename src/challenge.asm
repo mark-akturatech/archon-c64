@@ -770,8 +770,100 @@ interrupt_handler:
  	sta private.flag__was_icon_moved
 	sta private.flag__is_weapon_active
 	jsr private.update_activated_weapon // Continue firing (or thrusting) weapon
+	//
+	// Disallow a player from moving if the player has an active thrust weapon or the Phoenix is activated.
+	lda private.data__player_icon_sprite_speed_list,x
+	and #(ICON_CAN_TRANSFORM + ICON_CAN_THRUST)
+	beq !next+ // Icon does not thrust or transform attack
+	lda private.data__player_weapon_sprite_speed_list,x
+	beq !next+ // Icon is currently not attacking
+	lda common.param__icon_offset_list,x
+	cmp #BANSHEE_OFFSET
+	beq !next+ // Banshee transform attacks, however the Banshee is allowed to move while attacking
+	jmp !move_complete+ // Don't update the player's position (ie hold in place while the attack is underway)
+	//
+!next:
+	lda private.data__player_attack_strength_list,x
+	bne !allow_move+
+	jmp !skip_move+
+!allow_move:
+	// 
+	lda private.data__sprite_barrier_phase_collision_list,x
+	beq !no_barrier+
+	bpl !permiable_barrier+
+	jsr private.bounce_player_off_barrier
+	lda game.data__ai_player_ctl
+	beq !next+
+	// 94C2 EC 26 BD cpx temp_data__curr_sprite_ptr // TODO: AI
+	// 94C5 F0 31 beq !move_ai_player+
+!next:
+	jmp !skip_move+
+!permiable_barrier:
+	// Halve the player speed when traversing over a permiable barrier.
+	lda private.cnt__icon_delay_list,x
+	eor #$FF
+!no_barrier:
+	sta private.cnt__icon_delay_list,x
+	beq !next+
+	jmp !skip_move+
+!next:
+	// Slow down slow pieces (Troll, Golem, Earth Elemental). Here we skip the move every 4th move, effectively making
+	// the player 3/4 the speed of every other player.
+	lda game.data__icon_speed,x
+	beq !check_move+ // Not a slow moving piece
+	inc game.data__icon_speed,x
+	lda game.data__icon_speed,x
+	and #$03 // Will be true every 4th increment
+	bne !check_move+
+	lda #ICON_SLOW_SPEED
+	sta game.data__icon_speed,x // Reset counter
+	jmp !skip_move+
+    //
+	// Check joystick direction.
+!check_move:
+	lda game.data__ai_player_ctl
+	beq !next+
+	// 94F3 EC 26 BD cpx temp_data__curr_sprite_ptr
+	// 94F6 D0 06 bne !next+
+!move_ai_player:
+	// 94F8 20 E3 9A jsr W9AE3 // TODO: AI
+	jmp !move_complete+
+!next:
+	// Check joystick position.
+	txa
+	eor #$01
+	tay
+	lda CIAPRA,y
+	pha // Current joystick status
+	and #%0000_1000 // Joystick right
+	bne !next+
+	jsr private.move_player_right
+	jmp !check_up_down+
+!next:
+	pla
+	pha
+	and #%0000_0100 // Joystick left
+	bne !check_up_down+
+	jsr private.move_player_left
+!check_up_down:
+	pla
+	lsr // Joystick up
+	pha
+	bcs !next+
+	jsr private.move_player_up
+!next:
+	pla
+	lsr // Joystick down
+	bcs !move_complete+
+	jsr private.move_player_down
+    //
+    // 9528
+!move_complete:
 
-    // 9495
+// 959B
+!skip_move: // TODO: REMOVE
+
+    // 9528
     jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -1143,6 +1235,22 @@ interrupt_handler:
         dex
         bne !row_loop-
         rts
+
+    // 95FC
+    move_player_right:
+        rts	// TODO
+
+    // 964B
+    move_player_left:
+        rts	// TODO
+
+    // 96A5
+    move_player_up:
+        rts	// TODO
+        
+    // 96F8
+    move_player_down:
+        rts	// TODO
 
     // 9367
     // Enable multicolor character mode for all screen character locations.
@@ -1594,6 +1702,54 @@ interrupt_handler:
         jmp remove_weapon
     !return:
         rts
+
+	// 9AA2
+	// Bounce player off the barrier when the player runs in to a barrier.
+	bounce_player_off_barrier:
+		// Set new X position.
+		// The maths here is interesting. The X position is anded with #$F0 which separates the X position in to blocks
+		// of 16 pixels (so X is rounded down to the nearest block - eg 24 becomes 16, 35 becomes 32 etc). Then the
+		// OR #$0C basically adds 12 to the value. This results in the player being bounced to one side of the
+		// barrier (left or right depending upon the exact X position value).
+		// The algorithm results in a preference for bouncing right more often than left.
+		lda board.data__sprite_curr_x_pos_list,x
+		and #$F0
+		ora #$0C
+		cmp #$91 // Maximum X position (we don't need to worry about minimum as barriers are not near the left edge)
+		bcc !next+
+		lda #$91
+	!next:
+		sta board.data__sprite_curr_x_pos_list,x
+		// Set new Y position.
+		// 8 (half the height of the barrier) is added to the Y position and then the position is then rounded down to
+		// the nearest 32 pixel boundary. This results in the player being bounced up if and part of the sprite
+		// collides with the barrier above the the center line, and down if sprite collides below the center line.
+		lda board.data__sprite_curr_y_pos_list,x
+		clc
+		adc #$08
+		and #$E0
+		cmp #$12 // Minimum Y position
+		bcs !next+
+		adc #$20
+	!next:
+		cmp #$AE // Maximum Y position
+		bcc !next+
+		sbc #$20
+	!next:
+		sta board.data__sprite_curr_y_pos_list,x
+		// 9AC9 A9 00 lda #$00 // TODO: Probably for AI?
+		// 9ACB 9D 36 BF sta temp_data__light_piece_count,x
+		// 9ACE 9D 32 BF sta temp_data__dark_piece_count,x
+		// Update the Banshee scream position if the Banshee weapon is currently active.
+		lda common.param__icon_offset_list,x
+		cmp #BANSHEE_OFFSET
+		bne !return+
+		lda data__player_weapon_sprite_speed_list,x // Is non-zero if weapon is active
+		beq !return+
+		ldx #$01 // Banshee is always player 2
+		jmp set_banshee_attack_pos
+	!return:
+		rts
 }
 
 //---------------------------------------------------------------------------------------------------------------------
