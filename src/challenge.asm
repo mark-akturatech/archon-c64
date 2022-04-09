@@ -348,9 +348,9 @@ entry:
     lda common.data__player_icon_color_list+1
     sta BGCOL2
     // Set player starting positions.
-    lda private.data__light_player_initial_x_pos
+    lda private.data__arena_sprite_x_boundary_list
     sta private.data__sprite_initial_x_pos_list
-    lda private.data__dark_player_initial_x_pos
+    lda private.data__arena_sprite_x_boundary_list+1
     sta private.data__sprite_initial_x_pos_list+1
     jsr private.set_player_sprite_location
     //
@@ -837,25 +837,25 @@ interrupt_handler:
 	pha // Current joystick status
 	and #%0000_1000 // Joystick right
 	bne !next+
-	jsr private.move_player_right
+	jsr private.check_player_right
 	jmp !check_up_down+
 !next:
 	pla
 	pha
 	and #%0000_0100 // Joystick left
 	bne !check_up_down+
-	jsr private.move_player_left
+	jsr private.check_player_left
 !check_up_down:
 	pla
 	lsr // Joystick up
 	pha
 	bcs !next+
-	jsr private.move_player_up
+	jsr private.check_player_up
 !next:
 	pla
 	lsr // Joystick down
 	bcs !move_complete+
-	jsr private.move_player_down
+	jsr private.check_player_down
     //
     // 9528
 !move_complete:
@@ -1236,22 +1236,287 @@ interrupt_handler:
         bne !row_loop-
         rts
 
-    // 95FC
-    move_player_right:
-        rts	// TODO
 
-    // 964B
-    move_player_left:
-        rts	// TODO
+	// 95FC
+	// Check joystick right direction and move player or fire weapon in the direction.
+	check_player_right:
+		lda CIAPRA,y
+		and #%0001_0000 // Fire button
+		beq !fire+
+	//9603
+	move_player_right:
+		// Set flag used by AI.
+		lda data__player_direction_flag_list,x
+		and #%1000_0001
+		ora #%0100_0000
+		sta data__player_direction_flag_list,x
+		// Set new player position.
+		inc flag__was_icon_moved
+		lda #RIGHT_FACING_ICON_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		lda board.data__sprite_curr_x_pos_list,x
+		cmp data__arena_sprite_x_boundary_list+1 // Right boundary
+		bcs !return+
+		inc board.data__sprite_curr_x_pos_list,x
+	!return:
+		rts
+	!fire:
+		// Ignore fire button if weapon is still cooling down.
+		lda cnt__player_cooldown_delay_list,x
+		bne !return-
+	// 9626
+	attack_player_right:
+		inc flag__is_weapon_active
+		lda data__player_sprite_speed_list,x
+		and #ICON_CAN_TRANSFORM
+		bne !return- // Don't set transformation attack here - we'll do this separately
+		// Set player attack frame.
+		lda #RIGHT_FACING_ATTACK_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		// Position the projectile to the right of the player sprite.
+		lda board.data__sprite_curr_x_pos_list,x
+		clc
+		adc #$09
+		sta board.data__sprite_curr_x_pos_list+2,x
+		// Activate the projectile.
+		lda data__player_sprite_speed_list,x
+		sta data__player_weapon_sprite_x_dir_list,x
+		// Set the initial projectile animation frame.
+		.const RIGHT_WEAPON_FRAME = $04
+		lda #RIGHT_WEAPON_FRAME
+		sta common.param__icon_sprite_source_frame_list+2,x
+		bpl set_projectile_y_pos
 
-    // 96A5
-    move_player_up:
-        rts	// TODO
-        
-    // 96F8
-    move_player_down:
-        rts	// TODO
+	// 964B
+	// Check joystick left direction and move player or fire weapon in the direction.
+	check_player_left:
+		lda CIAPRA,y
+		and #%0001_0000 // Fire button
+		beq !fire+
+	// 9652
+	move_player_left:
+		// Set flag used by AI.
+		lda data__player_direction_flag_list,x
+		and #%1000_0001
+		ora #%0100_0010
+		sta data__player_direction_flag_list,x
+		// Set new player position.
+		inc flag__was_icon_moved
+		lda #LEFT_FACING_ICON_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		lda board.data__sprite_curr_x_pos_list,x
+		cmp data__arena_sprite_x_boundary_list // Left boundary
+		bcc !return+
+		dec board.data__sprite_curr_x_pos_list,x
+	!return:
+		rts
+	!fire:
+		// Ignore fire button if weapon is still cooling down.
+		lda cnt__player_cooldown_delay_list,x
+		bne !return-
+	// 9675
+	attack_player_left:
+		inc flag__is_weapon_active
+		lda data__player_sprite_speed_list,x
+		and #ICON_CAN_TRANSFORM
+		bne !return- // Don't set transformation attack here - we'll do this separately
+		// Activate the projectile.
+		lda #$00
+		sec
+		sbc data__player_sprite_speed_list,x
+		sta data__player_weapon_sprite_x_dir_list,x
+		// Set player attack frame.
+		lda #LEFT_FACING_ATTACK_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		// Position the projectile to the left of the player sprite.
+		lda board.data__sprite_curr_x_pos_list,x
+		sec
+		sbc #$07
+		sta board.data__sprite_curr_x_pos_list+2,x
+		// Set the initial projectile animation frame.
+		.const LEFT_WEAPON_FRAME = $04
+		lda #LEFT_WEAPON_FRAME
+		sta common.param__icon_sprite_source_frame_list+2,x
+		//
+	// 969B
+	// Position the projectile vertically centered on the player sprite.
+	set_projectile_y_pos:
+		lda board.data__sprite_curr_y_pos_list,x
+		clc
+		adc #$04
+		sta board.data__sprite_curr_y_pos_list+2,x
+		rts
 
+	// 96A5
+	// Check joystick up direction and move player or fire weapon in the direction.
+	check_player_up:
+		lda CIAPRA,y
+		and #%0001_0000 // Fire button
+		beq !fire+
+	// 96AC
+	move_player_up:
+		lda flag__was_icon_moved
+		bne !next+ // Left/right animation has precedence over up if moving diagonally
+		inc flag__was_icon_moved
+		lda #UP_FACING_ICON_FRAME		
+		sta common.param__icon_sprite_source_frame_list,x
+	!next:
+		// Set flag used by AI.
+		lda data__player_direction_flag_list,x
+		and #%0100_0010
+		ora #%1000_0001
+		sta data__player_direction_flag_list,x
+		// Set new player position.
+		lda board.data__sprite_curr_y_pos_list,x
+		cmp data__arena_sprite_y_boundary_list // Top boundary
+		bcc !return+
+		dec board.data__sprite_curr_y_pos_list,x
+	!return:
+		rts
+	!fire:
+		// Ignore fire button if weapon is still cooling down.
+		lda cnt__player_cooldown_delay_list,x
+		bne !return-
+	// 96D4
+	attack_player_up:
+		inc flag__is_weapon_active
+		lda data__player_sprite_speed_list,x
+		and #ICON_CAN_TRANSFORM
+		bne !return- // Don't set transformation attack here - we'll do this separately
+		// Set player attack frame.
+		lda #UP_FACING_ATTACK_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		// Position the projectile above the player sprite.
+		lda board.data__sprite_curr_y_pos_list,x
+		sec
+		sbc #$07
+		sta board.data__sprite_curr_y_pos_list+2,x
+		// Activate the projectile.
+		lda #$00
+		sec
+		sbc data__player_sprite_speed_list,x
+		sta data__player_weapon_sprite_y_dir_list,x
+		jmp set_projectile_x_pos
+
+	// 96F8
+	// Check joystick down direction and move player or fire weapon in the direction.
+	check_player_down:
+		lda CIAPRA,y
+		and #%0001_0000 // Fire button
+		beq attack_player
+		//
+	// 96FF
+	move_player_down:
+		// Set flag used by AI.
+		lda data__player_direction_flag_list,x
+		and #%0100_0010
+		ora #%1000_0000
+		sta data__player_direction_flag_list,x
+		//
+		lda flag__was_icon_moved
+		bne !next+ // Left/right animation has precedence over up if moving diagonally
+		inc flag__was_icon_moved
+		lda #DOWN_FACING_ICON_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+	!next:
+		// Set new player position.
+		lda board.data__sprite_curr_y_pos_list,x
+		cmp data__arena_sprite_y_boundary_list+1 // Bottom boundary
+		bcs !return+
+		inc board.data__sprite_curr_y_pos_list,x
+	!return:
+		rts
+	attack_player:
+		// Ignore fire button if weapon is still cooling down.
+		lda cnt__player_cooldown_delay_list,x
+		bne !return-
+    // 9727
+	attack_player_down:
+		inc flag__is_weapon_active
+		lda data__player_sprite_speed_list,x
+		and #ICON_CAN_TRANSFORM
+		bne !return- // Don't set transformation attack here - we'll do this separately
+		// Set player attack frame.
+		lda #DOWN_FACING_ATTACK_FRAME
+		sta common.param__icon_sprite_source_frame_list,x
+		// Activate the projectile.
+		lda data__player_sprite_speed_list,x
+		sta data__player_weapon_sprite_y_dir_list,x
+		// Position the projectile below the player sprite.
+		lda board.data__sprite_curr_y_pos_list,x
+		clc
+		adc #$10
+		sta board.data__sprite_curr_y_pos_list+2,x
+		//
+	// 9745
+	// Set X position of the projecitle and adjust the animation frame if the projectile is being fired diagonally.
+	set_projectile_x_pos:
+		lda data__player_weapon_sprite_x_dir_list,x
+		bne !diagonal_shot+
+		// Determine X offset for projectile. The code below will set X offset to $02 when shooting up and $01 when
+		// shooting down.
+		ldy #$00
+		lda data__player_weapon_sprite_y_dir_list,x
+		bmi !next+
+		iny
+	!next:
+		lda board.data__sprite_curr_x_pos_list,x
+		clc
+		adc data__vertical_projectile_x_offset,y
+		sta board.data__sprite_curr_x_pos_list+2,x
+		.const VERTICAL_WEAPON_FRAME = $04
+		lda #VERTICAL_WEAPON_FRAME
+		sta common.param__icon_sprite_source_frame_list+2,x
+		rts
+	!diagonal_shot:
+		// Set weapon animation frame offset. Is calculated as follows:
+		// - $02: Up/Right
+		// - $03: Down/Right
+		// - $05: Up/Left
+		// - $06: Down/Left
+		ldy #$02
+		lda data__player_weapon_sprite_y_dir_list,x
+		bmi !next+
+		iny
+	!next:
+		tya
+		ldy data__player_weapon_sprite_x_dir_list,x
+		bpl !next+
+		clc
+		adc #$03
+	!next:
+		sta common.param__icon_sprite_source_frame_list+2,x
+		// Set icon animation frame offset. Is calculated as follows:
+		// - $0D: Up/Right
+		// - $0F: Down/Right
+		// - $15: Up/Left
+		// - $17: Down/Left
+		ldy #$0D
+		lda data__player_weapon_sprite_y_dir_list,x
+		bmi !next+
+		iny
+		iny
+	!next:
+		tya
+		ldy data__player_weapon_sprite_x_dir_list,x
+		bpl !next+
+		clc
+		adc #$08
+	!next:
+		sta common.param__icon_sprite_source_frame_list,x
+		// Set the Y position of the projectile.
+		ldy #$00
+		lda data__player_weapon_sprite_y_dir_list,x
+		bmi !next+
+		iny
+	!next:
+		lda board.data__sprite_curr_y_pos_list+2,x
+		clc
+		adc data__vertical_projectile_y_offset,y
+		sta board.data__sprite_curr_y_pos_list+2,x
+	!return:
+		rts
+    
     // 9367
     // Enable multicolor character mode for all screen character locations.
     // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this
@@ -1322,8 +1587,8 @@ interrupt_handler:
 		cmp #(PARAMS_PER_ANIMATION * NUM_ANIMATION_STATES)
 		bcc !next+
 		jmp !restore_icon+
-	!next:
-		//
+    // 9863
+	configure_phoenix_animation:
 		// Apply animation parameters.
 		ldy data__player_weapon_sprite_y_dir_list,x
 		lda data__sprite_offset_bit_list,x // Used to determine which sprite to expand (needed for shapeshifter)
@@ -1761,12 +2026,17 @@ interrupt_handler:
 // Private assets.
 .namespace private {
     // 7F01
-    // Starting X position of light player.
-    data__light_player_initial_x_pos: .byte $08
+    // Minimum and maximum sprite X positions within the battle arena.
+    data__arena_sprite_x_boundary_list:
+        //    left right
+        .byte $08, $91
 
-    // 7F02
-    // Starting X position of dark player.
-    data__dark_player_initial_x_pos: .byte $91
+    // 7F03
+    // Minimum and maximum sprite Y positions within the battle arena.
+    data__arena_sprite_y_boundary_list:
+        //    top  bottom
+        .byte $12, $AE
+    
 
     // 8BAA
     // Sound pattern used for attack sound of each icon type. The data is an index to the icon pattern pointer array.
@@ -1843,6 +2113,18 @@ interrupt_handler:
         .word resources.snd__effect_hit_player_light   // 00
         .word resources.snd__effect_hit_player_dark    // 02
 
+    // 9762
+    // X offset for projectiles when fired vertically.
+    data__vertical_projectile_x_offset:
+        //    Up   Down
+        .byte $02, $01
+
+    // 97A0
+    // Y offset for projectiles when fired diagonally.
+    data__vertical_projectile_y_offset:
+        //    Up   Down
+        .byte $04, $FC        
+
     // 98B1
     // Bits used to enable sprite 2 and 3 (and set color mode etc).
     // - 0 for sprite 2, 1 for sprite 3
@@ -1873,14 +2155,6 @@ interrupt_handler:
     // Frame index offset for east facing positions. $08=north, $00=east, $04=south
     //                                 n    n-e  s-e  e    s
     idx__icon_frame_offset_list: .byte $08, $00, $00, $00, $04
-
-    // BD0D
-    // Is non-zero if the player icon was moved (in X or Y direction) during the interrupt.
-    flag__was_icon_moved: .byte $00
-
-    // BD10
-    // Is non-zero if the player projectile was fired (in X or Y direction) during the interrupt.
-    flag__is_weapon_active: .byte $00
 
     // BEE4
     // Low byte screen memory offset of start of each board row for a barrier.
@@ -1965,6 +2239,14 @@ interrupt_handler:
     // Attack damage for each challenge icon (light, dark).
     data__player_attack_damage_list: .byte $00, $00
 
+    // BD0D
+    // Is non-zero if the player icon was moved (in X or Y direction) during the interrupt.
+    flag__was_icon_moved: .byte $00
+
+    // BD10
+    // Is non-zero if the player projectile was fired (in X or Y direction) during the interrupt.
+    flag__is_weapon_active: .byte $00
+
     // BD12
     // Calculated strength adjustment based on color of the challenge square.
     data__strength_adj: .byte $00
@@ -1999,6 +2281,10 @@ interrupt_handler:
     // Color of square where challenge was initiated. Used for determining icon strength.
     // TODO: Is this used?
     data__curr_square_color_code: .byte $00
+
+    // BD62
+    // Direction flag for each player used by AI.
+    data__player_direction_flag_list: .byte $00, $00
 
     // BD68
     // Low byte of player attack pattern frequency (one byte for each player). Used to vary the sound while the

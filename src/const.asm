@@ -19,9 +19,17 @@
 .const BYTES_PER_SPRITE = 64; // Bytes consumed by each sprite
 .const BYTERS_PER_ICON_SPRITE = 54; // Stored icon sprites are not full height and therefore consume less memory.
 .const BYTERS_PER_WEAPON_SPRITE = 8; // Weapon and projectile sprites are tiny and monochromatic.
-// Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
-.const EMPTY_SPRITE_BLOCK = 15
-.const LEFT_FACING_ICON_FRAME = $11 // Frame offset used to mirron the sprite to create a left facing sprite.
+.const EMPTY_SPRITE_BLOCK = 15 // Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
+
+// Animation frame offset constants.
+.const RIGHT_FACING_ICON_FRAME = $00
+.const LEFT_FACING_ICON_FRAME = $11
+.const UP_FACING_ICON_FRAME = $08
+.const DOWN_FACING_ICON_FRAME = $04
+.const RIGHT_FACING_ATTACK_FRAME = $0E
+.const LEFT_FACING_ATTACK_FRAME = $16
+.const UP_FACING_ATTACK_FRAME = $0C
+.const DOWN_FACING_ATTACK_FRAME = $10
 
 // Text screen constants.
 .const NUM_SCREEN_COLUMNS = 40; // $28
