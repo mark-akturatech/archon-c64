@@ -859,12 +859,121 @@ interrupt_handler:
     //
     // 9528
 !move_complete:
-
-// 959B
-!skip_move: // TODO: REMOVE
-
-    // 9528
-    jmp common.complete_interrupt // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	lda private.flag__was_icon_moved
+	bne !configure_sound+
+	//
+	// Reset player and turn off sound if player wasn't moved.
+	// Reset animation frame.
+	sta board.cnt__sprite_frame_list,x
+	// Disable sound if sound was previously enabled.
+	lda common.flag__is_player_sound_enabled,x
+	beq !next+
+	cmp #FLAG_ENABLE
+	bne !next+
+	lda #FLAG_DISABLE
+	sta common.flag__is_player_sound_enabled,x 
+	sta common.data__voice_note_delay,x
+	txa
+	asl
+	tay
+	lda common.ptr__voice_ctl_addr_list,y
+	sta FREEZP+2
+	lda common.ptr__voice_ctl_addr_list+1,y
+	sta FREEZP+3
+	lda #$00
+	ldy #$04 // Voice contrrol register
+	sta (FREEZP+2),y
+!next:
+	// Detect if fire button held and stop the player from moving it is.
+	txa
+	eor #$01
+	tay
+	lda CIAPRA,y
+	and #%0001_0000 // Fire button
+	bne !skip_move+
+	// Check if icon is Phoenox or Banshee (type $06 or $0E) and if so initiate an attack.
+	lda common.param__icon_offset_list,x
+	and #$07
+	cmp #$06
+	bne !skip_move+ // Not banshee or phoenix
+	jsr private.attack_player
+	jmp !skip_move+
+	//
+	// Counfigure movement sound when movement is first detected.
+!configure_sound:
+	lda #FLAG_ENABLE
+	cmp common.flag__is_player_sound_enabled,x
+	beq !animate_movement+
+	bcc !animate_movement+
+	sta common.flag__is_player_sound_enabled,x
+	lda #$00
+	sta common.data__voice_note_delay,x
+	txa
+	asl
+	tay
+	lda board.ptr__player_sound_pattern_lo_list,x
+	sta OLDTXT,y
+	lda board.ptr__player_sound_pattern_hi_list,x
+	sta OLDTXT+1,y
+	// Increment the animation frame after every 4 pixels of movement.
+!animate_movement:
+	inc private.idx__icon_frame,x
+	lda private.idx__icon_frame,x
+	and #$03
+	bne !skip_move+
+	inc board.cnt__sprite_frame_list,x
+	//
+!skip_move:
+	jsr private.configure_weapon
+	// Decrement weapon cooldown timer if active.
+	lda private.cnt__player_cooldown_delay_list,x
+	beq !next+
+	dec private.cnt__player_cooldown_delay_list,x
+	bne !next+
+	// Play recharge sound on player weapon cooldown timeout.
+	lda #PLAYER_SOUND_RECHARGE
+	cmp common.flag__is_player_sound_enabled,x
+	bcc !next+
+	sta common.flag__is_player_sound_enabled,x
+	lda #$00
+	sta common.data__voice_note_delay,x
+	txa
+	asl
+	tay
+	lda game.ptr__sound_game_effect_list,y
+	sta OLDTXT,y
+	lda game.ptr__sound_game_effect_list+1,y
+	sta OLDTXT+1,y
+!next:
+	lda board.cnt__countdown_timer
+	beq !next+
+	// Set cooldown complete flag used by AI.
+	txa
+	eor #$01
+	// 95CE 8D 26 BD sta temp_data__curr_sprite_ptr // TODO:
+!next:
+	dex
+	bmi !next+
+	jmp !player_loop-
+!next:
+	//
+	// Set the Banshee weapon sprite frame to match the current direction of the Banshee.
+	lda common.param__icon_offset_list+1
+	cmp #BANSHEE_OFFSET
+	bne !return+
+	lda private.data__player_weapon_sprite_speed_list+1
+	beq !return+
+	lda common.param__icon_sprite_source_frame_list+1
+	lsr
+	lsr
+	cmp #$03
+	bcc !next+
+	lda #$03
+!next:
+	sta common.param__icon_sprite_source_frame_list+3
+	//
+!return:
+	jmp common.complete_interrupt
 
 //---------------------------------------------------------------------------------------------------------------------
 // Private routines.
@@ -1236,6 +1345,34 @@ interrupt_handler:
         bne !row_loop-
         rts
 
+    // 9367
+    // Enable multicolor character mode for all screen character locations.
+    // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this
+    // mode, the color is controlled using the first 3 bits to select the appropriate color.
+    set_multicolor_screen:
+        lda #<COLRAM
+        sta FREEZP+2
+        lda #>COLRAM
+        sta FREEZP+3
+        ldx #$03
+        ldy #$00
+    !loop:
+        lda (FREEZP+2),y
+        ora #%0000_1000
+        sta (FREEZP+2),y
+        iny
+        bne !loop-
+        inc FREEZP+3
+        dex
+        bne !loop-
+    !loop:
+        lda (FREEZP+2),y
+        ora #%0000_1000
+        sta (FREEZP+2),y
+        iny
+        cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
+        bcc !loop-
+        rts
 
 	// 95FC
 	// Check joystick right direction and move player or fire weapon in the direction.
@@ -1468,6 +1605,7 @@ interrupt_handler:
 		lda #VERTICAL_WEAPON_FRAME
 		sta common.param__icon_sprite_source_frame_list+2,x
 		rts
+    // 9764
 	!diagonal_shot:
 		// Set weapon animation frame offset. Is calculated as follows:
 		// - $02: Up/Right
@@ -1517,34 +1655,85 @@ interrupt_handler:
 	!return:
 		rts
     
-    // 9367
-    // Enable multicolor character mode for all screen character locations.
-    // If multicolor mode is enabled, bit 4 is used to turn on multicolor mode for the specified character. In this
-    // mode, the color is controlled using the first 3 bits to select the appropriate color.
-    set_multicolor_screen:
-        lda #<COLRAM
-        sta FREEZP+2
-        lda #>COLRAM
-        sta FREEZP+3
-        ldx #$03
-        ldy #$00
-    !loop:
-        lda (FREEZP+2),y
-        ora #%0000_1000
-        sta (FREEZP+2),y
-        iny
-        bne !loop-
-        inc FREEZP+3
-        dex
-        bne !loop-
-    !loop:
-        lda (FREEZP+2),y
-        ora #%0000_1000
-        sta (FREEZP+2),y
-        iny
-        cpy #$E8 // Screen memory ends at +$03E8 (remaining bytes are used for sprite pointers)
-        bcc !loop-
-        rts
+	// 97A2
+	// Configure weapon sound, cooldown time, speed
+	configure_weapon:
+		lda flag__is_weapon_active
+		beq !return-
+		lda #PLAYER_SOUND_WEAPON
+		cmp common.flag__is_player_sound_enabled,x
+		bcc !skip_sound_config+
+		// Configure sound.
+		sta common.flag__is_player_sound_enabled,x
+		lda #$00
+		sta common.data__voice_note_delay,x
+		txa
+		asl
+		tay
+		lda ptr__player_attack_pattern_lo_list,x
+		sta OLDTXT,y
+		lda ptr__player_attack_pattern_hi_list,x
+		sta OLDTXT+1,y
+		lda resources.snd__effect_attack_01+4
+		sta ptr__player_attack_sound_fq_lo_list,x
+		lda resources.snd__effect_attack_01+5
+		sta ptr__player_attack_sound_fq_hi_list,x
+	!skip_sound_config:
+		//
+		// Configure cooldown countdown delay.
+		ldy common.param__icon_offset_list,x
+		lda data__icon_attack_recovery_list,y
+		sta cnt__player_cooldown_delay_list,x
+		// Configure projectile speed.
+		lda data__player_sprite_speed_list,x
+		and #(ICON_CAN_TRANSFORM + ICON_CAN_THRUST)
+		beq !set_speed+
+		// Configure thrust weapon.
+		cmp #ICON_CAN_THRUST
+		beq !set_thrust_count+
+		// Configure transform weapon.
+		sta data__player_weapon_sprite_speed_list,x
+		lda #$00
+		sta board.cnt__sprite_frame_list+2,x
+		sta data__player_weapon_sprite_x_dir_list,x
+		sta data__player_weapon_sprite_y_dir_list,x
+		lda common.param__icon_offset_list,x
+		cmp #BANSHEE_OFFSET
+		beq !configure_banshee+
+		// Configure Phoenix.
+		lda common.param__icon_sprite_source_frame_list,x
+		sta data__icon_sprite_frame_before_attack_list,x
+		lda board.data__sprite_curr_y_pos_list,x
+		sta data__icon_sprite_y_pos_before_attack_list,x
+		lda #SPRITE_Y_OFFSCREEN
+		sta board.data__sprite_curr_y_pos_list,x // Move Phoenix icon offscreen as it is replaced by fire
+		jmp configure_phoenix_animation
+	!configure_banshee:
+		// Configure Banshee scream. The scream will last for 40 frames (1 offset). The scream sprite is expanded
+		// in the X and Y directions. Note that we can hardcode the expansion of sprite 4 only as Banshee is a
+		// dark piece only (attack sprite 4) and light player doesn't have a Shape Shifter (unfortunately every
+		// light player needs to allow for a dark player of the same type if challenging the Shape Shifter).
+		lda #BANSHEE_SCREAM_ACTIVE_COUNT
+		sta data__player_weapon_sprite_x_dir_list,x
+		lda #$08
+		ora XXPAND
+		sta XXPAND
+		lda #$08
+		ora YXPAND
+		sta YXPAND
+		jmp banshee_attack
+		//
+	!set_thrust_count:
+		lda #THRUST_WEAPON_ACTIVE_COUNT
+	!set_speed:
+		ora #FLAG_ENABLE
+		sta data__player_weapon_sprite_speed_list,x
+		// Set animation initial frame if the projectile is rotating. Note that the routine returns to the parent if
+		// the icon does not support a rotating projectile. See `check_rotatating_projectile` for more details.
+		jsr check_rotatating_projectile
+		lda #$00
+		sta common.param__icon_sprite_source_frame_list+2,x
+		rts
 
 	// 9836
 	// Handle attack from transforming icons. The transforming icons are:
@@ -1788,8 +1977,7 @@ interrupt_handler:
 	!skip_hit:
 		// Keep the weapon active for a maximum of 15 frames
 		lda data__player_weapon_sprite_speed_list,x
-		.const NUM_THRUST_WEAPON_FAMES = 15
-		and #NUM_THRUST_WEAPON_FAMES
+		and #THRUST_WEAPON_ACTIVE_COUNT
 		bne !next+
 		jmp remove_weapon
 	!next:
@@ -2177,6 +2365,10 @@ interrupt_handler:
     // BCDC
     // icon frame prior to attack
     data__icon_sprite_frame_before_attack_list: .byte $00, $00	
+
+    // BCEE
+    // Counter used to advance animation frame (every 4 pixels).
+    idx__icon_frame: .byte $00
 
 	// BCF0
 	// List of counters used to delay the rotation of a rotating projectile will the projectile is moving across the

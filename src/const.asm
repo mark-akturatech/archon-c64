@@ -232,3 +232,5 @@
 .const PLAYER_SOUND_RECHARGE = (FLAG_ENABLE + 1) // Player recharge expired sound - can activate weapon again
 .const PLAYER_SOUND_WEAPON = (FLAG_ENABLE + 2) // Player weapon sound
 .const PLAYER_SOUND_HIT = (FLAG_ENABLE + 3) // Player hit sound
+.const THRUST_WEAPON_ACTIVE_COUNT = 15
+.const BANSHEE_SCREAM_ACTIVE_COUNT = 41
