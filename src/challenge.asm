@@ -107,7 +107,7 @@ entry:
 !player_loop:
     // Create sprite group.
     jsr common.initialize_sprite
-    lda #BYTERS_PER_ICON_SPRITE
+    lda #BYTES_PER_ICON_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     // Place the sprite at the challenge square.
@@ -228,7 +228,7 @@ entry:
 !loop:
     // Each weapon/projectile comprises 8 bytes. There are 4 sprite frames that are rotated to create sprites for each
     // direction. Up and down direction use the same sprite.
-    lda #BYTERS_PER_WEAPON_SPRITE
+    lda #BYTES_PER_WEAPON_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     inx
@@ -1601,7 +1601,7 @@ interrupt_handler:
 		clc
 		adc data__vertical_projectile_x_offset,y
 		sta board.data__sprite_curr_x_pos_list+2,x
-		.const VERTICAL_WEAPON_FRAME = $04
+		.const VERTICAL_WEAPON_FRAME = $01
 		lda #VERTICAL_WEAPON_FRAME
 		sta common.param__icon_sprite_source_frame_list+2,x
 		rts
@@ -1774,7 +1774,7 @@ interrupt_handler:
 		adc #PARAMS_PER_ANIMATION
 		sta data__player_weapon_sprite_y_dir_list,x
 		cmp #(PARAMS_PER_ANIMATION * NUM_ANIMATION_STATES)
-		bcc !next+
+		bcc configure_phoenix_animation
 		jmp !restore_icon+
     // 9863
 	configure_phoenix_animation:
@@ -1839,7 +1839,7 @@ interrupt_handler:
 		clc
 		adc #$01
 		cmp #$05
-	bcc !next+
+	    bcc !next+
 		jsr check_hit
 		lda #$00
 	!next:
@@ -2274,26 +2274,26 @@ interrupt_handler:
     // Weapon/projectile animation sprite offsets. Note that some icons use the same weapons/projectiles.
     // Phoenix and Banshee use full height shape data stored with the icon shape data.
     ptr__weapon_sprite_mem_offset_list:
-        .word resources.ptr__sprites_weapon+00*BYTERS_PER_WEAPON_SPRITE*4 // UC
-        .word resources.ptr__sprites_weapon+01*BYTERS_PER_WEAPON_SPRITE*4 // WZ
-        .word resources.ptr__sprites_weapon+02*BYTERS_PER_WEAPON_SPRITE*4 // AR
-        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // GM
-        .word resources.ptr__sprites_weapon+04*BYTERS_PER_WEAPON_SPRITE*4 // VK
-        .word resources.ptr__sprites_weapon+05*BYTERS_PER_WEAPON_SPRITE*4 // DJ
-        .word resources.prt__sprites_icon+PHOENIX_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // PH                                                         // PH
-        .word resources.ptr__sprites_weapon+07*BYTERS_PER_WEAPON_SPRITE*4 // KN
-        .word resources.ptr__sprites_weapon+08*BYTERS_PER_WEAPON_SPRITE*4 // BK
-        .word resources.ptr__sprites_weapon+09*BYTERS_PER_WEAPON_SPRITE*4 // SR
-        .word resources.ptr__sprites_weapon+10*BYTERS_PER_WEAPON_SPRITE*4 // MC
-        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // TL
-        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // SS (not used)
-        .word resources.ptr__sprites_weapon+13*BYTERS_PER_WEAPON_SPRITE*4 // DG
-        .word resources.prt__sprites_icon+BANSHEE_OFFSET*BYTERS_PER_ICON_SPRITE*15+BYTERS_PER_ICON_SPRITE*10 // BS
-        .word resources.ptr__sprites_weapon+15*BYTERS_PER_WEAPON_SPRITE*4 // GB
-        .word resources.ptr__sprites_weapon+05*BYTERS_PER_WEAPON_SPRITE*4 // AE
-        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // FE
-        .word resources.ptr__sprites_weapon+03*BYTERS_PER_WEAPON_SPRITE*4 // EE
-        .word resources.ptr__sprites_weapon+12*BYTERS_PER_WEAPON_SPRITE*4 // WE
+        .word resources.ptr__sprites_weapon+UNICORN_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // UC
+        .word resources.ptr__sprites_weapon+WIZARD_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // WZ
+        .word resources.ptr__sprites_weapon+ARCHER_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // AR
+        .word resources.ptr__sprites_weapon+GOLEM_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // GM
+        .word resources.ptr__sprites_weapon+VALKYRIE_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // VK
+        .word resources.ptr__sprites_weapon+DJINNI_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // DJ
+        .word resources.prt__sprites_icon+PHOENIX_OFFSET*BYTES_PER_ICON_SPRITE*15+BYTES_PER_ICON_SPRITE*10 // PH                                                         // PH
+        .word resources.ptr__sprites_weapon+KNIGHT_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // KN
+        .word resources.ptr__sprites_weapon+BASILISK_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // BK
+        .word resources.ptr__sprites_weapon+SORCERESS_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // SR
+        .word resources.ptr__sprites_weapon+MANTICORE_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // MC
+        .word resources.ptr__sprites_weapon+GOLEM_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // TL
+        .word resources.ptr__sprites_weapon+SHAPESHIFTER_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // SS
+        .word resources.ptr__sprites_weapon+DRAGON_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // DG
+        .word resources.prt__sprites_icon+BANSHEE_OFFSET*BYTES_PER_ICON_SPRITE*15+BYTES_PER_ICON_SPRITE*5 // BS
+        .word resources.ptr__sprites_weapon+GOBLIN_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // GB
+        .word resources.ptr__sprites_weapon+DJINNI_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // AE
+        .word resources.ptr__sprites_weapon+SHAPESHIFTER_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // FE
+        .word resources.ptr__sprites_weapon+GOLEM_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // EE
+        .word resources.ptr__sprites_weapon+SHAPESHIFTER_OFFSET*BYTES_PER_WEAPON_SPRITE*4 // WE
 
     // 95F4
     // Pointers to hit sound effect.

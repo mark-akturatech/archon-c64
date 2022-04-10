@@ -83,7 +83,7 @@ entry:
         // Copy in icon frames for the chase scene.
         lda #FLAG_ENABLE
         sta common.param__is_copy_icon_sprites
-        lda #BYTERS_PER_ICON_SPRITE
+        lda #BYTES_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         lda common.ptr__sprite_24_mem
         sta FREEZP+2

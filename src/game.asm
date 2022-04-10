@@ -177,7 +177,7 @@ entry:
     // Board is black
     lda #FLAG_ENABLE_FF
     sta data__imprisoned_icon_list+1 // Remove imprisoned dark icon
-    ldx #$23 // Dark player icon offset
+    ldx #(BOARD_NUM_PLAYER_PIECES*2-1) // Dark player icon offset (count backwards from last dark player)
     jsr private.regenerate_hitpoints
     jmp !next+
 !check_light:
@@ -186,7 +186,7 @@ entry:
     // Board is white
     lda #FLAG_ENABLE_FF
     sta data__imprisoned_icon_list // Remove imprisoned light icon
-    ldx #$11 // Light player icon offset
+    ldx #(BOARD_NUM_PLAYER_PIECES-1) // Light player icon offset (last light player)
     jsr private.regenerate_hitpoints
 !next:
     // Increase strength of all icons on magic squares.
@@ -297,7 +297,7 @@ play_turn:
     ldx #$00
     jsr board.convert_coord_sprite_pos
     jsr common.initialize_sprite
-    lda #BYTERS_PER_ICON_SPRITE
+    lda #BYTES_PER_ICON_SPRITE
     sta common.param__sprite_source_len
     jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
@@ -419,7 +419,7 @@ interrupt_handler:
     bpl !next+
     inx
 !next:
-    lda #$81
+    lda #PLAYER_SOUND_RECHARGE
     sta common.flag__is_player_sound_enabled
     lda #$00
     sta common.data__voice_note_delay
@@ -428,7 +428,7 @@ interrupt_handler:
     tay
     lda ptr__sound_game_effect_list,y
     sta OLDTXT
-    lda ptr__sound_game_effect_list,y
+    lda ptr__sound_game_effect_list+1,y
     sta OLDTXT+1
 !set_sound:
     jsr board.play_icon_sound
@@ -1255,7 +1255,7 @@ display_message:
         and #%1111_1100
         sta XXPAND
         // Configure source icon.
-        lda #(BYTERS_PER_ICON_SPRITE-1) // 0 offset
+        lda #(BYTES_PER_ICON_SPRITE-1) // 0 offset
         sta idx__sprite_shape_source_row
         lda board.data__curr_icon_col
         ldy board.data__curr_icon_row
@@ -1269,7 +1269,7 @@ display_message:
         sta FREEZP+2
         lda common.ptr__sprite_00_mem+1
         sta FREEZP+3
-        lda #BYTERS_PER_ICON_SPRITE
+        lda #BYTES_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         lda common.param__icon_sprite_source_frame_list
         beq !next+
@@ -1617,7 +1617,8 @@ cnt__stalemate_moves: .byte $00
 
 // BDFD
 // Current strength of each board icon.
-data__piece_strength_list: .fill BOARD_TOTAL_NUM_PIECES, $00
+// The 4 additional spaces are for elementals.
+data__piece_strength_list: .fill BOARD_TOTAL_NUM_PIECES+4, $00
 
 // BCFE
 // Is set if the selected square is a valid selection.

@@ -31,7 +31,7 @@ entry:
     lda %0111_1111
     sta SPMC // Set multicolor mode for sprites 0-7
     //
-    lda #BYTERS_PER_ICON_SPRITE
+    lda #BYTES_PER_ICON_SPRITE
     sta common.param__sprite_source_len
     // Adds icon types to the board one at a time. Each icon is added by animating it (flying or walking) to the
     // icon's square.

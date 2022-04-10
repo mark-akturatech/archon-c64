@@ -38,12 +38,10 @@ txt__intro_authors:
     .byte STRING_CMD_END
 
 // A907
-// Emptry string under authors - is a copyright message in some versions
+// Copyright (C) 1984 Free Fall Associates
 txt__intro_empty:
     .byte $0f, $01 // Start on row $0f column $01
-    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-    .byte $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-    .byte $00, $00, $00, $00, $00, $00, $00
+    .text @"COPYRIGHT\$00\$5aC\$5b\$00\$5c\$5d\$5e\$5f\$00FREE\$00FALL\$00ASSOCIATES"
     .byte STRING_CMD_END
 
 // A931

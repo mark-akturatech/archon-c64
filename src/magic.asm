@@ -406,7 +406,7 @@ spell_select:
         ldy board.data__curr_board_row
         jsr board.convert_coord_sprite_pos
         jsr common.initialize_sprite
-        lda #BYTERS_PER_ICON_SPRITE
+        lda #BYTES_PER_ICON_SPRITE
         sta common.param__sprite_source_len
         jsr common.add_sprite_set_to_graphics
         lda game.data__player_offset

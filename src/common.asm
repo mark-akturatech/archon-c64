@@ -1055,13 +1055,13 @@ data__color_mem_offset: .byte >(COLRAM-SCNMEM)
     // though as it doesn't need an attack sprite set as it shape shifts in to the opposing icon when challenging.
     ptr__icon_sprite_mem_offset_list:
         // UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS
-        .fillword 13, resources.prt__sprites_icon+i*BYTERS_PER_ICON_SPRITE*15
+        .fillword 13, resources.prt__sprites_icon+i*BYTES_PER_ICON_SPRITE*15
         // DG
-        .fillword 1, resources.prt__sprites_icon+12*BYTERS_PER_ICON_SPRITE*15+1*BYTERS_PER_ICON_SPRITE*10
+        .fillword 1, resources.prt__sprites_icon+12*BYTES_PER_ICON_SPRITE*15+1*BYTES_PER_ICON_SPRITE*10
         // BS, GB
-        .fillword 2, resources.prt__sprites_icon+(13+i)*BYTERS_PER_ICON_SPRITE*15+1*BYTERS_PER_ICON_SPRITE*10
+        .fillword 2, resources.prt__sprites_icon+(13+i)*BYTES_PER_ICON_SPRITE*15+1*BYTES_PER_ICON_SPRITE*10
         // AE, FE, EE, WE
-        .fillword 4, resources.prt__sprites_elemental+i*BYTERS_PER_ICON_SPRITE*15
+        .fillword 4, resources.prt__sprites_elemental+i*BYTES_PER_ICON_SPRITE*15
 
     // 8BDA
     // Color of each elemental (air, fire, earth, water).

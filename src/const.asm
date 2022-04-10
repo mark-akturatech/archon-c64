@@ -17,8 +17,8 @@
 
 // Sprite constants.
 .const BYTES_PER_SPRITE = 64; // Bytes consumed by each sprite
-.const BYTERS_PER_ICON_SPRITE = 54; // Stored icon sprites are not full height and therefore consume less memory.
-.const BYTERS_PER_WEAPON_SPRITE = 8; // Weapon and projectile sprites are tiny and monochromatic.
+.const BYTES_PER_ICON_SPRITE = 54; // Stored icon sprites are not full height and therefore consume less memory.
+.const BYTES_PER_WEAPON_SPRITE = 8; // Weapon and projectile sprites are tiny and monochromatic.
 .const EMPTY_SPRITE_BLOCK = 15 // Address VICMEM+15*BYTES_PER_SPRITE contains a contiguous 64 bytes of 0's athat can be used as a blank sprite.
 
 // Animation frame offset constants.
