@@ -126,7 +126,7 @@ entry:
         bcc !add_icon_sprites+
         // Add 2 icons.
         lda board.data__curr_board_row
-        sta cnt__board_row
+        sta idx__board_row
         lda #(BOARD_NUM_ROWS-1) // 0 offset
         sec
         sbc board.data__curr_board_row
@@ -137,7 +137,7 @@ entry:
         // either row 6 or row 2 and the mirrored row will be correctly determed. However, the starting row is always
         // stored as the higher row number (6 in the case of Unicorn) and therefore code isn't really needed. The
         // BCS will always fire.
-        lda cnt__board_row
+        lda idx__board_row
         sec
         sbc board.data__curr_board_row
         bcs !next+
@@ -447,7 +447,7 @@ entry:
 
     // BF30
     // Current board row.
-    cnt__board_row: .byte $00
+    idx__board_row: .byte $00
 
     // BF3B
     // Calculated Y offset for each sprite.

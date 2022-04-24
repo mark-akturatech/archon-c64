@@ -160,23 +160,23 @@ surrounding_squares_coords:
     ldx #(NUM_SURROUNDING_SQUARES+1-1) // Surrounding squares plus current square (0 offset)
     ldy data__curr_icon_row
     iny
-    sty private.cnt__board_row
+    sty private.idx__board_row
 !row_loop:
     ldy data__curr_icon_col
     iny
-    sty private.cnt__board_col
+    sty private.idx__board_col
     ldy #$03
 !column_loop:
-    lda private.cnt__board_row
+    lda private.idx__board_row
     sta data__surrounding_square_row_list,x
-    lda private.cnt__board_col
+    lda private.idx__board_col
     sta data__surrounding_square_col_list,x
     dex
     bmi !return+
-    dec private.cnt__board_col
+    dec private.idx__board_col
     dey
     bne !column_loop-
-    dec private.cnt__board_row
+    dec private.idx__board_row
     jmp !row_loop-
 !return:
     rts
@@ -301,12 +301,12 @@ draw_board:
     sta EXTCOL
     //
     lda #(BOARD_NUM_ROWS-1) // 0 offset
-    sta private.cnt__board_row
+    sta private.idx__board_row
     // Draw each board row.
 !row_loop:
     lda #(BOARD_NUM_COLS-1) // 0 offset
-    sta private.cnt__board_col
-    ldy private.cnt__board_row
+    sta private.idx__board_col
+    ldy private.idx__board_row
     //
     lda ptr__screen_row_offset_lo,y
     sta FREEZP+2 // Screen offset
@@ -328,7 +328,7 @@ draw_board:
     sta CURLIN+1
     //
 !square_loop:
-    ldy private.cnt__board_col
+    ldy private.idx__board_col
     bit param__render_square_ctl
     bvs !render_square+ // Disable icon render
     bpl !render_icon+
@@ -336,10 +336,10 @@ draw_board:
     lda #FLAG_ENABLE // disable square render (set to icon offset to render an icon)
     sta private.data__square_render_icon_offset
     lda data__curr_board_col
-    cmp private.cnt__board_col
+    cmp private.idx__board_col
     bne !empty_square+
     lda data__curr_board_row
-    cmp private.cnt__board_row
+    cmp private.idx__board_row
     bne !empty_square+
 !render_icon:
     lda (FREEZP),y
@@ -381,22 +381,22 @@ draw_board:
 !skip:
     ora #$08 // Derive square color
     sta private.data__curr_square_color_code
-    lda private.cnt__board_col
+    lda private.idx__board_col
     asl
     clc
-    adc private.cnt__board_col
+    adc private.idx__board_col
     tay
     jsr private.draw_square_part
-    lda private.cnt__board_col
+    lda private.idx__board_col
     asl
     clc
-    adc private.cnt__board_col
+    adc private.idx__board_col
     adc #NUM_SCREEN_COLUMNS
     tay
     jsr private.draw_square_part
-    dec private.cnt__board_col
+    dec private.idx__board_col
     bpl !square_loop-
-    dec private.cnt__board_row
+    dec private.idx__board_row
     bmi !return+
     jmp !row_loop-
 !return:
@@ -908,11 +908,11 @@ data__curr_board_col: .byte $00
 
     // BF30
     // Current board row.
-    cnt__board_row: .byte $00
+    idx__board_row: .byte $00
 
     // BF31
     // Current board column.
-    cnt__board_col: .byte $00
+    idx__board_col: .byte $00
 
     // BF44
     // Current magic square being rendered.

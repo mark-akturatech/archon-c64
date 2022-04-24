@@ -268,7 +268,7 @@ play_turn:
     lda data__ai_player_ctl
     cmp flag__is_light_turn
     bne !next+
-    jsr ai.board_calculate_move
+    jsr ai.calculate_move
     ldx #(1.5*JIFFIES_PER_SECOND) // Normal AI start delay
     lda board.cnt__countdown_timer // Will be FF is option timer expired
     bmi !next+
@@ -302,7 +302,7 @@ play_turn:
     jsr common.add_sprite_set_to_graphics
     // detect if piece can move?
     ldx common.param__icon_offset_list
-    lda private.data__icon_num_moves_list,x
+    lda data__icon_num_moves_list,x
     sta data__icon_moves
     bmi !select_icon+ // Selected icon can fly - don't need to check surrounding squares
     // Check if piece is surrounded by the same player icons and cannot move.
@@ -999,9 +999,9 @@ display_message:
         bcs !return+
         tay
         iny
-        sty cnt__board_col
+        sty idx__board_col
         lda board.data__curr_board_row
-        sta cnt__board_row
+        sta idx__board_row
         lda #$00 // Stating animation frame 0
         sta private.idx__start_icon_frame
         jsr verify_valid_move
@@ -1020,9 +1020,9 @@ display_message:
         beq !return+ // Already on first column?
         tay
         dey
-        sty cnt__board_col
+        sty idx__board_col
         lda board.data__curr_board_row
-        sta cnt__board_row
+        sta idx__board_row
         lda #LEFT_FACING_ICON_FRAME
         sta private.idx__start_icon_frame
         jsr verify_valid_move
@@ -1039,9 +1039,9 @@ display_message:
         beq !return+ // Already on first row?
         tay
         dey
-        sty cnt__board_row
+        sty idx__board_row
         lda board.data__curr_board_col
-        sta cnt__board_col
+        sta idx__board_col
         lda flag__is_new_square_selected
         cmp #$01
         beq !next+ // Pefer left/right facing when moving diagonally
@@ -1064,9 +1064,9 @@ display_message:
         bcs !return+
         tay
         iny
-        sty cnt__board_row
+        sty idx__board_row
         lda board.data__curr_board_col
-        sta cnt__board_col
+        sta idx__board_col
         lda flag__is_new_square_selected
         cmp #$01
         beq !next+ // Pefer left/right facing when moving diagonally
@@ -1090,8 +1090,8 @@ display_message:
     // and therefore the RTS will return from the calling subroutine. The calling subroutine calls this sub just before
     // adding to the X or Y movement counters, so this stops the icon or square from moving.
     // Requires:
-    // - Selected square column must be stored in `cnt__board_col`
-    // - Selected square row must be stored in `cnt__board_row`
+    // - Selected square column must be stored in `idx__board_col`
+    // - Selected square row must be stored in `idx__board_row`
     // - Current number of moves held in `private.cnt__moves`
     // - Total number of moves held in `data__icon_moves`
     // - Path of previous moves stored in `private.data__move_col_list` and `private.data__move_row_list`
@@ -1104,10 +1104,10 @@ display_message:
         beq !next+
         dey
         lda private.data__move_col_list,y
-        cmp cnt__board_col
+        cmp idx__board_col
         bne !next+
         lda private.data__move_row_list,y
-        cmp cnt__board_row
+        cmp idx__board_row
         bne !next+
         dec private.cnt__moves
         rts
@@ -1118,9 +1118,9 @@ display_message:
         // Store the move so that we can check the move path to calculate the total number of moves.
         inc private.cnt__moves
         ldy private.cnt__moves
-        lda cnt__board_row
+        lda idx__board_row
         sta private.data__move_row_list,y
-        lda cnt__board_col
+        lda idx__board_col
         sta private.data__move_col_list,y
         rts
     !check_limit:
@@ -1156,8 +1156,8 @@ display_message:
     // 88E1
     // Detect if the destination square is already occupied by an icon for the same player. Abort the move it is is.
     warn_on_occupied_square:
-        ldy cnt__board_row
-        lda cnt__board_col
+        ldy idx__board_row
+        lda idx__board_col
         jsr get_square_occupancy
         cmp #BOARD_EMPTY_SQUARE
         beq !return+
@@ -1178,7 +1178,7 @@ display_message:
     // 8903
     // Calculate if diagonal move limit exceeded.
     warn_on_diagonal_move_exceeded:
-        lda cnt__board_col
+        lda idx__board_col
         sec
         sbc board.data__curr_icon_col
         bcs !next+
@@ -1186,7 +1186,7 @@ display_message:
         adc #$01
     !next:
         sta data__curr_board_col
-        lda cnt__board_row
+        lda idx__board_row
         sec
         sbc board.data__curr_icon_row
         bcs !next+
@@ -1508,6 +1508,15 @@ data__icon_strength_list:
     //    UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB, AE, FE, EE, WE
     .byte 09, 10, 05, 15, 08, 15, 12, 05, 06, 10, 08, 14, 10, 17, 08, 05, 12, 10, 17, 14
 
+// 8AC7
+// Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
+// icon can fly.
+data__icon_num_moves_list:
+    //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
+    .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
+    //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
+    .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
+
 // 8B77
 // Index of magic squares within the square occupancy array.
 data__magic_square_offset_list: .byte $04, $24, $28, $2C, $4C
@@ -1525,15 +1534,6 @@ ptr__sound_game_effect_list:
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
-    // 8AC7
-    // Number of moves of each icon type. Uses icon offset as index. Add +$40 if icon can cast spells. Add +$80 if
-    // icon can fly.
-    data__icon_num_moves_list:
-        //    UC, WZ,                            AR, GM, VK,              DJ,              PH,              KN
-        .byte 04, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 03+ICON_CAN_FLY, 04+ICON_CAN_FLY, 05+ICON_CAN_FLY, 03
-        //    BK, SR,                            MC, TL, SS,              DG,              BS,              GB
-        .byte 03, 03+ICON_CAN_FLY+ICON_CAN_CAST, 03, 03, 05+ICON_CAN_FLY, 04+ICON_CAN_FLY, 03+ICON_CAN_FLY, 03
-
     // 9274
     // Logo string that is converted to a sprite using character set dot data as sprite source data.
     txt__game_name: .text "ARCHON"
@@ -1735,11 +1735,11 @@ data__phase_cycle_board:
 
     // BF30
     // Current board row.
-    cnt__board_row: .byte $00
+    idx__board_row: .byte $00
 
     // BF31
     // Current board column.
-    cnt__board_col: .byte $00
+    idx__board_col: .byte $00
 
     // BF32
     // Dark remaining icon count.

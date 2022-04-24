@@ -80,6 +80,22 @@ The addresses use the icon offset. You can change these without any consequence.
   Setting a Knight to 01 makes it a pretty tough opponent.
 - Shape Shifters will assume the initial strength of the icon they are fighting. This means they don't really need to heal and have an advantage over pieces with damage. However, if a Shape Shifter challenges an elemental, the Shape Shifter will have a strength of 10, which is less than most elementals.
 - Pieces will receive an negative strength adjustment when defending the caster magic square based on the number of spells already cast by the spell caster. The caster magic square is the square that the spell caster initially starts the game on. I think the idea here is that the spell caster weakens the square as they cast spells, making the square harder to defend.
+
+## AI
+
+### Spell Casting
+- Spells are first tested in the following priority order at the start of each AI turn:
+  1. Imprison:
+  2. Shift Time:
+  3. Summon Elemental:
+  4. Teleport:
+  5. Exchange: AI never selects exchange spell.
+  6. Revive:
+    Dark: Phase must be in dark cycle and Dragon or Shapeshifter have been killed (Dragon has priority over Shapeshifter).
+    Light: Phase must be in light cycle and Djinni or Phoenix have been killed (Djinni has priority over Phoenix).
+  7. Heal:
+- If no spell is selected, then ....
+
 ## Notes
 
 The following acronyms are used in the above tables:

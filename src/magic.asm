@@ -7,8 +7,8 @@
 // 62FF
 // Detects if the selected square is a magic square.
 // Requires:
-// - `cnt__board_row`: row of the square to test.
-// - `cnt__board_col`: column of the square to test.
+// - `idx__board_row`: row of the square to test.
+// - `idx__board_col`: column of the square to test.
 // Sets:
 // - `flag__is_destination_valid`: is $80 if selected square is a magic square.
 // Preserves:
@@ -21,10 +21,10 @@ test_magic_square_selected:
     ldy #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
 !loop:
     lda board.data__magic_square_col_list,y
-    cmp cnt__board_row
+    cmp idx__board_row
     bne !next+
     lda board.data__magic_square_row_list,y
-    cmp cnt__board_col
+    cmp idx__board_col
     beq !selected+
 !next:
     dey
@@ -47,7 +47,7 @@ select_spell:
     lda game.data__ai_player_ctl
     cmp game.flag__is_light_turn
     bne select_spell_from_list
-    jmp ai.magic_select_spell
+    jmp ai.cast_magic_spell
 
 // 67CB
 select_spell_from_list:
@@ -165,9 +165,9 @@ spell_select:
     //       to 15 squares).
 !check_valid:
     lda board.data__curr_board_row
-    sta cnt__board_row
+    sta idx__board_row
     lda board.data__curr_board_col
-    sta cnt__board_col
+    sta idx__board_col
     jsr test_magic_square_selected
     lda game.flag__is_destination_valid
     bmi !abort+
@@ -195,9 +195,9 @@ spell_select:
         lda game.data__player_offset
         asl
         tay
-        lda private.ptr__player_used_spell_list,y
+        lda ptr__player_used_spell_list,y
         sta CURLIN
-        lda private.ptr__player_used_spell_list+1,y
+        lda ptr__player_used_spell_list+1,y
         sta CURLIN+1
         rts
 
@@ -218,7 +218,7 @@ spell_select:
         // 6860  8D 51 BD   sta WBD51
         // 6863  AD 5C BE   lda WBE5C
         // 6866  8D 50 BD   sta WBD50
-        // 6869  20 A1 7A   jsr W7AA1
+        jsr ai.select_teleport_destination
         jmp !skip+
     !next:
         lda #STRING_TELEPORT_WHERE
@@ -894,12 +894,12 @@ spell_select:
         cmp #$09 // Only test columns 0-8
         bcs !next+
         tay
-        sty cnt__board_row
+        sty idx__board_row
         lda board.data__surrounding_square_col_list,x
         bmi !next+
         cmp #$09 // Only test rows 0-8
         bcs !next+
-        sta cnt__board_col
+        sta idx__board_col
         jsr game.get_square_occupancy
         bpl !next+
         jsr test_magic_square_selected
@@ -911,10 +911,50 @@ spell_select:
         // 7948  F0 04      beq W794E // TODO: AI
         asl flag__is_valid_square
         rts
+        // W794E: // TODO: AI
+        // 794E  AC 30 BF   ldy  temp_data__curr_line  
+        // 7951  B9 D2 BE   lda  board_row_color_lo_ptr,y 
+        // 7954  85 FB      sta  io_FREEZP             Free 0 page for user program
+        // 7956  B9 DB BE   lda  board_row_color_hi_ptr,y 
+        // 7959  85 FC      sta  io_FREEZP+1           
+        // 795B  AC 31 BF   ldy  temp_data__curr_column 
+        // 795E  B1 FB      lda  (io_FREEZP),y         Free 0 page for user program
+        // 7960  F0 10      beq  W7972                 
+        // 7962  10 07      bpl  W796B                 
+        // 7964  AD 40 BF   lda  main_state_curr_cycle+3 
+        // 7967  C9 08      cmp  #$08                  
+        // 7969  90 07      bcc  W7972                 
+        // W796B:
+        // 796B  AD C0 BC   lda  game_state_flag__ai_player_ctl 
+        // 796E  30 07      bmi  !next+                 
+        // 7970  10 09      bpl  W797B                 
+        // W7972:
+        // 7972  AD C0 BC   lda  game_state_flag__ai_player_ctl 
+        // 7975  30 0F      bmi  W7986 
     !next:
         dex
         bpl !loop-
         rts
+        // W797B: // TODO: AI
+        // 797B  A0 06      ldy  #DJINNI                  
+        // 797D  20 91 79   jsr  W7991                 
+        // 7980  A0 0A      ldy  #PHOENIX                 
+        // 7982  20 91 79   jsr  W7991                 
+        // 7985  60         rts          
+        // W7986:
+        // 7986  A0 1D      ldy  #DRAGON                 
+        // 7988  20 91 79   jsr  W7991                 
+        // 798B  A0 19      ldy  #SHAPESHIFTER                  
+        // 798D  20 91 79   jsr  W7991                 
+        // W7990:
+        // 7990  60         rts        
+        // W7991:
+        // 7991  B9 FD BD   lda  board_character_strength_data,y 
+        // 7994  D0 FA      bne  W7990                 
+        // 7996  8C 52 BD   sty  WBD52                 
+        // 7999  68         pla                        
+        // 799A  68         pla                        
+        // 799B  4C FD 79   jmp  W79FD                 
 
     // 87F6
     // Allow player to select any non-imprisoned icon piece on the board.
@@ -1061,14 +1101,14 @@ spell_select:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
+// 67A0
+// Location of used spell arrays for each player
+ptr__player_used_spell_list:
+    .word data__light_used_spells_list, data__dark_used_spell_list
+
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
-    // 67A0
-    // Location of used spell arrays for each player
-    ptr__player_used_spell_list:
-        .word data__light_used_spells_list, data__dark_used_spell_list
-
     // 67A4
     // Spell cast routine pointers.
     ptr__spell_cast_fn_list:
@@ -1123,11 +1163,11 @@ data__used_spell_count: .byte $00
 
 // BF30
 // Current board row.
-cnt__board_row: .byte $00
+idx__board_row: .byte $00
 
 // BF31
 // Current board column.
-cnt__board_col: .byte $00
+idx__board_col: .byte $00
 
 //---------------------------------------------------------------------------------------------------------------------
 // Private variables.

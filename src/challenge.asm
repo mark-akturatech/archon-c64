@@ -392,9 +392,9 @@ entry:
 	// Determine if challenging for a magic square. Sets an offset (presumably aggresiveness) to 0 for non-magic and
 	// 3 for magic square. Used by AI Algorithm.
 	lda board.data__curr_board_row
-	sta magic.cnt__board_row
+	sta magic.idx__board_row
 	lda board.data__curr_board_col
-	sta magic.cnt__board_col
+	sta magic.idx__board_col
 	jsr magic.test_magic_square_selected
 	lda #FLAG_DISABLE
 	bit game.flag__is_destination_valid
@@ -1065,14 +1065,14 @@ interrupt_handler:
         cmp #$12
         bcs !barrier_type_loop-
         asl // Ensure there is space between the barriers
-        sta cnt__board_col
+        sta idx__board_col
         // Pick a random even number between $00 and $0A. This will represent the row where the barrier is drawn.
     !loop:
         lda RANDOM
         and #%0000_1110
         cmp #$0B
         bcs !loop-
-        sta cnt__board_row
+        sta idx__board_row
         // Draw the barrier on the screen.
         // A barrier comprises 4 characters (2 wide and 2 high). The draw routine updates the barrier character
         // counter as the barrier is drawn, so below we push the counter on to the stack and restore it again after
@@ -1104,8 +1104,8 @@ interrupt_handler:
     // Draw a single barrier character.
     // A barrier comprises 4 characters in a 2x2 grid.
     // Requires:
-    // - cnt__board_row: Screen row where barrier will be drawn.
-    // - cnt__board_col: Screen column where barrier will be drawn.
+    // - idx__board_row: Screen row where barrier will be drawn.
+    // - idx__board_col: Screen column where barrier will be drawn.
     // - cnt__barrier_character: Initial character id of character in top left position of the grid.
     // Sets:
     // - flag__was_barrier_drawn: TRUE if the barrier was drawn or FALSE an existing barrier already occupies the
@@ -1114,10 +1114,10 @@ interrupt_handler:
     // Preserves:
     // - X is purposely untouched
     draw_barrier:
-        lda #$40
+        lda #(FLAG_ENABLE/2)
         sta flag__was_barrier_drawn // Default barrier drawn flag to off
         // Set the starting screen row of the barrier.
-        ldy cnt__board_row
+        ldy idx__board_row
         lda ptr__screen_barrier_row_offset_lo,y
         sta FREEZP+2
         lda ptr__screen_barrier_row_offset_hi,y
@@ -1126,7 +1126,7 @@ interrupt_handler:
         lda #NUMBER_BARRIER_ROWS
         sta cnt__screen_row
     !row_loop:
-        ldy cnt__board_col
+        ldy idx__board_col
         lda (FREEZP+2),y
         bne !return+ // don't overwrite an existing barrier
         // Draw the barrier. Barriers comprise of 4 characters in a 2x2 grid.
@@ -2530,11 +2530,11 @@ interrupt_handler:
 
     // BF30
     // Current board row.
-    cnt__board_row: .byte $00
+    idx__board_row: .byte $00
 
     // BF31
     // Current board column.
-    cnt__board_col: .byte $00
+    idx__board_col: .byte $00
 
     // BF34
     // Current y direction of the player weapon sprite.
