@@ -37,8 +37,8 @@
   The additional colors can be enabled by writing a `$00` to addresses `$6599` and `$65D0`.
 - You can draw a game if the last two icons challenge and both kill each other in battle.
 - You can stalemate a game if both players have 3 or less icons and a challenge hasn't occurred within 12 rounds.
-- Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLUM, KNIGHT, UNICORN, KNIGHT etc.
-The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golemns.
+- Address `$8AFF` contains each initial icon for light and dark players. The icons are ordered light row 1, light row 2, etc and then dark row 1, dark row 2. So is VALKYRIE, ARCHER, GOLEM, KNIGHT, UNICORN, KNIGHT etc.
+The addresses use the icon offset. You can change these without any consequence. Eg modify so you have unicorns instead of Knights or 5 Golems.
   The icon offsets are defined below:
   ```
   UC, WZ, AR, GM, VK, DJ, PH, KN, BK, SR, MC, TL, SS, DG, BS, GB
@@ -83,7 +83,6 @@ The addresses use the icon offset. You can change these without any consequence.
 
 ## AI
 
-### Spell Casting
 - Spells are first tested in the following priority order at the start of each AI turn:
   1. Imprison:
   2. Shift Time:
@@ -94,7 +93,8 @@ The addresses use the icon offset. You can change these without any consequence.
     Dark: Phase must be in dark cycle and Dragon or Shapeshifter have been killed (Dragon has priority over Shapeshifter).
     Light: Phase must be in light cycle and Djinni or Phoenix have been killed (Djinni has priority over Phoenix).
   7. Heal:
-- If no spell is selected, then ....
+- The AI tries to occupy squares on the board based on a preference array stored at `$721F`. The higher the number, the more desirable the location. The table prefers occupation of the magic squares (caster squares have highest desirability) and then the middle area of the board. 
+
 
 ## Notes
 

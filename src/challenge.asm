@@ -401,7 +401,7 @@ entry:
 	bmi !skip+
 	lda #$03
 !skip:
-	sta private.data__magic_square_aggression
+	sta ai.data__challenge_aggression_score
 	//
 	ldx #$00
 	lda game.data__ai_player_ctl
@@ -2074,7 +2074,7 @@ interrupt_handler:
     // was detected.
     // Requires:
     // - X: Player's projectile to check (0 for light, 1 for dark)
-    // Returns:
+    // Sets:
     // - `flag__weapon_hit_detected`: Set TRUE if a hit was detected.
     check_hit:
         lda #FLAG_DISABLE
@@ -2494,10 +2494,6 @@ interrupt_handler:
     // BF10
     // High byte pointer to attack sound pattern for current icon (one byte for each player).
     ptr__player_attack_pattern_hi_list: .byte $00, $00
-
-    // BF16
-    // AI aggression adjustment used when challenging for a magic square.
-    data__magic_square_aggression: .byte $00
 
     // BF1A
     // Screen row counter. Used to keep track of the current screen row.

@@ -157,7 +157,7 @@ entry:
 !round_complete:
     // Counter is loaded with $FC when both sides first have 3 players or less left. The counter is decremented
     // after each side has moved. The coutner is reset though when a challenge occurs. If the counter reaches ($F0)
-    // then the game is a stalemate. It is loaded with $FC instead of $12 so we can differentiate beteew a 0 (ie
+    // then the game is a stalemate. It is loaded with $FC instead of $0C so we can differentiate between a 0 (ie
     // not set) and $F0 (ie stalemate).
     lda cnt__stalemate_moves
     beq !new_phase+
@@ -1519,7 +1519,7 @@ data__icon_num_moves_list:
 
 // 8B77
 // Index of magic squares within the square occupancy array.
-data__magic_square_offset_list: .byte $04, $24, $28, $2C, $4C
+data__magic_square_offset_list: .byte $04, BOARD_WIZARD_MAGIC_SQUARE_IDX, $28, BOARD_SOURCERESS_MAGIC_SQUARE_IDX, $4C
 
 // 8BD2
 // Colors used for each board game phase.

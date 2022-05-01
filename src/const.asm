@@ -195,6 +195,8 @@
 .const BOARD_DARK_SQUARE = $00
 .const BOARD_LIGHT_SQUARE = $60
 .const BOARD_VARY_SQUARE = $E0
+.const BOARD_WIZARD_MAGIC_SQUARE_IDX = $24
+.const BOARD_SOURCERESS_MAGIC_SQUARE_IDX = $2C
 
 //---------------------------------------------------------------------------------------------------------------------
 // Spell constants.
