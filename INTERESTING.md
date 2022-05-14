@@ -94,7 +94,7 @@ The addresses use the icon offset. You can change these without any consequence.
     Light: Phase must be in light cycle and Djinni or Phoenix have been killed (Djinni has priority over Phoenix).
   7. Heal:
 - The AI tries to occupy squares on the board based on a preference array stored at `$721F`. The higher the number, the more desirable the location. The table prefers occupation of the magic squares (caster squares have highest desirability) and then the middle area of the board. 
-
+- AI first calculates a defend score that is then adjusted by a challenge score. The play with with highest score is then selected. Adjusting `$6EBD` to a lower value will tune the AI to prefer defense over offense. A higher value will increase AI aggression.
 
 ## Notes
 

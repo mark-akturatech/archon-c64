@@ -1638,6 +1638,7 @@ data__phase_cycle:
     .byte $00
     .byte $00
     .byte $00
+// BF40
 // Color phase direction (<$80: light to dark; >=$80: dark to light).
 data__phase_cycle_board:
     .byte $00

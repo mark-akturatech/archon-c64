@@ -663,6 +663,20 @@ play_icon_sound:
 //---------------------------------------------------------------------------------------------------------------------
 .segment Assets
 
+// 0B5D
+// Board square colors.
+.enum { DARK = BOARD_DARK_SQUARE, LITE = BOARD_LIGHT_SQUARE, VARY = BOARD_VARY_SQUARE }
+data__board_square_color_list:
+    .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
+    .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
+    .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
+    .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
+    .byte LITE, VARY, VARY, VARY, VARY, VARY, VARY, VARY, DARK
+    .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
+    .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
+    .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
+    .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
+
 // 6323
 // Column of each magic square (used with magic_square_row).
 data__magic_square_col_list: .byte $00, $04, $04, $04, $08
@@ -721,8 +735,8 @@ ptr__screen_row_offset_hi: .fill BOARD_NUM_ROWS, >(SCNMEM+ROW_START_OFFSET+i*2*N
 
 // BED2
 // Memory offset of square color data for each board row.
-ptr__color_row_offset_lo: .fill BOARD_NUM_ROWS, <(private.data__board_square_color_list+i*BOARD_NUM_COLS)
-ptr__color_row_offset_hi: .fill BOARD_NUM_ROWS, >(private.data__board_square_color_list+i*BOARD_NUM_COLS)
+ptr__color_row_offset_lo: .fill BOARD_NUM_ROWS, <(data__board_square_color_list+i*BOARD_NUM_COLS)
+ptr__color_row_offset_hi: .fill BOARD_NUM_ROWS, >(data__board_square_color_list+i*BOARD_NUM_COLS)
 
 // BEC0
 // Memory offset of square occupancy data for each board row.
@@ -732,20 +746,6 @@ ptr__board_row_occupancy_hi: .fill BOARD_NUM_ROWS, >(data__square_occupancy_list
 //---------------------------------------------------------------------------------------------------------------------
 // Private assets.
 .namespace private {
-    // 0B5D
-    // Board square colors.
-    .enum { DARK = BOARD_DARK_SQUARE, LITE = BOARD_LIGHT_SQUARE, VARY = BOARD_VARY_SQUARE }
-    data__board_square_color_list:
-        .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
-        .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
-        .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
-        .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
-        .byte LITE, VARY, VARY, VARY, VARY, VARY, VARY, VARY, DARK
-        .byte VARY, LITE, DARK, LITE, VARY, DARK, LITE, DARK, VARY
-        .byte DARK, VARY, LITE, DARK, VARY, LITE, DARK, VARY, LITE
-        .byte LITE, DARK, VARY, LITE, VARY, DARK, VARY, LITE, DARK
-        .byte DARK, LITE, DARK, VARY, VARY, VARY, LITE, DARK, LITE
-
     // 8BBE
     // Sound pattern used for each icon type. The data is an index to the icon pattern pointer array defined above.
     // Uses icon offset as index.
@@ -838,7 +838,7 @@ data__sprite_curr_y_pos_list: .byte $00, $00, $00, $00, $00, $00, $00, $00
 param__render_square_ctl: .byte $00
 
 // BD7C
-// Board square occupant data (#$80 for no occupant).
+// Board square occupant data (#$80 for not occupied, icon offset if occupied).
 data__square_occupancy_list: .fill BOARD_SIZE, $00
 
 // BE8F

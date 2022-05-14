@@ -1,472 +1,135 @@
 (^.*[a-z0-9])\s{2,9}
 $1
 
-// calculates strength 
-// Requires:
-// - X: Board square index
-W71E2:
-71E2 BD 5D 0B lda board_sqaure_colors,x
-71E5 F0 0B beq W71F2
-71E7 30 04 bmi W71ED
-71E9 A9 0E lda #$0E
-71EB 10 05 bpl W71F2
-W71ED:
-71ED AD 40 BF lda main_state_curr_cycle+3
-71F0 29 0F and #$0F
-W71F2:
-71F2 4A lsr
-71F3 8D 2F BF sta WBF2F
-71F6 AD C0 BC lda game.data__ai_player_ctl
-71F9 10 09 bpl W7204
-71FB A9 07 lda #$07
-71FD 38 sec
-71FE ED 2F BF sbc WBF2F
-7201 8D 2F BF sta WBF2F
-W7204:
-7204 60 rts
-
-
-
-
-
 
 ---------------------------------------------------------------------------------------------
 
-
-
-
-
-
-//
-//6DC2
-//...calculate_move...
-///
-	// Initialize.
-	lda #FLAG_DISABLE
-	sta data__challenge_aggression_score
-// 6DC7 8D 42 BF sta WBF42
-// 6DCA 8D 2D BD sta temp_data__temp_store_2  // possibly piece counter?
-	sta private.cnt__light_icons
-	sta private.cnt__dark_icons
-	sta private.flag__end_of_game_strategy
-	// Count number of alive player pieces on each side.
-	ldx #(BOARD_SIZE-1) // 0 offset
-!loop:
-	lda board.data__square_occupancy_list,x
-	bmi !next+
-	cmp #MANTICORE // First dark icon
-	bcs !found_dark_icon
-	inc private.cnt__light_icons
-	bpl !next+
-!found_dark_icon:
-	inc private.cnt__dark_icons
-!next:
-	dex
-	bpl !loop-
-	// Set end of game strategy flag. This flag is set if either player has 5 or less pieces.
-	lda private.cnt__dark_icons
-	cmp #$05
-	bcc !low_num_pieces+
-	lda private.cnt__light_icons
-	cmp #$05
-	bcs check_magic_square_occupancy
-!low_num_pieces:
-	stx private.flag__end_of_game_strategy // Sets flag used to adjust strategy for end of game
-	// Set challenge agression score used to adjust the aggression strategy.
-	// The agression is based on the difference between the AI and opposing player piece count. The agression is
-	// higher depending on how many more pieces the AI has. The value becomes negative if the opposing player has
-	// more pieces reducing the aggression.
-	lda game.data__ai_player_ctl
-	bpl !ai_is_light+
-	lda private.cnt__dark_icons
-	sec
-	sbc private.cnt__light_icons
-	sta data__challenge_aggression_score
-	jmp !check_stalemate_condition+
-!ai_is_light:
-	lda private.cnt__light_icons
-	sec
-	sbc private.cnt__dark_icons
-	sta data__challenge_aggression_score
-	//
-	// Set stalemate counter if not already set. The counter is set if both players have 3 or less players and will 
-	// count down after each turn. It will expire if 12 turns complete without a challenge occurring. The counter
-	// is reset after a challenge has completed.
-!check_stalemate_condition:
-	lda game.cnt__stalemate_moves
-	bne !check_magic_square_occupancy+
-	lda private.cnt__light_icons
-	cmp #$03
-	bcs !check_magic_square_occupancy+
-	lda private.cnt__dark_icons
-	cmp #$03
-	bcs !check_magic_square_occupancy+
-	// Count down from $FC to $F0. We can AND with $0F to check if expired. We use +$F0 so we can tell the difference
-	// between an expired counter and a counter that hasn't been set (ie is set to $00).
-	lda #$FC
-	sta game.cnt__stalemate_moves
-	//
-	// Count number of dark and light icons occupying the magic squares. The game is won if all squares are occupied
-	// so this will be used by the selection strategy and challenge aggression.
-!check_magic_square_occupancy:
-	lda #FLAG_DISABLE
-	sta private.cnt__light_icons
-	sta private.cnt__dark_icons
-	sta private.flag__prefer_magic_square_destination
-	ldx #(BOARD_NUM_MAGIC_SQUARES-1) // 0 offset
-!loop:
-	ldy game.data__magic_square_offset_list,x
-	lda board.data__square_occupancy_list,y
-	bpl !found_icon+
-	jmp !next+
-!found_icon:
-	cmp #MATICORE // First dark icon
-	bcc !found_light_icon+
-	inc private.cnt__dark_icons
-	bpl !next+
-!found_light_icon:
-	inc private.cnt__light_icons
-!next:
-	dex
-	bpl !loop-
-	// Set game startegy flag to occupy a magic square to win or prevent loss of the game.
-	lda private.cnt__dark_icons
-	cmp #(BOARD_NUM_MAGIC_SQUARES-1)
-	bne !check_light+
-	beq !prefer_magic_square+
-!check_light+:
-	lda private.cnt__light_icons
-	cmp #(BOARD_NUM_MAGIC_SQUARES-1)
-6E66 D0 05 bne W6E6D
-!prefer_magic_square:
-	lda #FLAG_ENABLE_FF
-	sta private.flag__prefer_magic_square_destination
-	//
-	// ???
-W6E6D:
-	ldx #(BOARD_SIZE-1) // 0 offset
-!square_loop:
-	ldy board.data__square_occupancy_list,x
-	bmi !next_square+
-	// Test if square is occupied by current AI player. Clever little check - the piece icon offset ($0-7 light and
-	// $8-F dark) exclusive ored with AI control ($55 for light and $aa for dark) and anded with 8 will result in 0
-	// only if the icon offset is for a light piece and the AI player is light or the offset is a dark piece and the AI
-	// player is dark. 
-	lda board.data__piece_icon_offset_list,y
-	eor game.data__ai_player_ctl
-	and #$08
-	bne !next_square+
-	// AI player piece found. Ensure is not imprisoned.
-	tya
-	ldy game.data__player_offset
-	cmp game.data__imprisoned_icon_list,y
-	beq !next_square+
-	// 
-6E87 AC 2D BD ldy temp_data__temp_store_2  // current piece index
-6E8A 99 25 BE sta WBE25,y // list of current active ai pieces (alive and not imprisoned)
-6E8D 8A txa
-6E8E 99 37 BE sta WBE37,y // list board square position of ai pice in list
-6E91 20 E2 71 jsr W71E2
-6E94 A9 00 lda #$00
-6E96 8D 23 BF sta magic.data__used_spell_count
-6E99 AD C6 BC lda game_state_flag__is_light_turn
-6E9C 30 08 bmi W6EA6
-6E9E E0 24 cpx #BOARD_WIZARD_MAGIC_SQUARE_IDX
-6EA0 D0 10 bne W6EB2
-6EA2 A0 00 ldy #$00
-6EA4 F0 06 beq W6EAC
-W6EA6:
-6EA6 E0 2C cpx #BOARD_SOURCERESS_MAGIC_SQUARE_IDX
-6EA8 D0 08 bne W6EB2
-6EAA A0 07 ldy #$07
-W6EAC:
-6EAC 20 05 72 jsr game.count_used_spells
-6EAF 4E 23 BF lsr magic.data__used_spell_count
-W6EB2:
-6EB2 20 C7 71 jsr W71C7
-6EB5 AC 2D BD ldy temp_data__temp_store_2
-6EB8 BD 1F 72 lda private.data__square_occupancy_preference_list,x
-6EBB 38 sec
-6EBC E9 1E sbc #$1E
-6EBE ED 23 BF sbc magic.data__used_spell_count
-6EC1 18 clc
-6EC2 6D 2F BF adc WBF2F // calculated move score - highest strength move will be selected
-6EC5 99 49 BE sta WBE49,y // list of strengths for each piece based on square color, square location and spell count
-6EC8 EE 2D BD inc temp_data__temp_store_2
-!next_square:
-	dex
-	bpl !square_loop-
-
-//
-6ECE AE 2D BD ldx temp_data__temp_store_2
-6ED1 CA dex
-6ED2 8E 2E BD stx WBD2E
-W6ED5:
-6ED5 A9 00 lda #$00
-6ED7 8D 2F BD sta WBD2F
-6EDA BD 37 BE lda WBE37,x
-6EDD A0 00 ldy #$00
-W6EDF:
-6EDF 38 sec
-6EE0 E9 09 sbc #$09
-6EE2 90 03 bcc W6EE7
-6EE4 C8 iny
-6EE5 B0 F8 bcs W6EDF
-W6EE7:
-6EE7 69 09 adc #$09
-6EE9 8D 28 BD sta idx__selected_piece_board_row
-6EEC 8C 29 BD sty idx__selected_piece_board_col
-6EEF BC 25 BE ldy WBE25,x
-6EF2 B9 FD BD lda game.data__piece_strength_list,y
-6EF5 8D 23 BF sta magic.data__used_spell_count
-6EF8 B9 FF 8A lda board.data__piece_icon_offset_list,y
-6EFB A8 tay
-6EFC B9 B3 8A lda board_character_initial_strength,y
-6EFF 8D 73 BD sta WBD73
-6F02 38 sec
-6F03 ED 23 BF sbc magic.data__used_spell_count
-6F06 8D 72 BD sta WBD72
-6F09 B9 C7 8A lda game.data__icon_num_moves_list,y
-6F0C 30 06 bmi W6F14
-6F0E 20 D7 6F jsr W6FD7
-6F11 4C 17 6F jmp W6F17
-
-W6F14:
-6F14 20 41 70 jsr W7041
-W6F17:
-6F17 AE 2E BD ldx WBD2E
-6F1A AD 2F BD lda WBD2F
-6F1D 9D 49 BE sta WBE49,x
-6F20 CD 42 BF cmp WBF42
-6F23 90 03 bcc W6F28
-6F25 8D 42 BF sta WBF42
-W6F28:
-6F28 CE 2E BD dec WBD2E
-6F2B CA dex
-6F2C 30 03 bmi W6F31
-6F2E 4C D5 6E jmp W6ED5
-
-W6F31:
-6F31 A0 FF ldy #$FF
-6F33 A2 00 ldx #$00
-W6F35:
-6F35 BD 49 BE lda WBE49,x
-6F38 CD 42 BF cmp WBF42
-6F3B D0 19 bne W6F56
-6F3D C8 iny
-6F3E BD 25 BE lda WBE25,x
-6F41 99 25 BE sta WBE25,y
-6F44 BD 37 BE lda WBE37,x
-6F47 99 37 BE sta WBE37,y
-6F4A BD 5B BE lda private.idx__piece_destination_board_row,x
-6F4D 99 5B BE sta private.idx__piece_destination_board_row,y
-6F50 BD 6D BE lda private.idx__piece_destination_board_col,x
-6F53 99 6D BE sta private.idx__piece_destination_board_col,y
-W6F56:
-6F56 E8 inx
-6F57 EC 2D BD cpx temp_data__temp_store_2
-6F5A D0 D9 bne W6F35
-6F5C 98 tya
-6F5D F0 20 beq W6F7F
-W6F5F:
-6F5F AD 1B D4 lda RANDOM Random numbers generator oscillator 3
-6F62 C0 08 cpy #$08
-6F64 90 04 bcc W6F6A
-6F66 29 0F and #$0F
-6F68 10 0A bpl W6F74
-W6F6A:
-6F6A C0 04 cpy #$04
-6F6C 90 04 bcc W6F72
-W6F6E:
-6F6E 29 07 and #$07
-6F70 10 02 bpl W6F74
-W6F72:
-6F72 29 03 and #$03
-W6F74:
-6F74 8D 2F BF sta WBF2F
-6F77 CC 2F BF cpy WBF2F
-6F7A 90 E3 bcc W6F5F
-6F7C AD 2F BF lda WBF2F
-W6F7F:
-6F7F AA tax
-6F80 BC 25 BE ldy WBE25,x
-6F83 B9 FF 8A lda board.data__piece_icon_offset_list,y
-6F86 8D 29 BF sta common.param__icon_offset_list
-6F89 BD 5B BE lda private.idx__piece_destination_board_row,x
-6F8C 8D 3A BF sta WBF3A
-6F8F BD 6D BE lda private.idx__piece_destination_board_col,x
-6F92 8D 3B BF sta temp_data__sprite_y_offset
-6F95 8E 2E BD stx WBD2E
-6F98 BD 37 BE lda WBE37,x
-6F9B 8E 22 BF stx private.flag__is_piece_selected
-6F9E A0 00 ldy #$00
-W6FA0:
-6FA0 38 sec
-6FA1 E9 09 sbc #$09
-6FA3 90 03 bcc W6FA8
-6FA5 C8 iny
-6FA6 B0 F8 bcs W6FA0
-W6FA8:
-6FA8 69 09 adc #$09
-6FAA 8D 28 BD sta idx__selected_piece_board_row
-6FAD 8C 29 BD sty idx__selected_piece_board_col
-// falls through to W6FB0
-...
-// 6FB0
-///////
-// TODO: Dont really knwo what this does yet. It is only called if a spell is selected.
-// other code above tho falls through to this.
-// Requires:
-// - A: Board column
-// - Y: Board row
-// - common.param__icon_offset_list: Icon offset of icon
-// Sets:
-// - flag__is_piece_selected: TRUE if piece can reach destination, FALSE otherwise. Only set if piece cannot fly.
-complete_turn:
-	ldx #$04 // Special code used by `convert_coord_sprite_pos` used to not set sprite position registers
-	jsr board.convert_coord_sprite_pos // A=Sprite X pos, Y=Sprite Y pos
-	sec
-	sbc #$02 // TODO: Why sub 2?
-6FB8 8D 17 BD sta main_temp_data__sprite_final_x_pos
-	tya
-	sec
-	sbc #$01 // TODO: Why sub 1?
-6FBF 8D 15 BD sta intro_sprite_final_y_pos
-	ldy common.param__icon_offset_list
-	lda game.data__icon_num_moves_list,y
-	bmi !return+ // Skip check if can fly
-6FCA 8D 2B BD sta WBD2B
-6FCD 20 82 72 jsr W7282 // ?? check if position can be reached????? idk
-6FD0 AD 2E BD lda WBD2E
-	sta private.flag__is_piece_selected
-!return:
-	rts
-
-
-W6FD7:
-6FD7 8D 2B BD sta WBD2B
-6FDA AD 29 BD lda idx__selected_piece_board_col
+// 6FD7
+get_score_walking_piece:
+6FD7 8D 2B BD sta param__piece_number_moves // num moves
+6FDA AD 29 BD lda idx__selected_piece_source_col
 6FDD 38 sec
-6FDE ED 2B BD sbc WBD2B
+6FDE ED 2B BD sbc param__piece_number_moves
 6FE1 B0 02 bcs W6FE5
 6FE3 A9 00 lda #$00
 W6FE5:
-6FE5 8D 2C BD sta WBD2C
-6FE8 AD 29 BD lda idx__selected_piece_board_col
+6FE5 8D 2C BD sta WBD2C // min reached col
+6FE8 AD 29 BD lda idx__selected_piece_source_col
 6FEB 18 clc
-6FEC 6D 2B BD adc WBD2B
+6FEC 6D 2B BD adc param__piece_number_moves
 6FEF C9 09 cmp #$09
 6FF1 90 02 bcc W6FF5
 6FF3 A9 08 lda #$08
 W6FF5:
-6FF5 8D 3B BF sta temp_data__sprite_y_offset
+6FF5 8D 3B BF sta idx__selected_piece_destination_col // max reached column
 W6FF8:
-6FF8 AD 29 BD lda idx__selected_piece_board_col
+6FF8 AD 29 BD lda idx__selected_piece_source_col
 6FFB 38 sec
-6FFC ED 3B BF sbc temp_data__sprite_y_offset
+6FFC ED 3B BF sbc idx__selected_piece_destination_col
 6FFF B0 04 bcs W7005
 7001 49 FF eor #$FF
 7003 69 01 adc #$01
 W7005:
-7005 8D 2F BF sta WBF2F
-7008 AD 2B BD lda WBD2B
+7005 8D 2F BF sta private.data__derived_score_adj
+7008 AD 2B BD lda param__piece_number_moves
 700B 38 sec
-700C ED 2F BF sbc WBF2F
-700F 8D 2F BF sta WBF2F
-7012 AD 28 BD lda idx__selected_piece_board_row
+700C ED 2F BF sbc private.data__derived_score_adj
+700F 8D 2F BF sta private.data__derived_score_adj
+7012 AD 28 BD lda idx__selected_piece_source_row
 7015 18 clc
-7016 6D 2F BF adc WBF2F
+7016 6D 2F BF adc private.data__derived_score_adj
 7019 C9 09 cmp #$09
 701B 90 02 bcc W701F
 701D A9 08 lda #$08
 W701F:
-701F 8D 3A BF sta WBF3A
-7022 AD 28 BD lda idx__selected_piece_board_row
+701F 8D 3A BF sta idx__selected_piece_destination_row
+7022 AD 28 BD lda idx__selected_piece_source_row
 7025 38 sec
-7026 ED 2F BF sbc WBF2F
+7026 ED 2F BF sbc private.data__derived_score_adj
 7029 10 02 bpl W702D
 702B A9 00 lda #$00
 W702D:
-702D 8D 2A BD sta WBD2A
-7030 20 99 70 jsr W7099
-7033 CE 3B BF dec temp_data__sprite_y_offset
-7036 AD 3B BF lda temp_data__sprite_y_offset
+702D 8D 2A BD sta WBD2A // ^^ sets square boundary for moves
+//
+7030 20 99 70 jsr derive_offensive_score
+7033 CE 3B BF dec idx__selected_piece_destination_col
+7036 AD 3B BF lda idx__selected_piece_destination_col
 7039 30 05 bmi W7040
 703B CD 2C BD cmp WBD2C
 703E B0 B8 bcs W6FF8
 W7040:
 7040 60 rts
 
-W7041:
+get_score_flying_piece:
 7041 29 0F and #$0F
-7043 8D 2F BF sta WBF2F
-7046 AD 28 BD lda idx__selected_piece_board_row
+7043 8D 2F BF sta private.data__derived_score_adj
+7046 AD 28 BD lda idx__selected_piece_source_row
 7049 38 sec
-704A ED 2F BF sbc WBF2F
+704A ED 2F BF sbc private.data__derived_score_adj
 704D B0 02 bcs W7051
 704F A9 00 lda #$00
 W7051:
 7051 8D 2A BD sta WBD2A
-7054 AD 28 BD lda idx__selected_piece_board_row
+7054 AD 28 BD lda idx__selected_piece_source_row
 7057 18 clc
-7058 6D 2F BF adc WBF2F
+7058 6D 2F BF adc private.data__derived_score_adj
 705B C9 09 cmp #$09
 705D 90 02 bcc W7061
 705F A9 08 lda #$08
 W7061:
-7061 8D 2B BD sta WBD2B
-7064 AD 29 BD lda idx__selected_piece_board_col
+7061 8D 2B BD sta param__piece_number_moves
+7064 AD 29 BD lda idx__selected_piece_source_col
 7067 38 sec
-7068 ED 2F BF sbc WBF2F
+7068 ED 2F BF sbc private.data__derived_score_adj
 706B B0 02 bcs W706F
 706D A9 00 lda #$00
 W706F:
 706F 8D 2C BD sta WBD2C
-7072 AD 29 BD lda idx__selected_piece_board_col
+7072 AD 29 BD lda idx__selected_piece_source_col
 7075 18 clc
-7076 6D 2F BF adc WBF2F
+7076 6D 2F BF adc private.data__derived_score_adj
 7079 C9 09 cmp #$09
 707B 90 02 bcc W707F
 707D A9 08 lda #$08
 W707F:
-707F 8D 3B BF sta temp_data__sprite_y_offset
+707F 8D 3B BF sta idx__selected_piece_destination_col
 W7082:
-7082 AD 2B BD lda WBD2B
-7085 8D 3A BF sta WBF3A
-7088 20 99 70 jsr W7099
-708B CE 3B BF dec temp_data__sprite_y_offset
-708E AD 3B BF lda temp_data__sprite_y_offset
+7082 AD 2B BD lda param__piece_number_moves
+7085 8D 3A BF sta idx__selected_piece_destination_row
+7088 20 99 70 jsr derive_offensive_score
+708B CE 3B BF dec idx__selected_piece_destination_col
+708E AD 3B BF lda idx__selected_piece_destination_col
 7091 30 05 bmi W7098
 7093 CD 2C BD cmp WBD2C
 7096 B0 EA bcs W7082
 W7098:
 7098 60 rts
 
-W7099:
+derive_offensive_score:
 7099 20 05 71 jsr W7105
-709C AD 22 BF lda flag__is_piece_selected
+709C AD 22 BF lda flag__selected_move
 709F 10 56 bpl W70F7
-70A1 AE 2E BD ldx WBD2E
-70A4 AD 2F BF lda WBF2F
+70A1 AE 2E BD ldx idx__selected_move
+70A4 AD 2F BF lda private.data__derived_score_adj
 70A7 38 sec
-70A8 FD 49 BE sbc WBE49,x
-70AB 8D 2F BF sta WBF2F
-70AE CD 2F BD cmp WBD2F
+70A8 FD 49 BE sbc private.data__player_score_list,x
+70AB 8D 2F BF sta private.data__derived_score_adj
+70AE CD 2F BD cmp data__derived_player_score
 70B1 90 44 bcc W70F7
-70B3 BC 25 BE ldy WBE25,x
+70B3 BC 25 BE ldy private.data__player_piece_list,x
 70B6 B9 FF 8A lda board.data__piece_icon_offset_list,y
 70B9 A8 tay
 70BA B9 C7 8A lda game.data__icon_num_moves_list,y
 70BD 30 10 bmi W70CF
-70BF AD 2F BF lda WBF2F
-70C2 CD 42 BF cmp WBF42
+70BF AD 2F BF lda private.data__derived_score_adj
+70C2 CD 42 BF cmp private.data__curr_highest_move_score
 70C5 90 30 bcc W70F7
-70C7 20 82 72 jsr W7282
-70CA AD 22 BF lda flag__is_piece_selected
+70C7 20 82 72 jsr find_path_to_destination
+70CA AD 22 BF lda flag__selected_move
 70CD 10 28 bpl W70F7
 W70CF:
-70CF AD 2F BF lda WBF2F
-70D2 CD 2F BD cmp WBD2F
+70CF AD 2F BF lda private.data__derived_score_adj
+70D2 CD 2F BD cmp data__derived_player_score
 70D5 D0 0E bne W70E5
 W70D7:
 70D7 AD 1B D4 lda RANDOM Random numbers generator oscillator 3
@@ -474,59 +137,59 @@ W70D7:
 70DC F0 F9 beq W70D7
 70DE C9 02 cmp #$02
 70E0 B0 15 bcs W70F7
-70E2 AD 2F BF lda WBF2F
+70E2 AD 2F BF lda private.data__derived_score_adj
 W70E5:
-70E5 8D 2F BD sta WBD2F
-70E8 AC 2E BD ldy WBD2E
-70EB AD 3A BF lda WBF3A
-70EE 99 5B BE sta private.idx__piece_destination_board_row,y
-70F1 AD 3B BF lda temp_data__sprite_y_offset
-70F4 99 6D BE sta private.idx__piece_destination_board_col,y
+70E5 8D 2F BD sta data__derived_player_score
+70E8 AC 2E BD ldy idx__selected_move
+70EB AD 3A BF lda idx__selected_piece_destination_row
+70EE 99 5B BE sta private.data__player_destination_row_list,y
+70F1 AD 3B BF lda idx__selected_piece_destination_col
+70F4 99 6D BE sta private.data__player_destination_col_list,y
 W70F7:
-70F7 CE 3A BF dec WBF3A
+70F7 CE 3A BF dec idx__selected_piece_destination_row
 W70FA:
-70FA AD 3A BF lda WBF3A
+70FA AD 3A BF lda idx__selected_piece_destination_row
 70FD 30 05 bmi W7104
 70FF CD 2A BD cmp WBD2A
-7102 B0 95 bcs W7099
+7102 B0 95 bcs derive_offensive_score
 W7104:
 7104 60 rts
 
 W7105:
 7105 A9 40 lda #(FLAG_ENABLE/2)
-7107 8D 22 BF sta flag__is_piece_selected
+7107 8D 22 BF sta flag__selected_move
 710A A9 00 lda #$00
 710C 8D 12 BD sta challenge_square_strength_adj
-710F 8D 2F BF sta WBF2F
+710F 8D 2F BF sta private.data__derived_score_adj
 7112 8D 23 BF sta magic.data__used_spell_count
 7115 8D 24 BF sta main_temp_data__character_sprite_frame
 7118 A0 09 ldy #$09
 W711A:
 711A 18 clc
-711B 6D 3B BF adc temp_data__sprite_y_offset
+711B 6D 3B BF adc idx__selected_piece_destination_col
 711E 88 dey
 711F D0 F9 bne W711A
 7121 18 clc
-7122 6D 3A BF adc WBF3A
+7122 6D 3A BF adc idx__selected_piece_destination_row
 7125 AA tax
-7126 20 E2 71 jsr W71E2
+7126 20 E2 71 jsr private.set_score__square_color
 7129 A0 00 ldy #$00
 712B 8C 3C BF sty temp_flag__adv_str
 712E E0 24 cpx #BOARD_WIZARD_MAGIC_SQUARE_IDX
 7130 D0 07 bne W7139
-7132 AD C6 BC lda game_state_flag__is_light_turn
+7132 AD C6 BC lda game.flag__is_light_turn
 7135 30 10 bmi W7147
 7137 10 0B bpl W7144
 W7139:
 7139 E0 2C cpx #BOARD_SOURCERESS_MAGIC_SQUARE_IDX
 713B D0 1E bne W715B
 713D A0 07 ldy #$07
-713F AD C6 BC lda game_state_flag__is_light_turn
+713F AD C6 BC lda game.flag__is_light_turn
 7142 10 03 bpl W7147
 W7144:
 7144 CE 3C BF dec temp_flag__adv_str
 W7147:
-7147 20 05 72 jsr game.count_used_spells
+7147 20 05 72 jsr magic.count_used_spells
 714A 4E 23 BF lsr magic.data__used_spell_count
 714D AD 3C BF lda temp_flag__adv_str
 7150 F0 09 beq W715B
@@ -545,15 +208,15 @@ W715B:
 716D 8D 12 BD sta challenge_square_strength_adj
 7170 B9 FF 8A lda board.data__piece_icon_offset_list,y
 7173 A8 tay
-7174 B9 B3 8A lda board_character_initial_strength,y
+7174 B9 B3 8A lda game.data__icon_strength_list,y
 7177 8D 24 BF sta main_temp_data__character_sprite_frame
 717A 38 sec
 717B ED 12 BD sbc challenge_square_strength_adj
 717E E9 03 sbc #$03
-7180 ED 72 BD sbc WBD72
+7180 ED 72 BD sbc param__piece_lost_strength
 7183 18 clc
 7184 6D 23 BF adc magic.data__used_spell_count
-7187 6D 2F BF adc WBF2F
+7187 6D 2F BF adc private.data__derived_score_adj
 718A 6D 16 BF adc data__challenge_aggression_score
 718D 8D 12 BD sta challenge_square_strength_adj
 7190 AD 23 BF lda magic.data__used_spell_count
@@ -564,40 +227,24 @@ W715B:
 W719C:
 719C BD 1F 72 lda data__square_occupancy_preference_list,x
 719F 18 clc
-71A0 6D 2F BF adc WBF2F
+71A0 6D 2F BF adc private.data__derived_score_adj
 71A3 6D 23 BF adc magic.data__used_spell_count
 71A6 6D 12 BD adc challenge_square_strength_adj
-71A9 8D 2F BF sta WBF2F
-71AC 0E 22 BF asl flag__is_piece_selected
+71A9 8D 2F BF sta private.data__derived_score_adj
+71AC 0E 22 BF asl flag__selected_move
 71AF AD 65 BD lda private.flag__end_of_game_strategy
-71B2 F0 13 beq W71C7
+71B2 F0 13 beq private.set_score__magic_square
 71B4 AD 24 BF lda main_temp_data__character_sprite_frame
-71B7 F0 0E beq W71C7
-71B9 AD 73 BD lda WBD73
+71B7 F0 0E beq private.set_score__magic_square
+71B9 AD 73 BD lda param__piece_initial_strength
 71BC 18 clc
-71BD 6D 2F BF adc WBF2F
+71BD 6D 2F BF adc private.data__derived_score_adj
 71C0 38 sec
 71C1 ED 24 BF sbc main_temp_data__character_sprite_frame
-71C4 8D 2F BF sta WBF2F
-W71C7:
-71C7 AD 64 BD lda private.flag__prefer_magic_square_destination
-71CA F0 0B beq W71D7
-71CC A0 04 ldy #$04
-71CE 8A txa
-W71CF:
-71CF D9 77 8B cmp game.data__magic_square_offset_list,y
-71D2 F0 04 beq W71D8
-71D4 88 dey
-71D5 10 F8 bpl W71CF
-W71D7:
-71D7 60 rts
+71C4 8D 2F BF sta private.data__derived_score_adj
+// ... private.set_score__magic_square
+W71D7: rts
 
-W71D8:
-71D8 A9 06 lda #$06
-71DA 18 clc
-71DB 6D 2F BF adc WBF2F
-71DE 8D 2F BF sta WBF2F
-71E1 60 rts
 
 
 ----
@@ -655,9 +302,9 @@ check_cast_exchange:
 // 7906
 // Determine if the AI should cast the revive spell.
 check_cast_revive:
-7906 AD 29 BD lda idx__selected_piece_board_col
+7906 AD 29 BD lda idx__selected_piece_source_col
 7909 8D 25 BF sta temp_data__curr_icon_row
-790C AD 28 BD lda idx__selected_piece_board_row
+790C AD 28 BD lda idx__selected_piece_source_row
 790F 8D 27 BF sta temp_data__curr_icon_col
 //Description:
 //- Checks if any of the squares surrounding the current square is empty and non-magical.
@@ -685,11 +332,11 @@ check_cast_teleport:
 77A4 AD 87 BE lda data__selected_icon_id
 77A7 D9 24 BD cmp game.data__imprisoned_icon_list,y
 77AA D0 19 bne W77C5
-77AC AC 1A BF ldy temp_data__temp_store
+77AC AC 1A BF ldy idx__square_offset
 W77AF:
-77AF B9 5D 0B lda board_sqaure_colors,y
+77AF B9 5D 0B lda board.data__board_square_color_list,y
 77B2 10 11 bpl W77C5
-77B4 AE 40 BF ldx main_state_curr_cycle+3
+77B4 AE 40 BF ldx game.data__phase_cycle_board
 77B7 AD C0 BC lda game.data__ai_player_ctl
 77BA 30 05 bmi W77C1
 77BC E0 0C cpx #$0C
@@ -790,7 +437,7 @@ W7821:
 7876 B1 39 lda (CURLIN),y BASIC current line number
 7878 F0 13 beq W788D 
 787A 10 09 bpl W7885 
-787C AD 40 BF lda main_state_curr_cycle+3 
+787C AD 40 BF lda game.data__phase_cycle_board 
 787F F0 0C beq W788D 
 7881 C9 0E cmp #$0E 
 7883 D0 0D bne W7892 
@@ -809,9 +456,9 @@ W7893:
 7896 4A lsr 
 7897 B0 F9 bcs W7892 
 7899 A9 00 lda #$00 
-789B 8D 42 BF sta WBF42 
+789B 8D 42 BF sta private.data__curr_highest_move_score 
 789E A9 08 lda #$08 
-78A0 8D 3B BF sta temp_data__sprite_y_offset 
+78A0 8D 3B BF sta idx__selected_piece_destination_col 
 W78A3:
 78A3 A9 02 lda #$02 
 78A5 8D 3B BD sta WBD3B 
@@ -820,29 +467,29 @@ W78A3:
 78AD 10 02 bpl W78B1 
 78AF A9 01 lda #$01 
 W78B1:
-78B1 8D 3A BF sta WBF3A 
+78B1 8D 3A BF sta idx__selected_piece_destination_row 
 W78B4:
 78B4 20 05 71 jsr W7105 
-78B7 AD 22 BF lda flag__is_piece_selected 
+78B7 AD 22 BF lda flag__selected_move 
 78BA 10 1E bpl W78DA 
-78BC 4E 22 BF lsr flag__is_piece_selected 
-78BF AD 2F BF lda WBF2F 
-78C2 CD 42 BF cmp WBF42 
+78BC 4E 22 BF lsr flag__selected_move 
+78BF AD 2F BF lda private.data__derived_score_adj 
+78C2 CD 42 BF cmp private.data__curr_highest_move_score 
 78C5 90 13 bcc W78DA 
 78C7 C9 30 cmp #$30 
 78C9 90 0F bcc W78DA 
-78CB 8D 42 BF sta WBF42 
-78CE AD 3A BF lda WBF3A 
+78CB 8D 42 BF sta private.data__curr_highest_move_score 
+78CE AD 3A BF lda idx__selected_piece_destination_row 
 78D1 8D 5C BE sta WBE5C 
-78D4 AD 3B BF lda temp_data__sprite_y_offset 
+78D4 AD 3B BF lda idx__selected_piece_destination_col 
 78D7 8D 6E BE sta WBE6E 
 W78DA:
-78DA EE 3A BF inc WBF3A 
+78DA EE 3A BF inc idx__selected_piece_destination_row 
 78DD CE 3B BD dec WBD3B 
 78E0 D0 D2 bne W78B4 
-78E2 CE 3B BF dec temp_data__sprite_y_offset 
+78E2 CE 3B BF dec idx__selected_piece_destination_col 
 78E5 10 BC bpl W78A3 
-78E7 AD 42 BF lda WBF42 
+78E7 AD 42 BF lda private.data__curr_highest_move_score 
 78EA F0 03 beq W78EF 
 78EC 4C FD 79 jmp W79FD 
 W78EF:
@@ -877,10 +524,10 @@ W776B:
 7774 D9 24 BD cmp game_imprisoned_icon_id,y 
 7777 D0 1A bne W7793 
 W7779:
-7779 AE 1A BF ldx temp_data__temp_store 
-777C BD 5D 0B lda board_sqaure_colors,x 
+7779 AE 1A BF ldx idx__square_offset 
+777C BD 5D 0B lda board.data__board_square_color_list,x 
 777F 10 12 bpl W7793 
-7781 AE 40 BF ldx main_state_curr_cycle+3 
+7781 AE 40 BF ldx game.data__phase_cycle_board 
 7784 AD C0 BC lda game_state_flag__ai_player_ctl 
 7787 10 05 bpl W778E 
 7789 E0 04 cpx #$04 
@@ -903,18 +550,18 @@ check_cast_shift_time:
 W76DF:
 76DF CC CA BC cpy main_state_counter+3
 76E2 D0 23 bne W7707
-76E4 AD 40 BF lda main_state_curr_cycle+3
+76E4 AD 40 BF lda game.data__phase_cycle_board
 76E7 F0 04 beq W76ED
 76E9 C9 0E cmp #$0E
 76EB D0 19 bne W7706
 W76ED:
-76ED 8D 1A BF sta temp_data__temp_store
+76ED 8D 1A BF sta idx__square_offset
 76F0 A0 00 ldy #$00
 76F2 AD C0 BC lda game.data__ai_player_ctl
 76F5 30 02 bmi W76F9
 76F7 A0 0E ldy #$0E
 W76F9:
-76F9 CC 1A BF cpy temp_data__temp_store
+76F9 CC 1A BF cpy idx__square_offset
 76FC F0 31 beq W772F
 76FE AC DE BC ldy game.data__player_offset
 7701 B9 24 BD lda game.data__imprisoned_icon_list,y
@@ -928,14 +575,14 @@ W772F:
 // 7524
 // Determine if the AI should cast the imprison spell.
 check_cast_imprison:
-7524 AE 40 BF ldx main_state_curr_cycle+3
+7524 AE 40 BF ldx game.data__phase_cycle_board
 7527 A9 00 lda #$00
 7529 AC C0 BC ldy game.data__ai_player_ctl
 752C 10 02 bpl !next+
 752E A9 0E lda #$0E
 !next:
-7530 8D 1A BF sta temp_data__temp_store
-7533 EC 1A BF cpx temp_data__temp_store
+7530 8D 1A BF sta idx__square_offset
+7533 EC 1A BF cpx idx__square_offset
 7536 F0 1F beq !return+
 7538 A9 00 lda #$00
 753A AC C0 BC ldy game.data__ai_player_ctl
@@ -1000,7 +647,7 @@ W75A4:
 75A4 E0 06 cpx #$06 
 75A6 90 10 bcc W75B8 
 W75A8:
-75A8 20 BC 75 jsr W75BCzzz 
+75A8 20 BC 75 jsr W75BC 
 75AB AD 3C BF lda temp_flag__adv_str 
 75AE 30 09 bmi W75B9 
 75B0 20 62 76 jsr W7662 
@@ -1022,7 +669,7 @@ W75B9:
 
 
 W79FD:
-	asl flag__is_piece_selected 
+	asl flag__selected_move 
 7A00 AE 3A BD ldx temp_data__offset 
 	ldy data__spell_check_priority_list,x 
 	lda #SPELL_USED 
@@ -1041,12 +688,12 @@ W75BC:
 75BC A9 40 lda #$40 
 75BE 8D 3C BF sta temp_flag__adv_str 
 75C1 A9 00 lda #$00 
-75C3 8D 42 BF sta WBF42 
+75C3 8D 42 BF sta private.data__curr_highest_move_score 
 75C6 A2 FF ldx #$FF 
 75C8 A9 02 lda #$02 
-75CA 8D 3B BF sta temp_data__sprite_y_offset 
+75CA 8D 3B BF sta idx__selected_piece_destination_col 
 75CD A9 05 lda #$05 
-75CF 8D 38 BD sta temp_data__num_pieces 
+75CF 8D 38 BD sta temp_data__num_pieces // number of moves?
 W75D2:
 75D2 A9 04 lda #$04 
 75D4 8D 3B BD sta WBD3B 
@@ -1055,14 +702,14 @@ W75D2:
 75DC 10 02 bpl W75E0 
 75DE A9 05 lda #$05 
 W75E0:
-75E0 8D 3A BF sta WBF3A 
-75E3 AC 3B BF ldy temp_data__sprite_y_offset 
+75E0 8D 3A BF sta idx__selected_piece_destination_row 
+75E3 AC 3B BF ldy idx__selected_piece_destination_col 
 75E6 B9 C0 BE lda board_row_occupancy_lo_ptr,y 
 75E9 85 FB sta FREEZP Free 0 page for user program
 75EB B9 C9 BE lda board_row_occupancy_hi_ptr,y 
 75EE 85 FC sta FREEZP+1 
 W75F0:
-75F0 AC 3A BF ldy WBF3A 
+75F0 AC 3A BF ldy idx__selected_piece_destination_row 
 75F3 B1 FB lda (FREEZP),y Free 0 page for user program
 75F5 30 35 bmi W762C 
 75F7 A8 tay 
@@ -1082,19 +729,19 @@ W7610:
 7613 F0 17 beq W762C 
 7615 E8 inx 
 7616 98 tya 
-7617 9D 25 BE sta WBE25,x 
+7617 9D 25 BE sta private.data__player_piece_list,x 
 761A B9 FF 8A lda board.data__piece_icon_offset_list,y 
 761D A8 tay 
-761E B9 B3 8A lda board_character_initial_strength,y 
-7621 9D 49 BE sta WBE49,x 
-7624 CD 42 BF cmp WBF42 
+761E B9 B3 8A lda game.data__icon_strength_list,y 
+7621 9D 49 BE sta private.data__player_score_list,x 
+7624 CD 42 BF cmp private.data__curr_highest_move_score 
 7627 90 03 bcc W762C 
-7629 8D 42 BF sta WBF42 
+7629 8D 42 BF sta private.data__curr_highest_move_score 
 W762C:
-762C EE 3A BF inc WBF3A 
+762C EE 3A BF inc idx__selected_piece_destination_row 
 762F CE 3B BD dec WBD3B 
 7632 D0 BC bne W75F0 
-7634 EE 3B BF inc temp_data__sprite_y_offset 
+7634 EE 3B BF inc idx__selected_piece_destination_col 
 7637 CE 38 BD dec temp_data__num_pieces 
 763A D0 96 bne W75D2 
 763C 8A txa 
@@ -1105,15 +752,15 @@ W762C:
 7647 EC 38 BD cpx temp_data__num_pieces 
 764A 90 0B bcc W7657 
 W764C:
-764C BD 49 BE lda WBE49,x 
-764F CD 42 BF cmp WBF42 
+764C BD 49 BE lda private.data__player_score_list,x 
+764F CD 42 BF cmp private.data__curr_highest_move_score 
 7652 F0 04 beq W7658 
 7654 CA dex 
 7655 10 F5 bpl W764C 
 W7657:
 7657 60 rts 
 W7658:
-7658 BD 25 BE lda WBE25,x 
+7658 BD 25 BE lda private.data__player_piece_list,x 
 765B 20 D9 79 jsr get_piece_position 
 W765E:
 765E 0E 3C BF asl temp_flag__adv_str 
@@ -1154,8 +801,8 @@ W7689:
 7692 20 FF 62 jsr board_test_magic_square_selected 
 7695 AD FE BC lda temp_data__curr_count 
 7698 30 1A bmi W76B4 
-769A AE 1A BF ldx temp_data__temp_store 
-769D BD 5D 0B lda board_sqaure_colors,x 
+769A AE 1A BF ldx idx__square_offset 
+769D BD 5D 0B lda board.data__board_square_color_list,x 
 76A0 30 0D bmi W76AF 
 76A2 F0 06 beq W76AA 
 76A4 AD C0 BC lda game_state_flag__ai_player_ctl 
@@ -1195,98 +842,101 @@ W76D5:
 
 
 W747D:
-747D  A9 00      lda  #$00                  
-747F  8D 38 BD   sta  temp_data__num_pieces 
-7482  20 48 73   jsr  W7348                 
-7485  AD 22 BF   lda  flag__is_piece_selected 
-7488  10 2B      bpl  W74B5                 
-748A  AD 32 BD   lda  WBD32                 
-748D  8D 34 BD   sta  WBD34                 
-7490  4E 22 BF   lsr  flag__is_piece_selected 
-7493  20 48 73   jsr  W7348                 
-7496  AD 22 BF   lda  flag__is_piece_selected 
-7499  10 06      bpl  W74A1                 
-749B  EE 3A BD   inc  temp_data__offset     
-749E  4C A9 74   jmp  W74A9                 
+747D A9 00 lda #$00 
+747F 8D 38 BD sta temp_data__num_pieces 
+7482 20 48 73 jsr W7348 
+7485 AD 22 BF lda flag__selected_move 
+7488 10 2B bpl W74B5 
+748A AD 32 BD lda WBD32 
+748D 8D 34 BD sta WBD34 
+7490 4E 22 BF lsr flag__selected_move 
+7493 20 48 73 jsr W7348 
+7496 AD 22 BF lda flag__selected_move 
+7499 10 06 bpl W74A1 
+749B EE 3A BD inc temp_data__offset 
+749E 4C A9 74 jmp W74A9 
 W74A1:
-74A1  20 48 73   jsr  W7348                 
-74A4  AD 22 BF   lda  flag__is_piece_selected 
-74A7  10 0C      bpl  W74B5                 
+74A1 20 48 73 jsr W7348 
+74A4 AD 22 BF lda flag__selected_move 
+74A7 10 0C bpl W74B5 
 W74A9:
-74A9  AD 32 BD   lda  WBD32                 
-74AC  8D 33 BD   sta  WBD33                 
-74AF  4E 22 BF   lsr  flag__is_piece_selected 
-74B2  20 48 73   jsr  W7348                 
+74A9 AD 32 BD lda WBD32 
+74AC 8D 33 BD sta WBD33 
+74AF 4E 22 BF lsr flag__selected_move 
+74B2 20 48 73 jsr W7348 
 W74B5:
-74B5  60         rts                        
+74B5 60 rts 
 
 W74B6:
-74B6  A9 00      lda  #$00                  
-74B8  8D 38 BD   sta  temp_data__num_pieces 
-74BB  20 48 73   jsr  W7348                 
-74BE  AD 22 BF   lda  flag__is_piece_selected 
-74C1  10 06      bpl  W74C9                 
-74C3  EE 3A BD   inc  temp_data__offset     
-74C6  4C D1 74   jmp  W74D1                 
+74B6 A9 00 lda #$00 
+74B8 8D 38 BD sta temp_data__num_pieces 
+74BB 20 48 73 jsr W7348 
+74BE AD 22 BF lda flag__selected_move 
+74C1 10 06 bpl W74C9 
+74C3 EE 3A BD inc temp_data__offset 
+74C6 4C D1 74 jmp W74D1 
 W74C9:
-74C9  20 48 73   jsr  W7348                 
-74CC  AD 22 BF   lda  flag__is_piece_selected 
-74CF  10 25      bpl  W74F6                 
+74C9 20 48 73 jsr W7348 
+74CC AD 22 BF lda flag__selected_move 
+74CF 10 25 bpl W74F6 
 W74D1:
-74D1  4E 22 BF   lsr  flag__is_piece_selected 
-74D4  AD 32 BD   lda  WBD32                 
-74D7  8D 34 BD   sta  WBD34                 
-74DA  20 48 73   jsr  W7348                 
-74DD  AD 22 BF   lda  flag__is_piece_selected 
-74E0  10 14      bpl  W74F6                 
-74E2  4E 22 BF   lsr  flag__is_piece_selected 
-74E5  AD 32 BD   lda  WBD32                 
-74E8  8D 33 BD   sta  WBD33                 
-74EB  20 48 73   jsr  W7348                 
-74EE  AD 22 BF   lda  flag__is_piece_selected 
-74F1  30 03      bmi  W74F6                 
-74F3  20 48 73   jsr  W7348                 
+74D1 4E 22 BF lsr flag__selected_move 
+74D4 AD 32 BD lda WBD32 
+74D7 8D 34 BD sta WBD34 
+74DA 20 48 73 jsr W7348 
+74DD AD 22 BF lda flag__selected_move 
+74E0 10 14 bpl W74F6 
+74E2 4E 22 BF lsr flag__selected_move 
+74E5 AD 32 BD lda WBD32 
+74E8 8D 33 BD sta WBD33 
+74EB 20 48 73 jsr W7348 
+74EE AD 22 BF lda flag__selected_move 
+74F1 30 03 bmi W74F6 
+74F3 20 48 73 jsr W7348 
 W74F6:
-74F6  60         rts                        
+74F6 60 rts 
 
 
 W74F7:
-74F7  AD 2B BD   lda  WBD2B                 
-74FA  C9 04      cmp  #$04                  
-74FC  B0 0B      bcs  W7509                 
+74F7 AD 2B BD lda param__piece_number_moves 
+74FA C9 04 cmp #$04 
+74FC B0 0B bcs W7509 
 W74FE:
-74FE  AE 38 BD   ldx  temp_data__num_pieces 
-7501  20 68 73   jsr  W7368                 
-7504  CE 3B BD   dec  WBD3B                 
-7507  D0 F5      bne  W74FE                 
+74FE AE 38 BD ldx temp_data__num_pieces 
+7501 20 68 73 jsr W7368 
+7504 CE 3B BD dec WBD3B 
+7507 D0 F5 bne W74FE 
 W7509:
-7509  A9 00      lda  #$00                  
-750B  8D 38 BD   sta  temp_data__num_pieces 
-750E  20 48 73   jsr  W7348                 
-7511  60         rts                        
+7509 A9 00 lda #$00 
+750B 8D 38 BD sta temp_data__num_pieces 
+750E 20 48 73 jsr W7348 
+7511 60 rts 
 
 
 // ---
 
-
-
-W7282:
-7282 AC 2E BD ldy WBD2E
-7285 B9 37 BE lda WBE37,y
+// 7282
+// finds path from source square to destination square and create an array of moves
+// requires: 
+// - idx__selected_move
+// - param__piece_number_moves
+find_path_to_destination:
+7282 AC 2E BD ldy idx__selected_move
+7285 B9 37 BE lda data__player_square_idx_list,y
 7288 8D 37 BD sta idx__selected_piece_square_offset
 728B A0 09 ldy #$09
 728D A9 00 lda #$00
 W728F:
 728F 18 clc
-7290 6D 3B BF adc temp_data__sprite_y_offset
+7290 6D 3B BF adc idx__selected_piece_destination_col
 7293 88 dey
 7294 D0 F9 bne W728F
 7296 18 clc
-7297 6D 3A BF adc WBF3A
+7297 6D 3A BF adc idx__selected_piece_destination_row
 729A 8D 36 BD sta WBD36
 W729D:
 729D A9 40 lda #(FLAG_ENABLE/2)
-729F 8D 22 BF sta flag__is_piece_selected
+729F 8D 22 BF sta flag__selected_move
 72A2 8D 3C BF sta temp_flag__adv_str
 72A5 AD 36 BD lda WBD36
 72A8 38 sec
@@ -1307,7 +957,7 @@ W72BA:
 72C4 8D 38 BD sta temp_data__num_pieces
 72C7 AD 36 BD lda WBD36
 72CA 8D 32 BD sta WBD32
-72CD 0E 22 BF asl flag__is_piece_selected
+72CD 0E 22 BF asl flag__selected_move
 72D0 60 rts
 
 W72D1:
@@ -1327,19 +977,19 @@ W72EE:
 72F1 AD 39 BD lda WBD39
 72F4 C9 02 cmp #$02
 72F6 D0 0E bne W7306
-72F8 AD 2B BD lda WBD2B
+72F8 AD 2B BD lda param__piece_number_moves
 72FB C9 04 cmp #$04
 72FD 90 34 bcc W7333
-72FF AD 3B BF lda temp_data__sprite_y_offset
+72FF AD 3B BF lda idx__selected_piece_destination_col
 7302 F0 16 beq W731A
 7304 D0 10 bne W7316
 W7306:
 7306 C9 12 cmp #$12
 7308 D0 1C bne W7326
-730A AD 2B BD lda WBD2B
+730A AD 2B BD lda param__piece_number_moves
 730D C9 04 cmp #$04
 730F 90 22 bcc W7333
-7311 AD 3A BF lda WBF3A
+7311 AD 3A BF lda idx__selected_piece_destination_row
 7314 F0 04 beq W731A
 W7316:
 7316 C9 08 cmp #$08
@@ -1353,7 +1003,7 @@ W731A:
 
 W7326:
 7326 20 48 73 jsr W7348
-7329 AD 22 BF lda flag__is_piece_selected
+7329 AD 22 BF lda flag__selected_move
 732C 30 19 bmi W7347
 732E CE 3B BD dec WBD3B
 7331 D0 F3 bne W7326
@@ -1376,14 +1026,14 @@ W734B:
 734E AD 37 BD lda idx__selected_piece_square_offset
 7351 18 clc
 7352 79 6F 73 adc W736F,y
-7355 9D 32 BD sta WBD32,x
+7355 9D 32 BD sta WBD32,x // moves (list of destination square indexes?
 7358 A8 tay
 7359 B9 7C BD lda board.data__square_occupancy_list,y
 735C 10 0A bpl W7368
 735E EE 3A BD inc temp_data__offset
 7361 CA dex
 7362 10 E7 bpl W734B
-7364 0E 22 BF asl flag__is_piece_selected
+7364 0E 22 BF asl flag__selected_move
 7367 60 rts
 
 W7368:
@@ -1399,8 +1049,8 @@ W7270:
 	.byte $1C, $24 
 
 W742F:
-	.byte $3E, $0A, $0A, $00, $4C, $5C, $5E, $50 				
-	.byte $0A, $28, $54, $45, $58, $33, $14, $1E 				
+	.byte $3E, $0A, $0A, $00, $4C, $5C, $5E, $50 
+	.byte $0A, $28, $54, $45, $58, $33, $14, $1E 
 	.byte $1E, $1E 
 
 W7441:
@@ -1414,7 +1064,7 @@ W7453:
 	.byte $02, $01
 
 W7465:
-	.byte $04, $FF, $FF, $00, $FF, $FF, $FF, $FF 				
+	.byte $04, $FF, $FF, $00, $FF, $FF, $FF, $FF 
 	.byte $00, $02, $FF, $04, $FF, $02, $00, $FF
 	.byte $00, $FF
 
@@ -1426,37 +1076,180 @@ W7477:
 
 
 W736F:
-	.byte $FF, $FE, $FD, $09, $08, $07, $FF, $FE 				
-	.byte $08, $07, $01, $02, $03, $09, $0A, $0B 				// Unusual operation
-	.byte $01, $02            				// Illegal instruction
-	.byte $0A, $0B            				// Unusual operation
-	.byte $09, $12            				// Illegal instruction
-	.byte $1B, $FF, $08, $11, $09, $08, $12 				// Illegal instruction
-	.byte $11, $09, $12       				// Illegal instruction
-	.byte $1B, $01, $0A, $13, $09, $0A, $12 				// Illegal instruction
-	.byte $13, $09, $12       				// Illegal instruction
-	.byte $11, $FF, $FE, $07, $FF, $09, $08, $07 				
-	.byte $11, $09, $12, $13, $01, $02 				// Illegal instruction
-	.byte $0B                 				// Unusual operation
-	.byte $09, $01, $0A, $0B  				// Unusual operation
-	.byte $13, $F7, $F8, $F9, $09, $0A, $0B 				// Unusual operation
-	.byte $01, $01, $0A, $13, $FF, $08, $11, $09 				
-	.byte $FF, $FE, $09, $08, $01, $02, $09, $0A 				
-	.byte $09, $12, $FF, $08, $09, $12 				// Illegal instruction
-	.byte $01, $0A, $FF, $09, $01, $09, $01, $02 				// Illegal instruction
-	.byte $03, $F7, $F8, $F9, $01, $02, $F8, $F9 				
-	.byte $FF, $FE, $FD, $F7, $F6, $F5, $FF, $FE 				
-	.byte $F6, $F5, $F7, $EE, $E5, $01, $F8, $EF 				
-	.byte $F7, $F8, $EE, $EF, $F7, $EE, $E5, $FF 				
-	.byte $F6, $ED, $F7, $F6, $EE, $ED, $F7, $EE 				
-	.byte $EF, $01, $02       				// Illegal instruction
-	.byte $F9, $F7, $01, $F8, $F9, $11, $FF, $FE 				
-	.byte $F5, $F7, $EE, $ED, $F7, $FF, $F6, $F5 				
-	.byte $ED, $F7, $F6, $F5, $09, $08, $07, $FF 				
-	.byte $01, $F8, $EF, $FF, $F6, $ED, $F7, $F7 				
-	.byte $F8, $01, $02, $F7, $F6, $FF, $FE, $F7 				
-	.byte $F8, $01, $F8, $F7, $EE, $FF, $F6, $F7 				
-	.byte $01, $F7            				
+	.byte $FF, $FE, $FD, $09, $08, $07, $FF, $FE 
+	.byte $08, $07, $01, $02, $03, $09, $0A, $0B // Unusual operation
+	.byte $01, $02 // Illegal instruction
+	.byte $0A, $0B // Unusual operation
+	.byte $09, $12 // Illegal instruction
+	.byte $1B, $FF, $08, $11, $09, $08, $12 // Illegal instruction
+	.byte $11, $09, $12 // Illegal instruction
+	.byte $1B, $01, $0A, $13, $09, $0A, $12 // Illegal instruction
+	.byte $13, $09, $12 // Illegal instruction
+	.byte $11, $FF, $FE, $07, $FF, $09, $08, $07 
+	.byte $11, $09, $12, $13, $01, $02 // Illegal instruction
+	.byte $0B // Unusual operation
+	.byte $09, $01, $0A, $0B // Unusual operation
+	.byte $13, $F7, $F8, $F9, $09, $0A, $0B // Unusual operation
+	.byte $01, $01, $0A, $13, $FF, $08, $11, $09 
+	.byte $FF, $FE, $09, $08, $01, $02, $09, $0A 
+	.byte $09, $12, $FF, $08, $09, $12 // Illegal instruction
+	.byte $01, $0A, $FF, $09, $01, $09, $01, $02 // Illegal instruction
+	.byte $03, $F7, $F8, $F9, $01, $02, $F8, $F9 
+	.byte $FF, $FE, $FD, $F7, $F6, $F5, $FF, $FE 
+	.byte $F6, $F5, $F7, $EE, $E5, $01, $F8, $EF 
+	.byte $F7, $F8, $EE, $EF, $F7, $EE, $E5, $FF 
+	.byte $F6, $ED, $F7, $F6, $EE, $ED, $F7, $EE 
+	.byte $EF, $01, $02 // Illegal instruction
+	.byte $F9, $F7, $01, $F8, $F9, $11, $FF, $FE 
+	.byte $F5, $F7, $EE, $ED, $F7, $FF, $F6, $F5 
+	.byte $ED, $F7, $F6, $F5, $09, $08, $07, $FF 
+	.byte $01, $F8, $EF, $FF, $F6, $ED, $F7, $F7 
+	.byte $F8, $01, $02, $F7, $F6, $FF, $FE, $F7 
+	.byte $F8, $01, $F8, $F7, $EE, $FF, $F6, $F7 
+	.byte $01, $F7 
 	.byte $FF
 
  
+
+ --------------------------------------------------------------------------------------------------------------
+
+ select_piece:
+
+82E5 AD FD BC lda game.data__icon_moves 
+82E8 30 20 bmi W830A 
+82EA AC 38 BD ldy temp_data__num_pieces // zzzzznumber of moves
+82ED B9 32 BD lda WBD32,y  //zzzzz get square index for current move
+// convert index to row/column of square
+82F0 A0 00 ldy #$00 
+W82F2:
+82F2 38 sec 
+82F3 E9 09 sbc #$09 
+82F5 90 03 bcc W82FA 
+82F7 C8 iny 
+82F8 B0 F8 bcs W82F2 
+W82FA:
+82FA 69 09 adc #$09 
+82FC A2 04 ldx #$04 
+82FE 20 22 64 jsr board.convert_coord_sprite_pos 
+8301 8D 17 BD sta data__sprite_curr_x_pos 
+8304 8C 15 BD sty data__sprite_curr_y_pos 
+8307 CE 38 BD dec temp_data__num_pieces 
+W830A:
+830A AE 22 BF ldx flag__selected_move // << move index
+830D BD 5B BE lda data__player_destination_row_list,x 
+8310 8D 28 BD sta idx__selected_piece_source_row 
+8313 BC 6D BE ldy data__player_destination_col_list,x 
+8316 8C 29 BD sty idx__selected_piece_source_col 
+8319 AE FD BC ldx game.data__icon_moves 
+831C 10 1A bpl !return 
+831E A2 04 ldx #$04 
+8320 20 22 64 jsr board.convert_coord_sprite_pos 
+8323 2C FD BC bit game.data__icon_moves 
+8326 50 0A bvc W8332 
+// get selection square position
+8328 38 sec 
+8329 E9 02 sbc #$02 
+832B 48 pha 
+832C 98 tya 
+832D 38 sec 
+832E E9 01 sbc #$01 
+8330 A8 tay 
+8331 68 pla 
+W8332:
+8332 8D 17 BD sta data__sprite_curr_x_pos 
+8335 8C 15 BD sty data__sprite_curr_y_pos
+!return: 
+rts
+
+
+
+----------------------------------------------------------------------------------------------------------------
+
+
+ai_board_cursor_to_piece:
+8560 A9 20 lda #$20 
+8562 8D FE BC sta temp_data__curr_count 
+8565 AE 26 BD ldx temp_data__curr_sprite_ptr 
+8568 BD 46 BD lda main_sprite_curr_y_pos,x 
+856B CD 15 BD cmp data__sprite_curr_y_pos 
+856E 90 13 bcc W8583 
+8570 D0 06 bne W8578 
+W8572:
+8572 0E FE BC asl temp_data__curr_count 
+8575 4C 8B 85 jmp W858B 
+W8578:
+8578 DE 46 BD dec main_sprite_curr_y_pos,x 
+857B A9 08 lda #$08 
+857D 8D EB BC sta game_icon_dir_frame_offset 
+8580 4C 8B 85 jmp W858B 
+W8583:
+8583 FE 46 BD inc main_sprite_curr_y_pos,x 
+8586 A9 04 lda #$04 
+8588 8D EB BC sta game_icon_dir_frame_offset 
+W858B:
+858B BD 3E BD lda main_sprite_curr_x_pos,x 
+858E CD 17 BD cmp data__sprite_curr_x_pos 
+8591 90 13 bcc W85A6 
+8593 D0 06 bne W859B 
+8595 0E FE BC asl temp_data__curr_count 
+8598 4C AE 85 jmp W85AE 
+W859B:
+859B DE 3E BD dec main_sprite_curr_x_pos,x 
+859E A9 11 lda #$11 
+85A0 8D EB BC sta game_icon_dir_frame_offset 
+85A3 4C AE 85 jmp W85AE 
+W85A6:
+85A6 FE 3E BD inc main_sprite_curr_x_pos,x 
+85A9 A9 00 lda #$00 
+85AB 8D EB BC sta game_icon_dir_frame_offset 
+W85AE:
+85AE AD FE BC lda temp_data__curr_count 
+85B1 30 06 bmi W85B9 
+85B3 EE 0D BD inc flag__was_icon_moved 
+85B6 4C 08 85 jmp W8508 
+W85B9:
+85B9 AD FD BC lda game.data__icon_moves 
+85BC F0 49 beq W8607 
+85BE 30 47 bmi W8607 
+85C0 AC 38 BD ldy temp_data__num_pieces 
+85C3 10 1C bpl W85E1 
+85C5 AC 29 BD ldy idx__selected_piece_source_col 
+85C8 CC 26 BF cpy temp_data__curr_board_row 
+85CB D0 08 bne W85D5 
+85CD AD 28 BD lda idx__selected_piece_source_row 
+85D0 CD 28 BF cmp temp_data__curr_board_col 
+85D3 F0 32 beq W8607 
+W85D5:
+85D5 8C 26 BF sty temp_data__curr_board_row 
+85D8 AD 28 BD lda idx__selected_piece_source_row 
+85DB 8D 28 BF sta temp_data__curr_board_col 
+85DE 4C F0 85 jmp W85F0 
+W85E1:
+85E1 B9 32 BD lda WBD32,y 
+85E4 A0 00 ldy #$00 
+W85E6:
+85E6 38 sec 
+85E7 E9 09 sbc #$09 
+85E9 90 03 bcc W85EE 
+85EB C8 iny 
+85EC B0 F8 bcs W85E6 
+W85EE:
+85EE 69 09 adc #$09 
+W85F0:
+85F0 A2 04 ldx #$04 
+85F2 20 22 64 jsr board.convert_coord_sprite_pos 
+85F5 8D 17 BD sta data__sprite_curr_x_pos 
+85F8 8C 15 BD sty data__sprite_curr_y_pos 
+85FB CE 38 BD dec temp_data__num_pieces 
+85FE EE 0D BD inc flag__was_icon_moved 
+8601 AE 26 BD ldx temp_data__curr_sprite_ptr 
+8604 4C 08 85 jmp W8508 
+W8607:
+8607 AD 29 BD lda idx__selected_piece_source_col 
+860A 8D 26 BF sta temp_data__curr_board_row 
+860D AD 28 BD lda idx__selected_piece_source_row 
+8610 8D 28 BF sta temp_data__curr_board_col 
+8613 20 0D 87 jsr game_select_or_move_icon 
+8616 A9 80 lda #$80 
+8618 8D D0 BC sta main_state_flag_update_state 
+861B 4C 8E 63 jmp common_complete_interrupt 
