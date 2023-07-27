@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "paulhocker.kick-assembler-vscode-ext",
+    "willasm.c64opcodes",
+    "nurpax.bitmate",
+    "ms-vscode.hexeditor"
+  ]
+}

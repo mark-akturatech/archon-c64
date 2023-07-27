@@ -1,5 +1,5 @@
-.vscode/
 .source.txt
 buildlog.txt
 bin/
+out/
 *.log
